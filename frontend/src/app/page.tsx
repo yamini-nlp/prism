@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, CheckCircle, FileText, Search, ShieldCheck, Zap } from "lucide-react";
@@ -22,194 +21,195 @@ const features = [
   "System evaluation dashboard",
 ];
 
-function Globe() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
+const orbitDots = [
+  { size: 6, color: "#5b5ef4", delay: "0s",   duration: "8s",  radius: 130, startAngle: 0 },
+  { size: 4, color: "#3b82f6", delay: "-3s",  duration: "8s",  radius: 130, startAngle: 180 },
+  { size: 5, color: "#5b5ef4", delay: "-1s",  duration: "12s", radius: 170, startAngle: 90 },
+  { size: 3, color: "#6366f1", delay: "-6s",  duration: "12s", radius: 170, startAngle: 270 },
+  { size: 4, color: "#3b82f6", delay: "-2s",  duration: "18s", radius: 205, startAngle: 45 },
+  { size: 5, color: "#5b5ef4", delay: "-9s",  duration: "18s", radius: 205, startAngle: 225 },
+  { size: 3, color: "#818cf8", delay: "-4s",  duration: "18s", radius: 205, startAngle: 135 },
+];
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const SIZE = 420;
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const cx = SIZE / 2;
-    const cy = SIZE / 2;
-    const R = 160;
-
-    // Dots uniformly on sphere
-    const NUM_DOTS = 280;
-    const origDots: [number, number, number][] = [];
-    for (let i = 0; i < NUM_DOTS; i++) {
-      const u = Math.random();
-      const v = Math.random();
-      const theta = 2 * Math.PI * u;
-      const phi = Math.acos(2 * v - 1);
-      origDots.push([
-        Math.sin(phi) * Math.cos(theta),
-        Math.sin(phi) * Math.sin(theta),
-        Math.cos(phi),
-      ]);
-    }
-
-    // Arcs
-    type Arc = { ai: number; bi: number; t: number; speed: number };
-    const arcs: Arc[] = [];
-    for (let i = 0; i < 14; i++) {
-      arcs.push({
-        ai: Math.floor(Math.random() * NUM_DOTS),
-        bi: Math.floor(Math.random() * NUM_DOTS),
-        t: Math.random(),
-        speed: 0.0025 + Math.random() * 0.003,
-      });
-    }
-
-    let angle = 0;
-
-    function ry(x: number, y: number, z: number, a: number): [number, number, number] {
-      return [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
-    }
-
-    function proj(x: number, y: number, z: number): [number, number, number] {
-      const s = (z + 3) / 4;
-      return [cx + x * R * s, cy - y * R * s, z];
-    }
-
-    function slerp(a: [number,number,number], b: [number,number,number], t: number): [number,number,number] {
-      let nx = a[0] + (b[0] - a[0]) * t;
-      let ny = a[1] + (b[1] - a[1]) * t;
-      let nz = a[2] + (b[2] - a[2]) * t;
-      const len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
-      return [nx/len, ny/len, nz/len];
-    }
-
-    function drawFrame() {
-      ctx.clearRect(0, 0, SIZE, SIZE);
-      angle += 0.0035;
-
-      // Project all dots
-      const projected = origDots.map(([ox, oy, oz]) => {
-        const [rx, ry2, rz] = ry(ox, oy, oz, angle);
-        const [px, py, pz] = proj(rx, ry2, rz);
-        return { px, py, pz, visible: pz > -0.1 };
-      });
-
-      // Lat lines
-      for (let lat = -60; lat <= 60; lat += 30) {
-        const pts: [number, number][] = [];
-        for (let lon = 0; lon <= 360; lon += 4) {
-          const phi = (90 - lat) * Math.PI / 180;
-          const theta2 = lon * Math.PI / 180;
-          const ox = Math.sin(phi) * Math.cos(theta2);
-          const oy2 = Math.cos(phi);
-          const oz = Math.sin(phi) * Math.sin(theta2);
-          const [rx2, ry3, rz2] = ry(ox, oy2, oz, angle);
-          if (rz2 > 0) {
-            const [px2, py2] = proj(rx2, ry3, rz2);
-            pts.push([px2, py2]);
-          }
-        }
-        if (pts.length > 2) {
-          ctx.beginPath();
-          ctx.moveTo(pts[0][0], pts[0][1]);
-          for (const [px2, py2] of pts) ctx.lineTo(px2, py2);
-          ctx.strokeStyle = "rgba(91,94,244,0.08)";
-          ctx.lineWidth = 0.6;
-          ctx.stroke();
-        }
-      }
-
-      // Lon lines
-      for (let lon = 0; lon < 180; lon += 30) {
-        const pts: [number, number][] = [];
-        for (let lat2 = -90; lat2 <= 90; lat2 += 4) {
-          const phi = (90 - lat2) * Math.PI / 180;
-          const theta2 = lon * Math.PI / 180;
-          const ox = Math.sin(phi) * Math.cos(theta2);
-          const oy2 = Math.cos(phi);
-          const oz = Math.sin(phi) * Math.sin(theta2);
-          const [rx2, ry3, rz2] = ry(ox, oy2, oz, angle);
-          if (rz2 > 0) {
-            const [px2, py2] = proj(rx2, ry3, rz2);
-            pts.push([px2, py2]);
-          }
-        }
-        if (pts.length > 2) {
-          ctx.beginPath();
-          ctx.moveTo(pts[0][0], pts[0][1]);
-          for (const [px2, py2] of pts) ctx.lineTo(px2, py2);
-          ctx.strokeStyle = "rgba(91,94,244,0.08)";
-          ctx.lineWidth = 0.6;
-          ctx.stroke();
-        }
-      }
-
-      // Dots
-      for (const p of projected) {
-        if (!p.visible) continue;
-        const depth = (p.pz + 1) / 2;
-        const size = 1 + depth * 2;
-        const alpha = 0.25 + depth * 0.6;
-        ctx.beginPath();
-        ctx.arc(p.px, p.py, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(91,94,244,${alpha})`;
-        ctx.fill();
-      }
-
-      // Arcs
-      for (const arc of arcs) {
-        arc.t += arc.speed;
-        if (arc.t > 1.4) {
-          arc.t = 0;
-          arc.ai = Math.floor(Math.random() * NUM_DOTS);
-          arc.bi = Math.floor(Math.random() * NUM_DOTS);
-        }
-
-        const a = origDots[arc.ai];
-        const b = origDots[arc.bi];
-        const STEPS = 20;
-        const endStep = Math.floor(Math.min(arc.t, 1) * STEPS);
-        if (endStep < 1) continue;
-
-        const pts2: [number, number, number][] = [];
-        for (let s = 0; s <= endStep; s++) {
-          const interp = slerp(a, b, s / STEPS);
-          const [rx2, ry3, rz2] = ry(interp[0], interp[1], interp[2], angle);
-          pts2.push(proj(rx2, ry3, rz2));
-        }
-
-        const visible = pts2.every(p => p[2] > 0);
-        if (!visible) continue;
-
-        ctx.beginPath();
-        ctx.moveTo(pts2[0][0], pts2[0][1]);
-        for (let s = 1; s < pts2.length; s++) ctx.lineTo(pts2[s][0], pts2[s][1]);
-        ctx.strokeStyle = "rgba(91,94,244,0.55)";
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
-        // Head dot
-        const head = pts2[pts2.length - 1];
-        ctx.beginPath();
-        ctx.arc(head[0], head[1], 3, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(91,94,244,0.9)";
-        ctx.fill();
-      }
-
-      rafRef.current = requestAnimationFrame(drawFrame);
-    }
-
-    rafRef.current = requestAnimationFrame(drawFrame);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, []);
-
+function PrismVisual() {
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: 420, height: 420, display: "block" }}
-    />
+    <div style={{ position: "relative", width: 440, height: 440, flexShrink: 0 }}>
+      <style>{`
+        @keyframes orbit0  { from { transform: rotate(0deg)   translateX(130px) rotate(0deg);   } to { transform: rotate(360deg)   translateX(130px) rotate(-360deg);   } }
+        @keyframes orbit1  { from { transform: rotate(180deg) translateX(130px) rotate(-180deg);} to { transform: rotate(540deg)  translateX(130px) rotate(-540deg); } }
+        @keyframes orbit2  { from { transform: rotate(90deg)  translateX(170px) rotate(-90deg); } to { transform: rotate(450deg)  translateX(170px) rotate(-450deg); } }
+        @keyframes orbit3  { from { transform: rotate(270deg) translateX(170px) rotate(-270deg);} to { transform: rotate(630deg)  translateX(170px) rotate(-630deg);} }
+        @keyframes orbit4  { from { transform: rotate(45deg)  translateX(205px) rotate(-45deg); } to { transform: rotate(405deg)  translateX(205px) rotate(-405deg); } }
+        @keyframes orbit5  { from { transform: rotate(225deg) translateX(205px) rotate(-225deg);} to { transform: rotate(585deg)  translateX(205px) rotate(-585deg);} }
+        @keyframes orbit6  { from { transform: rotate(135deg) translateX(205px) rotate(-135deg);} to { transform: rotate(495deg)  translateX(205px) rotate(-495deg);} }
+        @keyframes floatUp { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+        @keyframes pulseGlow { 0%,100% { opacity: 0.18; transform: scale(1); } 50% { opacity: 0.28; transform: scale(1.06); } }
+        @keyframes arcDraw1 { 0% { stroke-dashoffset: 400; opacity:0; } 10% { opacity:1; } 80% { opacity:1; } 100% { stroke-dashoffset: 0; opacity:0; } }
+        @keyframes arcDraw2 { 0% { stroke-dashoffset: 350; opacity:0; } 15% { opacity:1; } 75% { opacity:1; } 100% { stroke-dashoffset: 0; opacity:0; } }
+        @keyframes arcDraw3 { 0% { stroke-dashoffset: 380; opacity:0; } 12% { opacity:1; } 78% { opacity:1; } 100% { stroke-dashoffset: 0; opacity:0; } }
+        @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spinSlowRev { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+        @keyframes dotPulse { 0%,100% { r: 3; opacity: 0.7; } 50% { r: 5; opacity: 1; } }
+      `}</style>
+
+      {/* Outer ambient glow */}
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: "50%",
+        background: "radial-gradient(circle at 50% 50%, rgba(91,94,244,0.18) 0%, rgba(91,94,244,0.06) 45%, transparent 70%)",
+        animation: "pulseGlow 4s ease-in-out infinite",
+        pointerEvents: "none",
+      }} />
+
+      {/* SVG globe + arcs layer */}
+      <svg
+        width="440" height="440"
+        viewBox="0 0 440 440"
+        style={{ position: "absolute", inset: 0 }}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Outer rings */}
+        <circle cx="220" cy="220" r="205" fill="none" stroke="rgba(91,94,244,0.07)" strokeWidth="1" style={{ animation: "spinSlow 60s linear infinite", transformOrigin: "220px 220px" }} />
+        <circle cx="220" cy="220" r="205" fill="none" stroke="rgba(91,94,244,0.05)" strokeWidth="0.5" strokeDasharray="4 12" style={{ animation: "spinSlowRev 40s linear infinite", transformOrigin: "220px 220px" }} />
+        <circle cx="220" cy="220" r="170" fill="none" stroke="rgba(91,94,244,0.06)" strokeWidth="0.8" strokeDasharray="3 8" style={{ animation: "spinSlow 50s linear infinite", transformOrigin: "220px 220px" }} />
+        <circle cx="220" cy="220" r="130" fill="none" stroke="rgba(91,94,244,0.09)" strokeWidth="0.8" />
+
+        {/* Globe sphere */}
+        <defs>
+          <radialGradient id="sphereGrad" cx="38%" cy="32%" r="65%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.7)" />
+            <stop offset="40%" stopColor="rgba(240,241,255,0.4)" />
+            <stop offset="100%" stopColor="rgba(91,94,244,0.12)" />
+          </radialGradient>
+          <radialGradient id="sphereShadow" cx="60%" cy="65%" r="55%">
+            <stop offset="0%" stopColor="rgba(91,94,244,0.15)" />
+            <stop offset="100%" stopColor="rgba(91,94,244,0)" />
+          </radialGradient>
+          <clipPath id="sphereClip">
+            <circle cx="220" cy="220" r="98" />
+          </clipPath>
+        </defs>
+
+        {/* Sphere base */}
+        <circle cx="220" cy="220" r="98" fill="url(#sphereGrad)" stroke="rgba(91,94,244,0.18)" strokeWidth="1" />
+        <circle cx="220" cy="220" r="98" fill="url(#sphereShadow)" />
+
+        {/* Lat lines on sphere */}
+        {[-50, -25, 0, 25, 50].map((lat, i) => {
+          const y = 220 + (lat / 90) * 98;
+          const halfW = Math.sqrt(Math.max(0, 98 * 98 - (y - 220) * (y - 220)));
+          return halfW > 2 ? (
+            <ellipse key={i} cx="220" cy={y} rx={halfW} ry={halfW * 0.28}
+              fill="none" stroke="rgba(91,94,244,0.09)" strokeWidth="0.7" clipPath="url(#sphereClip)" />
+          ) : null;
+        })}
+
+        {/* Lon lines on sphere */}
+        {[0, 30, 60, 90, 120, 150].map((lon, i) => (
+          <ellipse key={i} cx="220" cy="220" rx={Math.abs(Math.cos(lon * Math.PI / 180)) * 98 + 2}
+            ry="98" fill="none" stroke="rgba(91,94,244,0.07)" strokeWidth="0.7"
+            clipPath="url(#sphereClip)"
+            transform={`rotate(${lon}, 220, 220)`} />
+        ))}
+
+        {/* Sphere highlight */}
+        <ellipse cx="198" cy="195" rx="28" ry="18"
+          fill="rgba(255,255,255,0.22)" style={{ filter: "blur(4px)" }} />
+
+        {/* Animated arcs */}
+        <path d="M 155 160 Q 180 120 260 145" fill="none" stroke="rgba(91,94,244,0.55)" strokeWidth="1.5"
+          strokeDasharray="400" style={{ animation: "arcDraw1 4s ease-in-out infinite" }} />
+        <circle r="3.5" fill="#5b5ef4" opacity="0.9">
+          <animateMotion dur="4s" repeatCount="indefinite"
+            path="M 155 160 Q 180 120 260 145" />
+        </circle>
+
+        <path d="M 270 280 Q 200 310 148 255" fill="none" stroke="rgba(59,130,246,0.5)" strokeWidth="1.5"
+          strokeDasharray="350" style={{ animation: "arcDraw2 5.5s ease-in-out infinite 1.5s" }} />
+        <circle r="3" fill="#3b82f6" opacity="0.9">
+          <animateMotion dur="5.5s" begin="1.5s" repeatCount="indefinite"
+            path="M 270 280 Q 200 310 148 255" />
+        </circle>
+
+        <path d="M 130 210 Q 175 170 240 190 Q 290 205 310 250" fill="none" stroke="rgba(99,102,241,0.45)" strokeWidth="1.2"
+          strokeDasharray="380" style={{ animation: "arcDraw3 7s ease-in-out infinite 2.8s" }} />
+        <circle r="2.5" fill="#6366f1" opacity="0.9">
+          <animateMotion dur="7s" begin="2.8s" repeatCount="indefinite"
+            path="M 130 210 Q 175 170 240 190 Q 290 205 310 250" />
+        </circle>
+
+        {/* Scattered dots */}
+        {[
+          [160,175],[245,158],[290,200],[275,260],[195,290],[148,250],[310,230],
+          [175,130],[255,130],[320,175],[330,240],[290,310],[220,315],[155,305],
+          [128,240],[135,175],[185,108],[265,108],[335,160],[350,225],[330,295],
+          [265,340],[195,345],[138,310],[112,255],[108,185],[148,130],[210,102],
+        ].map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 2.5 : i % 3 === 1 ? 1.8 : 1.4}
+            fill="#5b5ef4" opacity={0.25 + (i % 5) * 0.1} />
+        ))}
+      </svg>
+
+      {/* Orbiting dots using CSS */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {orbitDots.map((dot, i) => (
+          <div key={i} style={{
+            position: "absolute",
+            width: dot.size, height: dot.size,
+            borderRadius: "50%",
+            background: dot.color,
+            boxShadow: `0 0 ${dot.size * 2}px ${dot.color}`,
+            animation: `orbit${i} ${dot.duration} linear infinite`,
+            animationDelay: dot.delay,
+          }} />
+        ))}
+      </div>
+
+      {/* Floating label chips */}
+      <motion.div
+        animate={{ y: [0, -8, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: "absolute", top: 52, right: 20,
+          background: "rgba(255,255,255,0.92)", border: "1px solid rgba(91,94,244,0.2)",
+          borderRadius: 10, padding: "7px 13px",
+          fontSize: 11.5, fontWeight: 600, color: "#5b5ef4",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 4px 20px rgba(91,94,244,0.12)",
+          display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+        }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5b5ef4" }} />
+        RAG-powered
+      </motion.div>
+
+      <motion.div
+        animate={{ y: [0, 9, 0] }} transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        style={{
+          position: "absolute", bottom: 68, left: 12,
+          background: "rgba(255,255,255,0.92)", border: "1px solid rgba(61,153,112,0.25)",
+          borderRadius: 10, padding: "7px 13px",
+          fontSize: 11.5, fontWeight: 600, color: "#3d9970",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 4px 20px rgba(61,153,112,0.1)",
+          display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+        }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3d9970" }} />
+        Verified sources
+      </motion.div>
+
+      <motion.div
+        animate={{ y: [0, -6, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        style={{
+          position: "absolute", bottom: 90, right: 18,
+          background: "rgba(255,255,255,0.92)", border: "1px solid rgba(59,130,246,0.25)",
+          borderRadius: 10, padding: "7px 13px",
+          fontSize: 11.5, fontWeight: 600, color: "#3b82f6",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 4px 20px rgba(59,130,246,0.1)",
+          display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+        }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
+        0% hallucination
+      </motion.div>
+    </div>
   );
 }
 
@@ -238,7 +238,7 @@ export default function LandingPage() {
           </Link>
           <Link href="/ingest" style={{ textDecoration: "none" }}>
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={S.btnPrimary}>
-              Start Researching <ArrowRight size={14} />
+              Start Research <ArrowRight size={14} />
             </motion.button>
           </Link>
         </div>
@@ -256,7 +256,6 @@ export default function LandingPage() {
         overflow: "hidden",
         position: "relative",
       }}>
-        {/* Subtle bg gradient */}
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
           background: "radial-gradient(ellipse at 8% 55%, rgba(91,94,244,0.09) 0%, transparent 50%), radial-gradient(ellipse at 80% 25%, rgba(59,130,246,0.05) 0%, transparent 50%)",
@@ -315,12 +314,12 @@ export default function LandingPage() {
 
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}
-            style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+            style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 40 }}
           >
             <Link href="/ingest" style={{ textDecoration: "none" }}>
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 style={{ ...S.btnPrimary, padding: "13px 28px", fontSize: 15 }}>
-                Start Researching <ArrowRight size={16} />
+                Start Research <ArrowRight size={16} />
               </motion.button>
             </Link>
             <Link href="/dashboard" style={{ textDecoration: "none" }}>
@@ -330,30 +329,29 @@ export default function LandingPage() {
               </motion.button>
             </Link>
           </motion.div>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+            style={{ display: "flex", gap: 28, paddingTop: 24, borderTop: "1px solid rgba(0,0,0,0.08)" }}
+          >
+            {[["RAG", "Powered"], ["0%", "Hallucination"], ["∞", "Documents"]].map(([val, label]) => (
+              <div key={label}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#111110", fontFamily: "'DM Serif Display', Georgia, serif" }}>{val}</div>
+                <div style={{ fontSize: 11.5, color: "#9a9590", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </motion.div>
         </motion.div>
 
-        {/* Right Globe */}
+        {/* Right visual */}
         <motion.div
           initial={{ opacity: 0, x: 40, scale: 0.9 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           transition={{ delay: 0.25, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-          style={{
-            flexShrink: 0,
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={{ flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
-          {/* Glow */}
-          <div style={{
-            position: "absolute",
-            width: 340, height: 340,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(91,94,244,0.12) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }} />
-          <Globe />
+          <PrismVisual />
         </motion.div>
       </section>
 
