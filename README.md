@@ -9,8 +9,7 @@ A full-stack research intelligence system that transforms complex academic conte
 
 Built with **Next.js + TypeScript** for the frontend and **FastAPI + Python** for the backend.
 
-**Live Demo:** `<!-- INSERT LIVE DEMO LINK HERE -->`
-
+** 🌐 Live Demo:** 
 ---
 
 ## 1️⃣ Problem Statement
