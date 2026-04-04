@@ -1,0 +1,152 @@
+// All design tokens as JS objects — used as inline styles so they ALWAYS apply
+// regardless of Tailwind purging or CSS class issues
+
+export const C = {
+    bg:        "#f7f6f3",
+    surface:   "#ffffff",
+    text:      "#111110",
+    textSec:   "#5c5a56",
+    textMuted: "#9a9590",
+    border:    "rgba(0,0,0,0.09)",
+    borderMid: "rgba(0,0,0,0.15)",
+    accent:    "#5b5ef4",
+    accentBg:  "rgba(91,94,244,0.09)",
+    green:     "#3d9970",
+    greenBg:   "rgba(61,153,112,0.09)",
+    orange:    "#d4622a",
+    orangeBg:  "rgba(212,98,42,0.09)",
+    red:       "#dc2626",
+    redBg:     "rgba(220,38,38,0.09)",
+    black:     "#111110",
+  };
+  
+  export const S = {
+    // Buttons
+    btnPrimary: {
+      display: "inline-flex" as const,
+      alignItems: "center" as const,
+      gap: 7,
+      padding: "11px 22px",
+      background: "#111110",
+      color: "#ffffff",
+      border: "none",
+      borderRadius: 11,
+      fontSize: 13.5,
+      fontWeight: 600,
+      fontFamily: "inherit",
+      cursor: "pointer",
+      textDecoration: "none",
+      transition: "opacity 0.18s",
+      whiteSpace: "nowrap" as const,
+    },
+    btnPrimaryDisabled: {
+      display: "inline-flex" as const,
+      alignItems: "center" as const,
+      gap: 7,
+      padding: "11px 22px",
+      background: "rgba(0,0,0,0.25)",
+      color: "#ffffff",
+      border: "none",
+      borderRadius: 11,
+      fontSize: 13.5,
+      fontWeight: 600,
+      fontFamily: "inherit",
+      cursor: "not-allowed",
+      whiteSpace: "nowrap" as const,
+    },
+    btnSecondary: {
+      display: "inline-flex" as const,
+      alignItems: "center" as const,
+      gap: 7,
+      padding: "10px 20px",
+      background: "#ffffff",
+      color: "#111110",
+      border: "1.5px solid rgba(0,0,0,0.15)",
+      borderRadius: 11,
+      fontSize: 13.5,
+      fontWeight: 500,
+      fontFamily: "inherit",
+      cursor: "pointer",
+      textDecoration: "none",
+      whiteSpace: "nowrap" as const,
+    },
+    btnGhost: {
+      display: "inline-flex" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      padding: "7px 14px",
+      background: "rgba(91,94,244,0.09)",
+      color: "#4547c4",
+      border: "none",
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 600,
+      fontFamily: "inherit",
+      cursor: "pointer",
+    },
+  
+    // Inputs
+    input: {
+      width: "100%",
+      background: "#ffffff",
+      border: "1.5px solid rgba(0,0,0,0.15)",
+      borderRadius: 11,
+      padding: "12px 15px",
+      fontSize: 14,
+      color: "#111110",
+      fontFamily: "inherit",
+      outline: "none",
+      transition: "border-color 0.18s",
+    },
+    textarea: {
+      width: "100%",
+      background: "#ffffff",
+      border: "1.5px solid rgba(0,0,0,0.15)",
+      borderRadius: 11,
+      padding: "12px 15px",
+      fontSize: 14,
+      color: "#111110",
+      fontFamily: "inherit",
+      outline: "none",
+      resize: "vertical" as const,
+      lineHeight: 1.65,
+      minHeight: 180,
+      transition: "border-color 0.18s",
+    },
+  
+    // Cards
+    card: {
+      background: "#ffffff",
+      border: "1px solid rgba(0,0,0,0.08)",
+      borderRadius: 16,
+      boxShadow: "0 1px 6px rgba(0,0,0,0.055)",
+    },
+  
+    // Tags
+    tagIndigo:  { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(91,94,244,0.09)", color:"#4547c4" },
+    tagGreen:   { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(61,153,112,0.09)", color:"#2e7357" },
+    tagOrange:  { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(212,98,42,0.09)", color:"#b5491f" },
+    tagRed:     { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(220,38,38,0.09)", color:"#b91c1c" },
+    tagNeutral: { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(0,0,0,0.06)", color:"#5c5a56" },
+  
+    // Typography
+    heading: {
+      fontFamily: "'DM Serif Display', Georgia, serif",
+      color: "#111110",
+      letterSpacing: "-0.022em",
+      lineHeight: 1.1,
+    },
+    label: {
+      fontSize: 10.5,
+      fontWeight: 700,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase" as const,
+      color: "#9a9590",
+    },
+  
+    // Confidence bar
+    cbarWrap: { height:5, borderRadius:99, background:"rgba(0,0,0,0.07)", overflow:"hidden" as const },
+    cbarFill: { height:"100%", borderRadius:99, background:"linear-gradient(90deg,#5b5ef4,#818cf8)", transition:"width 0.7s cubic-bezier(.34,1.56,.64,1)" },
+  
+    divider: { height:1, background:"rgba(0,0,0,0.08)", width:"100%" },
+  };
