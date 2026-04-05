@@ -34,7 +34,7 @@ Source context:
 Identify and classify each factual claim:"""
 
     response = client.chat.completions.create(
-        model="llama-3-70b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": VERIFY_PROMPT},
             {"role": "user", "content": prompt},
