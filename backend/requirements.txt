@@ -9,4 +9,4 @@ fastembed
 httpx==0.27.0
 beautifulsoup4==4.12.3
 python-dotenv==1.0.1
-numpy==1.26.4
+numpy
