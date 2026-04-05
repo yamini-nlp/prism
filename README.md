@@ -2,14 +2,15 @@
 
 ![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20Python-1b2e2b?style=flat-square)
 ![LLM](https://img.shields.io/badge/LLM-LLaMA%203.3%2070B%20via%20Groq-d9c5b2?style=flat-square)
-![VectorDB](https://img.shields.io/badge/VectorDB-FAISS%20%2B%20SentenceTransformers-3ecf8e?style=flat-square)
+![VectorDB](https://img.shields.io/badge/VectorDB-FAISS%20%2B%20TF--IDF-3ecf8e?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Active-7ecb84?style=flat-square)
 
-A full-stack research intelligence system that transforms complex academic content into clear, grounded, and verifiable insights using Retrieval-Augmented Generation, semantic vector search, and claim-level hallucination detection.
+A full-stack research intelligence system that transforms complex academic content into clear, grounded, and verifiable insights using Retrieval-Augmented Generation, TF-IDF vector search, and claim-level hallucination detection.
 
 Built with **Next.js + TypeScript** for the frontend and **FastAPI + Python** for the backend.
 
-### 🌐 Live Demo : 
+### 🌐 Live Demo: https://prism-nine-tau.vercel.app/
+
 ---
 
 ## 1️⃣ Problem Statement
@@ -51,7 +52,7 @@ Supported ingestion formats:
 | URL | `httpx` + `BeautifulSoup` scraping | Strips nav/footer/ads before embedding |
 | Raw Text | Direct API endpoint | Paste-in content, abstracts, excerpts |
 
-All text is chunked using a sliding window strategy and embedded using `sentence-transformers/all-MiniLM-L6-v2` before storage in a FAISS flat index.
+All text is chunked using a sliding window strategy and vectorised using a TF-IDF model (`scikit-learn`, max 384 features, sublinear TF scaling) before storage in a FAISS flat inner-product index.
 
 ---
 
@@ -65,14 +66,14 @@ User Document (PDF / DOCX / URL / Text)
         ▼
   [Ingestion Layer — FastAPI]
   - Format-specific text extraction
-  - Sliding window chunking (~500 chars, 50-char overlap)
-  - Sentence-transformer embedding (all-MiniLM-L6-v2)
-  - FAISS flat index storage (L2 distance)
+  - Sliding window chunking (~400 words, 50-word overlap)
+  - TF-IDF vectorisation (scikit-learn, 384-dim, L2-normalised)
+  - FAISS FlatIP index storage (cosine similarity via inner product)
         │
         ▼
   [Retrieval Layer]
-  - Query embedded with same model
-  - FAISS top-K similarity search
+  - Query vectorised with fitted TF-IDF model
+  - FAISS top-K inner-product search
   - Minimum similarity threshold filter (score ≥ 0.45)
   - Confidence score = average similarity × 100
         │
@@ -116,10 +117,10 @@ User Document (PDF / DOCX / URL / Text)
 
 | Property | Value |
 |---|---|
-| Embedding Model | `sentence-transformers/all-MiniLM-L6-v2` |
-| Vector Store | FAISS (FlatL2 index, in-process) |
-| Chunk Size | ~500 characters with 50-character overlap |
-| Similarity Metric | L2 distance (normalized to 0–1 score) |
+| Vectorisation | TF-IDF (`scikit-learn`, `sublinear_tf=True`, `max_features=384`) |
+| Vector Store | FAISS (`IndexFlatIP`, in-process, cosine similarity) |
+| Chunk Size | ~400 words with 50-word overlap |
+| Similarity Metric | Inner product on L2-normalised vectors (cosine similarity) |
 | Min Score Threshold | 0.45 (chunks below this are filtered out) |
 | Default Top-K | 5 (configurable via Settings page, 1–20) |
 
@@ -148,15 +149,15 @@ The following observations are drawn from manual evaluation across test document
 | Summarization Quality | Structured summaries preserve methodological hierarchy (TLDR → methods → results → limits) |
 | Confidence Calibration | High similarity scores (>0.75) correlate with more complete, specific answers |
 | Retrieval Transparency | Source trace page correctly exposes per-chunk similarity with lexical/contextual breakdown |
-| Inference Latency | Groq returns completions in 1–3 seconds; embedding and retrieval add <100ms locally |
+| Inference Latency | Groq returns completions in 1–3 seconds; TF-IDF vectorisation and FAISS retrieval add <50ms |
 
 ---
 
 ## 7️⃣ Limitations
 
-- **In-memory vector store:** FAISS index is not persisted to disk between backend restarts; all documents must be re-ingested after a restart. A persistence layer (SQLite-backed FAISS or ChromaDB) would resolve this.
+- **In-memory vector store:** FAISS index is not persisted across backend restarts on the free Render tier; documents must be re-ingested after a cold start. A persistent disk layer or ChromaDB would resolve this.
 - **Single-user, session-scoped:** There is no user authentication or multi-tenancy. All ingested documents share a single FAISS index within a backend process.
-- **Embedding model generality:** `all-MiniLM-L6-v2` is a general-purpose model; domain-specific embedding models (e.g., fine-tuned on scientific text) would improve retrieval precision for highly technical content.
+- **TF-IDF retrieval ceiling:** TF-IDF captures lexical overlap but lacks semantic understanding. Dense embedding models (e.g., `all-MiniLM-L6-v2`, `SPECTER`) would improve retrieval recall on paraphrased or domain-specific queries.
 - **Chunk boundary sensitivity:** Fixed-size chunking can split sentences across chunk boundaries, reducing coherence of retrieved passages. Semantic chunking would improve this.
 - **Evaluation metrics are session-based:** The evaluation dashboard derives metrics from `localStorage` query logs, which are browser-local and reset on clearing storage. No server-side analytics are persisted.
 - **No streaming responses:** Answers are returned as complete JSON objects. Streaming token-by-token output would improve perceived latency for long responses.
@@ -165,16 +166,16 @@ The following observations are drawn from manual evaluation across test document
 
 ## 8️⃣ Future Work
 
+- Replace TF-IDF with a dense embedding model (e.g., `fastembed`, `SPECTER`, `SciBERT`) for semantic retrieval once deployment constraints allow
 - Persistent FAISS index with disk serialization, or migration to ChromaDB / Qdrant for multi-session document retention
 - User authentication and isolated per-user vector stores via Supabase Auth + row-level security
 - Streaming response support using FastAPI `StreamingResponse` and the Groq streaming API
-- Domain-specific embedding models fine-tuned on scientific literature (e.g., SPECTER, SciBERT)
-- Semantic chunking using sentence boundary detection rather than fixed character windows
+- Semantic chunking using sentence boundary detection rather than fixed word-count windows
 - Multi-document citation graphs — visualizing which papers cite similar sources or share key concepts
 - Longitudinal query analytics: track how confidence, latency, and retrieval precision evolve as the library grows
 - Named entity and topic extraction across the full library to surface cross-document themes
 - Export functionality: download answers with citations as formatted PDF or BibTeX references
-- Multi-language ingestion support extending the embedding pipeline to non-English documents
+- Multi-language ingestion support extending the vectorisation pipeline to non-English documents
 
 ---
 
@@ -189,7 +190,7 @@ The following observations are drawn from manual evaluation across test document
 **1. Clone the repository**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/prism.git
+git clone https://github.com/yamireddy04/prism.git
 cd prism
 ```
 
@@ -200,8 +201,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 
-pip install fastapi "uvicorn[standard]" python-multipart pypdf python-docx \
-  groq faiss-cpu sentence-transformers httpx beautifulsoup4 python-dotenv numpy
+pip install -r requirements.txt
 ```
 
 Create `backend/.env`:
@@ -216,7 +216,7 @@ Start the backend:
 uvicorn main:app --reload --port 8000
 ```
 
-Backend runs at: `http://localhost:8000`
+Backend runs at: `http://localhost:8000`  
 Interactive API docs: `http://localhost:8000/docs`
 
 **3. Frontend Setup**
@@ -246,7 +246,7 @@ Frontend runs at: `http://localhost:3000`
 
 ## 🔟 Conclusion
 
-Prism demonstrates how Retrieval-Augmented Generation, semantic vector search, and structured LLM inference can be composed into a research workflow tool that is simultaneously powerful and interpretable. The pipeline's strict grounding rules, minimum similarity thresholds, and claim-level verification layer ensure that generated answers remain anchored to the actual source material — making Prism suitable for contexts where accuracy and auditability matter. The separation of the ingestion, retrieval, generation, and verification stages into discrete API routes also makes the system modular and extensible, providing a clear foundation for future enhancements including persistent storage, multi-user support, and domain-specific embedding models.
+Prism demonstrates how Retrieval-Augmented Generation, lightweight TF-IDF vector search, and structured LLM inference can be composed into a research workflow tool that is simultaneously powerful and interpretable. The pipeline's strict grounding rules, minimum similarity thresholds, and claim-level verification layer ensure that generated answers remain anchored to the actual source material — making Prism suitable for contexts where accuracy and auditability matter. The separation of ingestion, retrieval, generation, and verification into discrete API routes makes the system modular and extensible, providing a clear foundation for future enhancements including dense semantic embeddings, persistent storage, and multi-user support.
 
 ---
 
@@ -254,11 +254,11 @@ Prism demonstrates how Retrieval-Augmented Generation, semantic vector search, a
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 14, TypeScript, Framer Motion |
-| Styling | Inline styles + CSS variables (no Tailwind dependency) |
+| Frontend | Next.js 16, TypeScript, Framer Motion |
+| Styling | Inline styles + CSS variables |
 | AI Inference | LLaMA 3.3 70B via Groq API |
-| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
-| Vector Store | FAISS (in-process, FlatL2 index) |
+| Vectorisation | TF-IDF (`scikit-learn`, 384-dim, sublinear TF) |
+| Vector Store | FAISS (`IndexFlatIP`, in-process, cosine similarity) |
 | Backend / API | FastAPI (Python), Uvicorn |
 | Document Parsing | pypdf, python-docx, BeautifulSoup |
 | Frontend Hosting | Vercel |
