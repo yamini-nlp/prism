@@ -3,22 +3,17 @@ import faiss
 import os
 import pickle
 import re
-from fastembed import TextEmbedding
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-EMBED_DIM = 384
+EMBED_DIM  = 384
 _BASE      = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 INDEX_PATH = os.path.join(_BASE, "data", "faiss_index.bin")
 META_PATH  = os.path.join(_BASE, "data", "metadata.pkl")
+TFIDF_PATH = os.path.join(_BASE, "data", "tfidf.pkl")
 
-_index    = None
-_metadata = []
-_embedder = None
-
-def get_embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = TextEmbedding("BAAI/bge-small-en-v1.5")
-    return _embedder
+_index     = None
+_metadata  = []
+_vectorizer = None
 
 def get_index():
     global _index, _metadata
@@ -32,22 +27,37 @@ def get_index():
             _metadata = []
     return _index, _metadata
 
+def get_vectorizer():
+    global _vectorizer
+    if _vectorizer is None:
+        if os.path.exists(TFIDF_PATH):
+            with open(TFIDF_PATH, "rb") as f:
+                _vectorizer = pickle.load(f)
+        else:
+            _vectorizer = TfidfVectorizer(max_features=EMBED_DIM, sublinear_tf=True)
+    return _vectorizer
+
 def _save():
     os.makedirs(os.path.dirname(INDEX_PATH), exist_ok=True)
     faiss.write_index(_index, INDEX_PATH)
     with open(META_PATH, "wb") as f:
         pickle.dump(_metadata, f)
+    with open(TFIDF_PATH, "wb") as f:
+        pickle.dump(_vectorizer, f)
 
 def _embed(texts: list[str]) -> np.ndarray:
-    embedder = get_embedder()
-    vecs = np.array(list(embedder.embed(texts)), dtype=np.float32)
+    vec = get_vectorizer()
+    try:
+        vecs = vec.transform(texts).toarray().astype(np.float32)
+    except Exception:
+        vecs = vec.fit_transform(texts).toarray().astype(np.float32)
     norms = np.linalg.norm(vecs, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1, norms)
     return vecs / norms
 
 def chunk_text(text: str, chunk_size: int = 400, overlap: int = 50) -> list[str]:
     text  = re.sub(r'\s+', ' ', text).strip()
-    words = text.split(' ')
+    words = text.split()
     chunks, start = [], 0
     while start < len(words):
         end   = min(start + chunk_size, len(words))
@@ -61,11 +71,11 @@ def embed_and_store(chunks: list[str], source: str) -> int:
     if not chunks:
         return 0
     index, metadata = get_index()
-    BATCH = 64
-    all_vecs = []
-    for i in range(0, len(chunks), BATCH):
-        all_vecs.append(_embed(chunks[i:i + BATCH]))
-    vecs = np.vstack(all_vecs)
+    vec = get_vectorizer()
+    vecs = vec.fit_transform(chunks).toarray().astype(np.float32)
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1, norms)
+    vecs = vecs / norms
     index.add(vecs)
     for i, chunk in enumerate(chunks):
         metadata.append({"source": source, "chunk": chunk, "chunk_index": i})
@@ -84,10 +94,5 @@ def search(query: str, top_k: int = 5) -> list[dict]:
         if idx < 0:
             continue
         m = metadata[idx]
-        results.append({
-            "chunk":       m["chunk"],
-            "source":      m["source"],
-            "score":       float(score),
-            "chunk_index": m["chunk_index"],
-        })
+        results.append({"chunk": m["chunk"], "source": m["source"], "score": float(score), "chunk_index": m["chunk_index"]})
     return results
