@@ -9,7 +9,7 @@ A full-stack research intelligence system that transforms complex academic conte
 
 Built with **Next.js + TypeScript** for the frontend and **FastAPI + Python** for the backend.
 
-### 🌐 Live Demo : 
+### 🌐 Live Demo : https://prism-nine-tau.vercel.app/
 ---
 
 ## 1️⃣ Problem Statement
