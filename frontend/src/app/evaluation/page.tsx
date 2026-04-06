@@ -23,7 +23,6 @@ function getQueryLog(): QueryLog {
 function buildChartData(log: QueryLog) {
   if (log.length === 0) return { faithData: [], latencyData: [], precisionData: [] };
 
-  // Group by day label for faith/latency
   const byDay: Record<string, { conf: number[]; lat: number[] }> = {};
   const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   log.forEach(q => {
@@ -45,7 +44,6 @@ function buildChartData(log: QueryLog) {
     { label: "Verification", value: +(log.reduce((s, q) => s + q.latency * 0.12, 0) / log.length).toFixed(2) },
   ];
 
-  // Precision@K — confidence as proxy
   const avgConf = log.reduce((s, q) => s + q.confidence, 0) / log.length / 100;
   const precisionData = [
     { k: "k=1",  precision: +(avgConf * 0.80).toFixed(3) },

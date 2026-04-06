@@ -189,7 +189,7 @@ export default function SettingsPage() {
               <Slider label="Chunk Overlap"   desc="Token overlap between adjacent chunks"          value={chunkOverlap} min={0}   max={256}  step={16}  onChange={setChunkOverlap} fmt={v=>`${v}t`} />
               <Slider label="Temperature"     desc="LLM generation randomness (0 = deterministic)" value={temperature}  min={0}   max={1}    step={0.05} onChange={setTemperature}  fmt={v=>v.toFixed(2)} />
 
-              {/* Save button — fully explicit styling */}
+              {/* Save button */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}

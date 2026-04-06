@@ -54,11 +54,9 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 99px; }
 
-/* Typography helpers */
 .font-display { font-family: 'DM Serif Display', Georgia, serif; }
 .font-mono    { font-family: 'JetBrains Mono', 'Courier New', monospace; }
 
-/* Layout */
 .page-shell {
   display: flex;
   min-height: 100vh;
@@ -72,7 +70,6 @@ body {
   min-width: 0;
 }
 
-/* Cards */
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -90,7 +87,6 @@ body {
   border-color: var(--border-mid);
 }
 
-/* Buttons */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -141,7 +137,6 @@ body {
   transform: translateY(-1px);
 }
 
-/* Tags / badges */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -160,7 +155,6 @@ body {
 .tag-red     { background: var(--accent-red-light);    color: var(--accent-red); }
 .tag-neutral { background: rgba(0,0,0,0.05);           color: var(--text-secondary); }
 
-/* Inputs */
 .input-field {
   width: 100%;
   background: var(--bg-surface);
@@ -179,7 +173,6 @@ body {
 }
 .input-field::placeholder { color: var(--text-muted); }
 
-/* Sidebar link */
 .nav-link {
   display: flex;
   align-items: center;
@@ -196,14 +189,11 @@ body {
 .nav-link:hover  { background: rgba(0,0,0,0.04); color: var(--text-primary); }
 .nav-link.active { background: var(--text-primary); color: #fff; }
 
-/* Confidence bar */
 .cbar        { height: 4px; border-radius: 99px; background: var(--border); overflow: hidden; }
 .cbar-fill   { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), #818cf8); transition: width 0.8s cubic-bezier(.34,1.56,.64,1); }
 
-/* Divider */
 .divider { height: 1px; background: var(--border); width: 100%; }
 
-/* Section label */
 .section-label {
   font-size: 10px;
   font-weight: 700;
@@ -250,7 +240,6 @@ body {
   animation: shimmer 1.4s infinite;
 }
 
-/* Iridescent hero bg */
 .hero-bg {
   background:
     radial-gradient(ellipse at 15% 60%, rgba(91,94,244,0.07) 0%, transparent 55%),

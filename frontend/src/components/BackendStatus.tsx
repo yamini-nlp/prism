@@ -20,7 +20,7 @@ export default function BackendStatus() {
 
   useEffect(() => { check(); }, []);
 
-  if (status === "online") return null; // hide when online
+  if (status === "online") return null; 
 
   return (
     <div style={{

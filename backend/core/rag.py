@@ -17,16 +17,12 @@ Rules:
 - Structure your answer clearly with numbered points when listing multiple findings.
 - Do not use markdown asterisks for bold — write plainly and clearly instead.
 """
-
-# Only these models are active on Groq
 VALID_MODELS = {
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
     "llama3-8b-8192",
 }
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-
-# Minimum similarity score — chunks below this are too irrelevant to include
 MIN_SCORE_THRESHOLD = 0.45
 
 
@@ -47,16 +43,11 @@ def compute_confidence(chunks: list[dict]) -> float:
 
 
 def run_rag(query: str, top_k: int = 5, model: str = DEFAULT_MODEL) -> dict:
-    # Safety: reject any deprecated/invalid model
     if model not in VALID_MODELS:
         model = DEFAULT_MODEL
 
     retrieved_raw = search(query, top_k=top_k)
-
-    # Filter out chunks with too-low similarity (irrelevant noise)
     retrieved = [c for c in retrieved_raw if c.get("score", 0) >= MIN_SCORE_THRESHOLD]
-
-    # If filtering removed everything, fall back to top result only if it exists
     if not retrieved and retrieved_raw:
         retrieved = retrieved_raw[:1]
 

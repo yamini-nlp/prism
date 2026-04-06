@@ -1,6 +1,3 @@
-// All design tokens as JS objects — used as inline styles so they ALWAYS apply
-// regardless of Tailwind purging or CSS class issues
-
 export const C = {
     bg:        "#f7f6f3",
     surface:   "#ffffff",
@@ -21,7 +18,6 @@ export const C = {
   };
   
   export const S = {
-    // Buttons
     btnPrimary: {
       display: "inline-flex" as const,
       alignItems: "center" as const,
@@ -85,7 +81,6 @@ export const C = {
       cursor: "pointer",
     },
   
-    // Inputs
     input: {
       width: "100%",
       background: "#ffffff",
@@ -114,7 +109,6 @@ export const C = {
       transition: "border-color 0.18s",
     },
   
-    // Cards
     card: {
       background: "#ffffff",
       border: "1px solid rgba(0,0,0,0.08)",
@@ -122,14 +116,12 @@ export const C = {
       boxShadow: "0 1px 6px rgba(0,0,0,0.055)",
     },
   
-    // Tags
     tagIndigo:  { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(91,94,244,0.09)", color:"#4547c4" },
     tagGreen:   { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(61,153,112,0.09)", color:"#2e7357" },
     tagOrange:  { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(212,98,42,0.09)", color:"#b5491f" },
     tagRed:     { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(220,38,38,0.09)", color:"#b91c1c" },
     tagNeutral: { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(0,0,0,0.06)", color:"#5c5a56" },
   
-    // Typography
     heading: {
       fontFamily: "'DM Serif Display', Georgia, serif",
       color: "#111110",
@@ -144,7 +136,6 @@ export const C = {
       color: "#9a9590",
     },
   
-    // Confidence bar
     cbarWrap: { height:5, borderRadius:99, background:"rgba(0,0,0,0.07)", overflow:"hidden" as const },
     cbarFill: { height:"100%", borderRadius:99, background:"linear-gradient(90deg,#5b5ef4,#818cf8)", transition:"width 0.7s cubic-bezier(.34,1.56,.64,1)" },
   

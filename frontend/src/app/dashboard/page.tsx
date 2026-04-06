@@ -36,18 +36,14 @@ export default function DashboardPage() {
   async function loadStats() {
     setRefreshing(true);
     try {
-      // Get doc count via a dummy retrieve call
       const res = await fetch(`${API}/retrieve/?query=a&top_k=1`);
       if (res.ok) {
         const data = await res.json();
-        // If results returned, docs exist. Count is not directly exposed so we use a heuristic.
         setDocCount(data.count > 0 ? data.count : 0);
       }
     } catch {
       setDocCount(0);
     }
-
-    // Load query stats from localStorage
     const log = getQueryLog();
     setQueryCount(log.length);
     if (log.length > 0) {

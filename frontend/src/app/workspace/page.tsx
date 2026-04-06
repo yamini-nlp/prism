@@ -44,18 +44,14 @@ const SUGGESTIONS = [
   "What are the key contributions?",
 ];
 
-// Renders **bold**, *italic*, and newlines — no external library needed
 function RenderMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
   return (
     <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78 }}>
       {lines.map((line, li) => {
-        // Parse inline bold/italic
         const parts: React.ReactNode[] = [];
         let rest = line;
         let key = 0;
-
-        // Replace **bold** and *italic*
         const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
         let last = 0;
         let m: RegExpExecArray | null;
@@ -69,8 +65,6 @@ function RenderMarkdown({ text }: { text: string }) {
           last = m.index + m[0].length;
         }
         if (last < rest.length) parts.push(<span key={key++}>{rest.slice(last)}</span>);
-
-        // Numbered list lines
         const isNumbered = /^\d+\.\s/.test(line);
         const isBullet = /^[-•]\s/.test(line);
 
