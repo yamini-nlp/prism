@@ -252,4 +252,4 @@ prism/
 
 ---
 
-*Built by Yamini G &nbsp;·&nbsp; [GitHub](https://github.com/yamireddy04/prism) &nbsp;·&nbsp; [Live Demo](https://prism-nine-tau.vercel.app)*
+*Built by Yamini G &nbsp;·&nbsp; [GitHub](https://github.com/yamini-nlp/prism) &nbsp;·&nbsp; [Live Demo](https://prism-nine-tau.vercel.app)*
