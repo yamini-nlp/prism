@@ -2,7 +2,7 @@
 
 > A full-stack research intelligence system that transforms academic documents into queryable, grounded, and verifiable insights using Retrieval-Augmented Generation, TF-IDF vector search, and claim-level hallucination detection.
 
-**Live Demo:** https://prism-nine-tau.vercel.app &nbsp;|&nbsp; **GitHub:** github.com/yamireddy04/prism
+**Live Demo:** https://prism-nine-tau.vercel.app &nbsp;|&nbsp; **GitHub:** https://github.com/yamini-nlp/prism
 
 ![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20TypeScript%20%7C%20FastAPI-blue?style=flat-square)
 ![LLM](https://img.shields.io/badge/LLM-LLaMA%203.3%2070B%20%7C%20Groq-orange?style=flat-square)
@@ -185,7 +185,7 @@ When a document is ingested, a parallel call to `/summary/` generates a structur
 
 **1. Clone**
 ```bash
-git clone https://github.com/yamireddy04/prism.git
+git clone https://github.com/yamini-nlp/prism.git
 cd prism
 ```
 
