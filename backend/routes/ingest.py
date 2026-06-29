@@ -18,10 +18,9 @@ class URLIngest(BaseModel):
 async def ingest_text(body: TextIngest):
     if len(body.text.strip()) < 50:
         raise HTTPException(status_code=400, detail="Text is too short to ingest.")
-
     chunks = chunk_text(body.text)
-    count = embed_and_store(chunks, source=body.source)
-
+    title = body.text.strip()[:60]
+    count = embed_and_store(chunks, source=body.source, source_type="text", title=title)
     return JSONResponse({
         "status": "success",
         "source": body.source,
@@ -37,20 +36,14 @@ async def ingest_url(body: URLIngest):
             response.raise_for_status()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
-
     soup = BeautifulSoup(response.text, "html.parser")
-
     for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
         tag.decompose()
-
     text = soup.get_text(separator="\n", strip=True)
-
     if len(text.strip()) < 100:
         raise HTTPException(status_code=422, detail="Could not extract sufficient text from URL.")
-
     chunks = chunk_text(text)
-    count = embed_and_store(chunks, source=body.url)
-
+    count = embed_and_store(chunks, source=body.url, source_type="url", title=body.url[:60])
     return JSONResponse({
         "status": "success",
         "source": body.url,

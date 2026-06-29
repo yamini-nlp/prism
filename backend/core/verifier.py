@@ -1,60 +1,29 @@
-from groq import Groq
-import os
-import json
-from dotenv import load_dotenv
+import re
+from sentence_transformers import CrossEncoder
 
-load_dotenv()
+NLI_MODEL = CrossEncoder("cross-encoder/nli-deberta-v3-small")
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+def split_into_claims(answer: str) -> list[str]:
+    sentences = re.split(r'(?<=[.!?])\s+', answer.strip())
+    return [s.strip() for s in sentences if len(s.strip()) > 20]
 
-VERIFY_PROMPT = """You are a research verification assistant. Given an answer and a set of source context chunks, identify each factual claim in the answer and determine whether it is:
-- "grounded": Directly supported by the source context
-- "partial": Partially supported but with gaps or approximations
-- "ungrounded": Not supported by any source — likely hallucinated
-
-Respond ONLY with a JSON array of objects, each with:
-- "claim": the exact claim text
-- "status": "grounded" | "partial" | "ungrounded"
-- "source": the source reference if grounded/partial, or null
-- "explanation": a brief explanation
-
-Do not include any preamble or markdown fences. Only valid JSON."""
-
-def verify_answer(answer: str, context_chunks: list[dict]) -> list[dict]:
-    context = "\n\n".join(
-        f"[{c['source']}]: {c['chunk']}" for c in context_chunks
-    )
-
-    prompt = f"""Answer to verify:
-\"\"\"{answer}\"\"\"
-
-Source context:
-\"\"\"{context}\"\"\"
-
-Identify and classify each factual claim:"""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": VERIFY_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.0,
-        max_tokens=1500,
-    )
-
-    raw = response.choices[0].message.content.strip()
-
-    try:
-        cleaned = raw.replace("```json", "").replace("```", "").strip()
-        claims = json.loads(cleaned)
-        return claims
-    except Exception:
-        return [
-            {
-                "claim": answer[:200],
-                "status": "partial",
-                "source": None,
-                "explanation": "Could not parse individual claims. Manual review recommended.",
-            }
-        ]
+def verify_claims(claims: list[str], context_chunks: list[str]) -> list[dict]:
+    results = []
+    for claim in claims:
+        best_label = "unsupported"
+        best_score = 0.0
+        best_chunk = None
+        for chunk in context_chunks:
+            scores = NLI_MODEL.predict([[chunk, claim]])
+            contradiction_score, entailment_score, neutral_score = scores[0]
+            if entailment_score > 0.5 and entailment_score > best_score:
+                best_score = float(entailment_score)
+                best_label = "supported"
+                best_chunk = chunk
+        results.append({
+            "claim": claim,
+            "label": best_label,
+            "confidence": round(best_score * 100, 1),
+            "supporting_chunk": best_chunk if best_label == "supported" else None
+        })
+    return results
