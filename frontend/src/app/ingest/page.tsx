@@ -27,6 +27,32 @@ export default function IngestPage() {
   const stageIdx   = STAGES.indexOf(stage);
   const isRunning  = stage !== "idle" && stage !== "done" && stage !== "error";
 
+  const pollJob = useCallback(async (jobId: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API}/jobs/${jobId}`);
+          if (!res.ok) {
+            clearInterval(interval);
+            reject(new Error(`Job status check failed: ${res.status}`));
+            return;
+          }
+          const data = await res.json();
+          if (data.status === "complete") {
+            clearInterval(interval);
+            resolve(data.result);
+          } else if (data.status === "failed") {
+            clearInterval(interval);
+            reject(new Error(data.error || "Ingestion failed."));
+          }
+        } catch (e) {
+          clearInterval(interval);
+          reject(e);
+        }
+      }, 1500);
+    });
+  }, []);
+
   const runIngest = useCallback(async () => {
     setStage("uploading"); setSummary(null); setErrMsg("");
     try {
@@ -45,9 +71,10 @@ export default function IngestPage() {
         setErrMsg("Please provide a file, URL, or text first."); setStage("error"); return;
       }
       if (!res!.ok) { const e = await res!.json().catch(()=>({})); throw new Error(e.detail || `Error ${res!.status}`); }
-      const data = await res!.json();
-      setStage("chunking"); await new Promise(r=>setTimeout(r,400));
-      setStage("embedding"); await new Promise(r=>setTimeout(r,500));
+      const submitData = await res!.json();
+      setStage("chunking");
+      const data = await pollJob(submitData.job_id);
+      setStage("embedding");
       setStage("done");
       const srcText = data.preview || (mode === "text" ? text.trim() : "");
       const srcName = data.source || "Document";
@@ -56,7 +83,7 @@ export default function IngestPage() {
         if (sr.ok) { const sd = await sr.json(); setSummary(sd.summary); }
       }
     } catch(e:any) { setErrMsg(e.message || "Failed. Is the backend running on port 8000?"); setStage("error"); }
-  }, [mode, file, url, text]);
+  }, [mode, file, url, text, pollJob]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragging(false);
