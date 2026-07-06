@@ -1,12 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends, Header
 from fastapi.responses import JSONResponse
 import tempfile
 import os
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 from core.embedder import chunk_text, embed_and_store
+from core.auth import verify_api_key
+from core.limiter import limiter
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 def extract_pdf(path: str) -> str:
     reader = PdfReader(path)
@@ -20,7 +22,8 @@ def extract_docx(path: str) -> str:
     return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 @router.post("/")
-async def upload_file(file: UploadFile = File(...)):
+@limiter.limit("10/minute")
+async def upload_file(request: Request, file: UploadFile = File(...), x_session_id: str = Header(...)):
     allowed = {".pdf", ".docx", ".doc", ".txt"}
     ext = os.path.splitext(file.filename or "")[1].lower()
 
@@ -48,7 +51,7 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail="Could not extract meaningful text from file.")
 
     chunks = chunk_text(text)
-    count = embed_and_store(chunks, source=file.filename or "Uploaded Document")
+    count = embed_and_store(chunks, source=file.filename or "Uploaded Document", session_id=x_session_id)
 
     return JSONResponse({
         "status": "success",

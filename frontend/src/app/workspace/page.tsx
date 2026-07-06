@@ -4,15 +4,16 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import { S, C } from "@/lib/styles";
+import { apiUrl, buildHeaders } from "@/lib/api";
 import { Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import Link from "next/link";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const STORAGE_KEY = "prism_settings";
 const LOG_KEY = "prism_query_log";
 
 type Citation = { id: string; text: string; source: string; score: number; chunk_index: number };
-type Message  = { id: string; role: "user" | "assistant"; content: string; citations?: Citation[]; confidence?: number; flags?: string[]; latency?: number };
+type GroundingClaim = { claim: string; label: "supported" | "unsupported"; confidence: number; supporting_chunk: string | null };
+type Message  = { id: string; role: "user" | "assistant"; content: string; citations?: Citation[]; confidence?: number; grounding?: GroundingClaim[]; latency?: number; streaming?: boolean };
 
 function getSettings() {
   if (typeof window === "undefined") return { model: "llama-3.3-70b-versatile", topK: 5 };
@@ -43,6 +44,21 @@ const SUGGESTIONS = [
   "What limitations does the study acknowledge?",
   "What are the key contributions?",
 ];
+
+function parseSSEEvent(raw: string): { event: string; data: string } | null {
+  const lines = raw.split("\n");
+  let event = "message";
+  const dataLines: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  }
+  if (dataLines.length === 0) return null;
+  return { event, data: dataLines.join("\n") };
+}
 
 function RenderMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
@@ -99,13 +115,42 @@ function CitationCard({ c }: { c: Citation }) {
   );
 }
 
+function GroundingBadge({ g }: { g: GroundingClaim }) {
+  const supported = g.label === "supported";
+  const color = supported ? C.green : C.orange;
+  const bg = supported ? "rgba(22,163,74,0.08)" : "rgba(234,88,12,0.08)";
+  const border = supported ? "rgba(22,163,74,0.2)" : "rgba(234,88,12,0.2)";
+  return (
+    <div style={{
+      display: "flex", alignItems: "flex-start", gap: 8,
+      padding: "9px 12px", borderRadius: 9,
+      background: bg, border: `1px solid ${border}`,
+    }}>
+      {supported ? <CheckCircle size={13} color={color} style={{ marginTop: 2, flexShrink: 0 }} /> : <AlertTriangle size={13} color={color} style={{ marginTop: 2, flexShrink: 0 }} />}
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.5, margin: 0 }}>{g.claim}</p>
+        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: 0.3 }}>
+            {supported ? "Supported" : "Unsupported"}
+          </span>
+          <span style={{ fontSize: 10.5, color: C.textMuted }}>{g.confidence}% confidence</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AiMessage({ msg }: { msg: Message }) {
   const [open, setOpen] = useState(false);
+  const [groundingOpen, setGroundingOpen] = useState(false);
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       style={{ maxWidth: "86%", display: "flex", flexDirection: "column", gap: 9 }}>
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <RenderMarkdown text={msg.content} />
+        {msg.streaming && (
+          <span style={{ display: "inline-block", width: 7, height: 14, background: C.accent, marginLeft: 2, verticalAlign: "middle", animation: "prism-blink 1s steps(1) infinite" }} />
+        )}
         {msg.confidence !== undefined && (
           <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>Confidence</span>
@@ -118,19 +163,47 @@ function AiMessage({ msg }: { msg: Message }) {
         {msg.latency !== undefined && (
           <div style={{ marginTop: 6, fontSize: 11, color: C.textMuted }}>{msg.latency.toFixed(2)}s response time</div>
         )}
-        {msg.flags !== undefined && msg.flags.length === 0 && (
+        {!msg.streaming && msg.grounding !== undefined && msg.grounding.length > 0 && (
           <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 6 }}>
-            <CheckCircle size={13} color={C.green} />
-            <span style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>Fully grounded · No hallucinations detected</span>
-          </div>
-        )}
-        {msg.flags !== undefined && msg.flags.length > 0 && (
-          <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 6 }}>
-            <AlertTriangle size={13} color={C.orange} />
-            <span style={{ fontSize: 11, color: C.orange, fontWeight: 600 }}>{msg.flags.length} unsupported claim{msg.flags.length > 1 ? "s" : ""} detected</span>
+            {msg.grounding.every(g => g.label === "supported") ? (
+              <>
+                <CheckCircle size={13} color={C.green} />
+                <span style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>Fully grounded · No hallucinations detected</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={13} color={C.orange} />
+                <span style={{ fontSize: 11, color: C.orange, fontWeight: 600 }}>
+                  {msg.grounding.filter(g => g.label === "unsupported").length} unsupported claim{msg.grounding.filter(g => g.label === "unsupported").length > 1 ? "s" : ""} detected
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {!msg.streaming && msg.grounding !== undefined && msg.grounding.length > 0 && (
+        <div>
+          <button onClick={() => setGroundingOpen(v => !v)} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 600, color: C.accent,
+            background: "rgba(91,94,244,0.08)", border: "none",
+            borderRadius: 8, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit", marginBottom: 7,
+          }}>
+            <CheckCircle size={12} /> {msg.grounding.length} claim{msg.grounding.length > 1 ? "s" : ""} checked
+            {groundingOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          <AnimatePresence>
+            {groundingOpen && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }} style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
+                {msg.grounding.map((g, i) => <GroundingBadge key={i} g={g} />)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {msg.citations && msg.citations.length > 0 && (
         <div>
           <button onClick={() => setOpen(v => !v)} style={{
@@ -177,26 +250,66 @@ export default function WorkspacePage() {
     setMessages(m => [...m, { id: Date.now().toString(), role: "user", content: q }]);
     setLoading(true);
     const t0 = Date.now();
+
+    const assistantId = Date.now().toString() + "r";
+    setMessages(m => [...m, { id: assistantId, role: "assistant", content: "", streaming: true }]);
+
     try {
-      const res = await fetch(`${API}/generate/`, {
+      const res = await fetch(apiUrl("/generate/"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, top_k: settings.topK, model: settings.model, verify: false }),
+        headers: buildHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ query: q, top_k: settings.topK, model: settings.model }),
       });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
-      const latency = (Date.now() - t0) / 1000;
-      const conf = data.confidence_score ?? 0;
-      logQuery(conf, latency);
-      setMessages(m => [...m, {
-        id: Date.now().toString() + "r", role: "assistant",
-        content: data.answer,
-        citations: data.citations,
-        confidence: conf,
-        flags: data.hallucination_flags || [],
-        latency,
-      }]);
+      if (!res.ok || !res.body) throw new Error(`Server error ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIndex;
+        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+          const rawEvent = buffer.slice(0, sepIndex);
+          buffer = buffer.slice(sepIndex + 2);
+          const parsed = parseSSEEvent(rawEvent);
+          if (!parsed) continue;
+
+          let data: any;
+          try { data = JSON.parse(parsed.data); } catch { continue; }
+
+          if (parsed.event === "retrieval") {
+            setMessages(m => m.map(msg => msg.id === assistantId ? {
+              ...msg,
+              citations: data.citations,
+              confidence: data.confidence_score,
+            } : msg));
+          } else if (parsed.event === "token") {
+            setMessages(m => m.map(msg => msg.id === assistantId ? {
+              ...msg,
+              content: msg.content + (data.token || ""),
+            } : msg));
+          } else if (parsed.event === "done") {
+            const latency = (Date.now() - t0) / 1000;
+            const conf = data.confidence_score ?? 0;
+            logQuery(conf, latency);
+            setMessages(m => m.map(msg => msg.id === assistantId ? {
+              ...msg,
+              content: data.answer ?? msg.content,
+              citations: data.citations ?? msg.citations,
+              confidence: conf,
+              grounding: data.grounding || [],
+              latency,
+              streaming: false,
+            } : msg));
+          }
+        }
+      }
     } catch (e: any) {
+      setMessages(m => m.filter(msg => msg.id !== assistantId));
       setError(e.message || "Failed to fetch. Make sure the backend is running on port 8000.");
     } finally {
       setLoading(false);
@@ -205,10 +318,10 @@ export default function WorkspacePage() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg }}>
+      <style>{`@keyframes prism-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
       <Sidebar />
       <main style={{ flex: 1, display: "flex", flexDirection: "column", maxHeight: "100vh", overflow: "hidden" }}>
 
-        {/* Header */}
         <div style={{ padding: "20px 36px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
@@ -228,7 +341,6 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Messages */}
         <div style={{ flex: 1, overflowY: "auto", padding: "26px 36px", display: "flex", flexDirection: "column", gap: 16 }}>
           {messages.length === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", marginTop: 60 }}>
@@ -265,17 +377,6 @@ export default function WorkspacePage() {
             </div>
           ))}
 
-          {loading && (
-            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.4 }} style={{
-              padding: "12px 16px", borderRadius: 13,
-              background: C.surface, border: `1px solid ${C.border}`,
-              display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start",
-            }}>
-              <Loader2 size={14} color={C.accent} />
-              <span style={{ fontSize: 13, color: C.textMuted }}>Retrieving and generating…</span>
-            </motion.div>
-          )}
-
           {error && (
             <div style={{ padding: "11px 15px", borderRadius: 10, background: C.redBg, border: `1px solid rgba(220,38,38,0.2)`, display: "flex", alignItems: "center", gap: 9, alignSelf: "flex-start" }}>
               <AlertTriangle size={15} color={C.red} />
@@ -285,7 +386,6 @@ export default function WorkspacePage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
         <div style={{ padding: "16px 36px 20px", background: "#ffffff", borderTop: "1px solid rgba(0,0,0,0.09)", flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <textarea
@@ -317,7 +417,7 @@ export default function WorkspacePage() {
                 transition: "background 0.18s",
               }}
             >
-              <Send size={18} color={input.trim() && !loading ? "#ffffff" : "#9a9590"} />
+              {loading ? <Loader2 size={18} color="#ffffff" className="animate-spin" /> : <Send size={18} color={input.trim() ? "#ffffff" : "#9a9590"} />}
             </motion.button>
           </div>
           <div style={{ marginTop: 7, fontSize: 11, color: "#9a9590" }}>

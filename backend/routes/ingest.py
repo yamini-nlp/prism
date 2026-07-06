@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import httpx
 from bs4 import BeautifulSoup
 from core.embedder import chunk_text, embed_and_store
+from core.auth import verify_api_key
+from core.limiter import limiter
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 class TextIngest(BaseModel):
     text: str
@@ -15,12 +17,13 @@ class URLIngest(BaseModel):
     url: str
 
 @router.post("/text")
-async def ingest_text(body: TextIngest):
+@limiter.limit("10/minute")
+async def ingest_text(request: Request, body: TextIngest, x_session_id: str = Header(...)):
     if len(body.text.strip()) < 50:
         raise HTTPException(status_code=400, detail="Text is too short to ingest.")
     chunks = chunk_text(body.text)
     title = body.text.strip()[:60]
-    count = embed_and_store(chunks, source=body.source, source_type="text", title=title)
+    count = embed_and_store(chunks, source=body.source, session_id=x_session_id, source_type="text", title=title)
     return JSONResponse({
         "status": "success",
         "source": body.source,
@@ -29,7 +32,8 @@ async def ingest_text(body: TextIngest):
     })
 
 @router.post("/url")
-async def ingest_url(body: URLIngest):
+@limiter.limit("10/minute")
+async def ingest_url(request: Request, body: URLIngest, x_session_id: str = Header(...)):
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             response = await client.get(body.url, headers={"User-Agent": "Mozilla/5.0"})
@@ -43,7 +47,7 @@ async def ingest_url(body: URLIngest):
     if len(text.strip()) < 100:
         raise HTTPException(status_code=422, detail="Could not extract sufficient text from URL.")
     chunks = chunk_text(text)
-    count = embed_and_store(chunks, source=body.url, source_type="url", title=body.url[:60])
+    count = embed_and_store(chunks, source=body.url, session_id=x_session_id, source_type="url", title=body.url[:60])
     return JSONResponse({
         "status": "success",
         "source": body.url,

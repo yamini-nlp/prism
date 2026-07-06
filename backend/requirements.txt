@@ -11,3 +11,5 @@ python-dotenv==1.0.1
 numpy
 sentence-transformers>=2.7.0
 torch>=2.0.0
+slowapi==0.1.9
+rank_bm25

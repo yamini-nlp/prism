@@ -1,4 +1,6 @@
-from core.embedder import search
+import json
+from core.embedder import hybrid_search
+from core.verifier import split_into_claims, verify_claims
 from groq import Groq
 import os
 from dotenv import load_dotenv
@@ -23,7 +25,6 @@ VALID_MODELS = {
     "llama3-8b-8192",
 }
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
-MIN_SCORE_THRESHOLD = 0.45
 
 
 def build_context(chunks: list[dict]) -> str:
@@ -42,26 +43,48 @@ def compute_confidence(chunks: list[dict]) -> float:
     return round(min(avg_score * 100, 100), 1)
 
 
-def run_rag(query: str, top_k: int = 5, model: str = DEFAULT_MODEL) -> dict:
+def build_citations(chunks: list[dict]) -> list[dict]:
+    return [
+        {
+            "id": f"c{i+1}",
+            "text": chunk["chunk"][:280] + ("..." if len(chunk["chunk"]) > 280 else ""),
+            "source": chunk["source"],
+            "score": chunk["score"],
+            "chunk_index": chunk["chunk_index"],
+        }
+        for i, chunk in enumerate(chunks)
+    ]
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = DEFAULT_MODEL):
     if model not in VALID_MODELS:
         model = DEFAULT_MODEL
 
-    retrieved_raw = search(query, top_k=top_k)
-    retrieved = [c for c in retrieved_raw if c.get("score", 0) >= MIN_SCORE_THRESHOLD]
-    if not retrieved and retrieved_raw:
-        retrieved = retrieved_raw[:1]
+    retrieved = hybrid_search(query, session_id, top_k=top_k)
 
     if not retrieved:
-        return {
-            "answer": "No relevant documents found. Please ingest some research papers first.",
+        yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
+        message = "No relevant documents found. Please ingest some research papers first."
+        yield _sse("token", {"token": message})
+        yield _sse("done", {
+            "answer": message,
             "citations": [],
-            "retrieved_chunks": [],
             "confidence_score": 0.0,
             "hallucination_flags": [],
-        }
+            "grounding": [],
+        })
+        return
 
     context = build_context(retrieved)
     confidence = compute_confidence(retrieved)
+    citations = build_citations(retrieved)
+    chunk_texts = [c["chunk"] for c in retrieved]
+
+    yield _sse("retrieval", {"citations": citations, "confidence_score": confidence})
 
     messages = [
         {
@@ -75,30 +98,34 @@ def run_rag(query: str, top_k: int = 5, model: str = DEFAULT_MODEL) -> dict:
         }
     ]
 
-    response = client.chat.completions.create(
+    stream = client.chat.completions.create(
         model=model,
         messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
         temperature=0.1,
         max_tokens=1024,
+        stream=True,
     )
 
-    answer = response.choices[0].message.content
+    answer_parts = []
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        token = getattr(delta, "content", None)
+        if token:
+            answer_parts.append(token)
+            yield _sse("token", {"token": token})
 
-    citations = [
-        {
-            "id": f"c{i+1}",
-            "text": chunk["chunk"][:280] + ("..." if len(chunk["chunk"]) > 280 else ""),
-            "source": chunk["source"],
-            "score": chunk["score"],
-            "chunk_index": chunk["chunk_index"],
-        }
-        for i, chunk in enumerate(retrieved)
-    ]
+    answer = "".join(answer_parts)
 
-    return {
+    claims = split_into_claims(answer)
+    grounding = verify_claims(claims, chunk_texts)
+    hallucination_flags = [g["claim"] for g in grounding if g["label"] == "unsupported"]
+
+    yield _sse("done", {
         "answer": answer,
         "citations": citations,
-        "retrieved_chunks": retrieved,
         "confidence_score": confidence,
-        "hallucination_flags": [],
-    }
+        "hallucination_flags": hallucination_flags,
+        "grounding": grounding,
+    })

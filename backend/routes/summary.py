@@ -1,13 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
+from core.auth import verify_api_key
+from core.limiter import limiter
 
 load_dotenv()
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SUMMARY_PROMPT = """You are a research summarization assistant. Given the text of a research document, produce a structured JSON summary with these exact keys:
@@ -25,7 +27,8 @@ class SummaryRequest(BaseModel):
     source: str = "Document"
 
 @router.post("/")
-async def summarize(body: SummaryRequest):
+@limiter.limit("20/minute")
+async def summarize(request: Request, body: SummaryRequest, x_session_id: str = Header(...)):
     if len(body.text.strip()) < 100:
         raise HTTPException(status_code=400, detail="Text too short to summarize.")
 
