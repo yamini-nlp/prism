@@ -29,7 +29,9 @@ function logQuery(confidence: number, latency: number) {
     const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
     log.push({ confidence, latency, ts: Date.now() });
     localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-200)));
-  } catch {}
+  } catch {
+    /* ignore malformed log entries */
+  }
 }
 
 const MODEL_NAMES: Record<string, string> = {
@@ -66,7 +68,7 @@ function RenderMarkdown({ text }: { text: string }) {
     <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78 }}>
       {lines.map((line, li) => {
         const parts: React.ReactNode[] = [];
-        let rest = line;
+        const rest = line;
         let key = 0;
         const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
         let last = 0;
