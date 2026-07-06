@@ -13,8 +13,25 @@ EMBED_DIM  = 384
 _BASE      = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR   = os.environ.get("DATA_DIR", os.path.join(_BASE, "data"))
 
-EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-RERANKER_MODEL = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+_EMBEDDING_MODEL = None
+_RERANKER_MODEL = None
+_model_lock = threading.Lock()
+
+def _get_embedding_model():
+    global _EMBEDDING_MODEL
+    if _EMBEDDING_MODEL is None:
+        with _model_lock:
+            if _EMBEDDING_MODEL is None:
+                _EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+    return _EMBEDDING_MODEL
+
+def _get_reranker_model():
+    global _RERANKER_MODEL
+    if _RERANKER_MODEL is None:
+        with _model_lock:
+            if _RERANKER_MODEL is None:
+                _RERANKER_MODEL = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _RERANKER_MODEL
 
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
@@ -109,11 +126,11 @@ def get_documents(session_id: str) -> list[dict]:
     return state["documents"]
 
 def embed_chunks(texts: list[str]) -> np.ndarray:
-    embeddings = EMBEDDING_MODEL.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+    embeddings = _get_embedding_model().encode(texts, normalize_embeddings=True, show_progress_bar=False)
     return embeddings.astype("float32")
 
 def embed_query(query: str) -> np.ndarray:
-    embedding = EMBEDDING_MODEL.encode([query], normalize_embeddings=True, show_progress_bar=False)
+    embedding = _get_embedding_model().encode([query], normalize_embeddings=True, show_progress_bar=False)
     return embedding.astype("float32")
 
 def chunk_text(text: str, chunk_size: int = 400, overlap: int = 50) -> list[str]:
@@ -217,7 +234,7 @@ def hybrid_search(query: str, session_id: str, top_k: int = 5) -> list[dict]:
         return []
     candidates = [state["chunks"][idx] for idx in candidate_indices]
     pairs = [[query, c["chunk"]] for c in candidates]
-    rerank_scores = RERANKER_MODEL.predict(pairs)
+    rerank_scores = _get_reranker_model().predict(pairs)
     order = np.argsort(rerank_scores)[::-1][:top_k]
     results = []
     for pos in order:
