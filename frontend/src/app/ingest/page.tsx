@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
 import { S, C } from "@/lib/styles";
+import { buildHeaders } from "@/lib/api";
 import { Upload, FileText, Link as LinkIcon, Type, CheckCircle, ArrowRight, Loader2, X, AlertCircle } from "lucide-react";
 
 type Mode  = "file" | "url" | "text";
@@ -60,13 +61,13 @@ export default function IngestPage() {
       if (mode === "file" && file) {
         const fd = new FormData(); fd.append("file", file);
         setStage("extracting");
-        res = await fetch(`${API}/upload/`, { method: "POST", body: fd });
+        res = await fetch(`${API}/upload/`, { method: "POST", headers: buildHeaders(), body: fd });
       } else if (mode === "url" && url.trim()) {
         setStage("extracting");
-        res = await fetch(`${API}/ingest/url`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ url: url.trim() }) });
+        res = await fetch(`${API}/ingest/url`, { method:"POST", headers: buildHeaders({"Content-Type":"application/json"}), body: JSON.stringify({ url: url.trim() }) });
       } else if (mode === "text" && text.trim()) {
         setStage("extracting");
-        res = await fetch(`${API}/ingest/text`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ text: text.trim(), source: "Manual Input" }) });
+        res = await fetch(`${API}/ingest/text`, { method:"POST", headers: buildHeaders({"Content-Type":"application/json"}), body: JSON.stringify({ text: text.trim(), source: "Manual Input" }) });
       } else {
         setErrMsg("Please provide a file, URL, or text first."); setStage("error"); return;
       }
@@ -79,7 +80,7 @@ export default function IngestPage() {
       const srcText = data.preview || (mode === "text" ? text.trim() : "");
       const srcName = data.source || "Document";
       if (srcText) {
-        const sr = await fetch(`${API}/summary/`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ text: srcText, source: srcName }) });
+        const sr = await fetch(`${API}/summary/`, { method:"POST", headers: buildHeaders({"Content-Type":"application/json"}), body: JSON.stringify({ text: srcText, source: srcName }) });
         if (sr.ok) { const sd = await sr.json(); setSummary(sd.summary); }
       }
     } catch(e:any) { setErrMsg(e.message || "Failed. Is the backend running on port 8000?"); setStage("error"); }
@@ -100,7 +101,6 @@ export default function IngestPage() {
           <h1 style={{ ...S.heading, fontSize:38, marginTop:10, marginBottom:6 }}>Add a source</h1>
           <p style={{ color: C.textSec, fontSize:15, marginBottom:30 }}>Upload a document, paste a URL, or add raw text to begin.</p>
 
-          {/* Mode tabs */}
           <div style={{ display:"flex", gap:8, marginBottom:26 }}>
             {(["file","url","text"] as Mode[]).map(m => (
               <button key={m} onClick={()=>setMode(m)} style={{
@@ -122,7 +122,6 @@ export default function IngestPage() {
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 290px", gap:22, alignItems:"start" }}>
 
-            {/* Left — input area */}
             <div>
               <AnimatePresence mode="wait">
 
@@ -192,7 +191,6 @@ export default function IngestPage() {
                 )}
               </AnimatePresence>
 
-              {/* Error */}
               {stage==="error" && (
                 <div style={{
                   marginTop:14,padding:"12px 16px",borderRadius:10,
@@ -203,7 +201,6 @@ export default function IngestPage() {
                 </div>
               )}
 
-              {/* CTA button */}
               <div style={{marginTop:20}}>
                 <motion.button
                   whileHover={{ scale: isRunning ? 1 : 1.02 }}
@@ -220,7 +217,6 @@ export default function IngestPage() {
               </div>
             </div>
 
-            {/* Right — pipeline */}
             <div style={{ ...S.card, padding:22 }}>
               {(stage==="idle"||stage==="error") ? (
                 <div style={{textAlign:"center",padding:"18px 0"}}>
@@ -266,7 +262,6 @@ export default function IngestPage() {
             </div>
           </div>
 
-          {/* Summary */}
           <AnimatePresence>
             {summary && stage==="done" && (
               <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.5}} style={{marginTop:34}}>
