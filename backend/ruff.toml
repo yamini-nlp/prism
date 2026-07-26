@@ -1,0 +1,7 @@
+target-version = "py311"
+line-length = 200
+exclude = ["alembic", "eval", "node_modules"]
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "E731", "E402"]

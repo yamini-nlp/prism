@@ -1,47 +1,39 @@
-from typing import Optional
-from fastapi import APIRouter, Depends, Header
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.verifier import split_into_claims, verify_claims
-from core.auth import verify_api_key
-from core.db import get_db, ensure_session
-from core.models import Verification
+import re
 
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_WORD_RE = re.compile(r"[A-Za-z0-9]+")
 
-class VerifyRequest(BaseModel):
-    answer: str
-    context_chunks: list[str]
 
-@router.post("/")
-async def verify(body: VerifyRequest, x_session_id: Optional[str] = Header(default=None), db: AsyncSession = Depends(get_db)):
-    claims = split_into_claims(body.answer)
-    results = verify_claims(claims, body.context_chunks)
-    supported = sum(1 for r in results if r["label"] == "supported")
-    total = len(results)
-    grounding_score = round(supported / total * 100, 1) if total > 0 else 0.0
+def split_into_claims(answer: str) -> list[str]:
+    text = (answer or "").strip()
+    if not text:
+        return []
+    raw_sentences = _SENTENCE_SPLIT_RE.split(text)
+    return [s.strip() for s in raw_sentences if s.strip()]
 
-    try:
-        if x_session_id:
-            await ensure_session(db, x_session_id)
-        db.add(Verification(
-            session_id=x_session_id,
-            answer=body.answer,
-            claims=results,
-            total_claims=total,
-            supported_count=supported,
-            unsupported_count=total - supported,
-            grounding_score=grounding_score,
-        ))
-        await db.commit()
-    except Exception:
-        await db.rollback()
 
-    return JSONResponse({
-        "claims": results,
-        "total_claims": total,
-        "supported_count": supported,
-        "unsupported_count": total - supported,
-        "grounding_score": grounding_score
-    })
+def _tokenize(text: str) -> set[str]:
+    return {w.lower() for w in _WORD_RE.findall(text)}
+
+
+def _is_supported(claim: str, context_chunks: list[str]) -> bool:
+    claim_tokens = _tokenize(claim)
+    if not claim_tokens:
+        return False
+    significant_tokens = {t for t in claim_tokens if len(t) > 3}
+    if not significant_tokens:
+        significant_tokens = claim_tokens
+    for chunk in context_chunks:
+        chunk_tokens = _tokenize(chunk)
+        overlap = significant_tokens & chunk_tokens
+        if len(overlap) / len(significant_tokens) >= 0.5:
+            return True
+    return False
+
+
+def verify_claims(claims: list[str], context_chunks: list[str]) -> list[dict]:
+    results = []
+    for claim in claims:
+        supported = bool(context_chunks) and _is_supported(claim, context_chunks)
+        results.append({"claim": claim, "label": "supported" if supported else "unsupported"})
+    return results

@@ -10,6 +10,29 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: prism
+          POSTGRES_PASSWORD: prism
+          POSTGRES_DB: prism_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U prism -d prism_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -18,18 +41,43 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt', 'backend/requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Run ruff lint
+        run: ruff check .
+
+      - name: Run mypy type checking
+        run: mypy .
+
+      - name: Initialize test database
+        env:
+          DATABASE_URL: postgresql+asyncpg://prism:prism@localhost:5432/prism_test
+        run: |
+          python -c "import asyncio; from core.db import init_db; asyncio.run(init_db())"
+
       - name: Run pytest with coverage
         env:
+          ENVIRONMENT: development
           APP_API_KEY: test-api-key
           GROQ_API_KEY: test-groq-key
+          JWT_SECRET_KEY: test-jwt-secret-key-for-ci-only
+          DATABASE_URL: postgresql+asyncpg://prism:prism@localhost:5432/prism_test
+          REDIS_URL: redis://localhost:6379/1
+          OTEL_TRACES_ENABLED: "false"
         run: |
-          pytest --cov=core --cov=routes --cov-report=term-missing
+          pytest --cov=core --cov=routes --cov-report=term-missing --cov-fail-under=65
 
   frontend-checks:
     runs-on: ubuntu-latest
@@ -54,3 +102,6 @@ jobs:
 
       - name: Run TypeScript type check
         run: npx tsc --noEmit
+
+      - name: Run build
+        run: npm run build
