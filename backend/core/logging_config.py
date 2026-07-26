@@ -9,9 +9,10 @@ class JSONFormatter(logging.Formatter):
         payload = {
             "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
             "level": record.levelname,
+            "logger": record.name,
             "message": record.getMessage(),
         }
-        for field in ("request_id", "route", "latency_ms", "session_id", "status_code"):
+        for field in ("request_id", "route", "latency_ms", "session_id", "status_code", "user_id"):
             value = getattr(record, field, None)
             if value is not None:
                 payload[field] = value
@@ -34,7 +35,7 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
 
 
 def log_request(logger: logging.Logger, request_id: str, route: str, latency_ms: float,
-                 status_code: int, session_id: str = None) -> None:
+                 status_code: int, session_id: str = None, user_id: str = None) -> None:
     extra = {
         "request_id": request_id,
         "route": route,
@@ -43,4 +44,6 @@ def log_request(logger: logging.Logger, request_id: str, route: str, latency_ms:
     }
     if session_id:
         extra["session_id"] = session_id
+    if user_id:
+        extra["user_id"] = user_id
     logger.info("request completed", extra=extra)

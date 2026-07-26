@@ -1,31 +1,49 @@
-import threading
 import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
 
-_jobs = {}
-_lock = threading.Lock()
-
-
-def create_job() -> str:
-    job_id = str(uuid.uuid4())
-    with _lock:
-        _jobs[job_id] = {"status": "pending", "result": None, "error": None}
-    return job_id
+from core.models import Job
+from core.db import ensure_session
 
 
-def set_job_result(job_id: str, result) -> None:
-    with _lock:
-        if job_id in _jobs:
-            _jobs[job_id]["status"] = "complete"
-            _jobs[job_id]["result"] = result
+async def create_job(db: AsyncSession, session_id: str = None) -> str:
+    if session_id:
+        await ensure_session(db, session_id)
+    job = Job(id=uuid.uuid4(), session_id=session_id, status="pending", result=None, error=None)
+    db.add(job)
+    await db.commit()
+    return str(job.id)
 
 
-def set_job_error(job_id: str, error: str) -> None:
-    with _lock:
-        if job_id in _jobs:
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = error
+async def set_job_result(db: AsyncSession, job_id: str, result) -> None:
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        return
+    job = await db.get(Job, job_uuid)
+    if job is not None:
+        job.status = "complete"
+        job.result = result
+        await db.commit()
 
 
-def get_job(job_id: str):
-    with _lock:
-        return _jobs.get(job_id)
+async def set_job_error(db: AsyncSession, job_id: str, error: str) -> None:
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        return
+    job = await db.get(Job, job_uuid)
+    if job is not None:
+        job.status = "failed"
+        job.error = error
+        await db.commit()
+
+
+async def get_job(db: AsyncSession, job_id: str):
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        return None
+    job = await db.get(Job, job_uuid)
+    if job is None:
+        return None
+    return {"status": job.status, "result": job.result, "error": job.error}

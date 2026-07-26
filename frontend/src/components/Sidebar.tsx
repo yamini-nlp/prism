@@ -1,12 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, Upload, BookOpen, MessageSquare,
-  GitBranch, ShieldCheck, BarChart3, Settings, Zap,
+  GitBranch, ShieldCheck, BarChart3, Settings, Zap, LogOut,
 } from "lucide-react";
+import { bootstrapSession, getCurrentUser, logout, type CurrentUser } from "@/lib/auth";
 
 const links = [
   { href: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard },
@@ -21,6 +23,22 @@ const links = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<CurrentUser | null>(getCurrentUser());
+
+  useEffect(() => {
+    if (!user) {
+      bootstrapSession().then((restored) => {
+        if (restored) setUser(restored);
+      });
+    }
+  }, [user]);
+
+  async function handleLogout() {
+    await logout();
+    setUser(null);
+    router.push("/login");
+  }
 
   return (
     <aside style={{
@@ -95,6 +113,41 @@ export default function Sidebar() {
       })}
 
       <div style={{ flex: 1 }} />
+
+      {/* User menu */}
+      {user && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "9px 12px",
+          borderRadius: 8,
+          background: "#f7f6f3",
+          border: "1px solid rgba(0,0,0,0.07)",
+          marginBottom: 8,
+        }}>
+          <div style={{
+            fontSize: 12, color: "#5c5a56",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            maxWidth: 132,
+          }}>
+            {user.email}
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Log out"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 26, height: 26,
+              borderRadius: 6,
+              border: "none",
+              background: "transparent",
+              color: "#5c5a56",
+              cursor: "pointer",
+            }}
+          >
+            <LogOut size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Footer tag */}
       <div style={{

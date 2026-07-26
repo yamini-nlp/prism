@@ -1,50 +1,47 @@
-import re
-import threading
-from sentence_transformers import CrossEncoder
+from typing import Optional
+from fastapi import APIRouter, Depends, Header
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.verifier import split_into_claims, verify_claims
+from core.auth import verify_api_key
+from core.db import get_db, ensure_session
+from core.models import Verification
 
-_NLI_MODEL = None
-_model_lock = threading.Lock()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
-def _get_nli_model():
-    global _NLI_MODEL
-    if _NLI_MODEL is None:
-        with _model_lock:
-            if _NLI_MODEL is None:
-                _NLI_MODEL = CrossEncoder("cross-encoder/nli-deberta-v3-small")
-    return _NLI_MODEL
+class VerifyRequest(BaseModel):
+    answer: str
+    context_chunks: list[str]
 
-def split_into_claims(answer: str) -> list[str]:
-    sentences = re.split(r'(?<=[.!?])\s+', answer.strip())
-    return [s.strip() for s in sentences if len(s.strip()) > 20]
+@router.post("/")
+async def verify(body: VerifyRequest, x_session_id: Optional[str] = Header(default=None), db: AsyncSession = Depends(get_db)):
+    claims = split_into_claims(body.answer)
+    results = verify_claims(claims, body.context_chunks)
+    supported = sum(1 for r in results if r["label"] == "supported")
+    total = len(results)
+    grounding_score = round(supported / total * 100, 1) if total > 0 else 0.0
 
-def verify_claims(claims: list[str], context_chunks: list[str]) -> list[dict]:
-    if not claims:
-        return []
-    if not context_chunks:
-        return [
-            {"claim": claim, "label": "unsupported", "confidence": 0.0, "supporting_chunk": None}
-            for claim in claims
-        ]
+    try:
+        if x_session_id:
+            await ensure_session(db, x_session_id)
+        db.add(Verification(
+            session_id=x_session_id,
+            answer=body.answer,
+            claims=results,
+            total_claims=total,
+            supported_count=supported,
+            unsupported_count=total - supported,
+            grounding_score=grounding_score,
+        ))
+        await db.commit()
+    except Exception:
+        await db.rollback()
 
-    pairs = [[chunk, claim] for claim in claims for chunk in context_chunks]
-    scores = _get_nli_model().predict(pairs)
-
-    num_chunks = len(context_chunks)
-    results = []
-    for i, claim in enumerate(claims):
-        best_label = "unsupported"
-        best_score = 0.0
-        best_chunk = None
-        for j, chunk in enumerate(context_chunks):
-            contradiction_score, entailment_score, neutral_score = scores[i * num_chunks + j]
-            if entailment_score > 0.5 and entailment_score > best_score:
-                best_score = float(entailment_score)
-                best_label = "supported"
-                best_chunk = chunk
-        results.append({
-            "claim": claim,
-            "label": best_label,
-            "confidence": round(best_score * 100, 1),
-            "supporting_chunk": best_chunk if best_label == "supported" else None
-        })
-    return results
+    return JSONResponse({
+        "claims": results,
+        "total_claims": total,
+        "supported_count": supported,
+        "unsupported_count": total - supported,
+        "grounding_score": grounding_score
+    })

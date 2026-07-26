@@ -1,15 +1,16 @@
-from fastapi import APIRouter, HTTPException, Request, Depends, Header
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, Request, Depends
 from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
-from core.auth import verify_api_key
+from core.auth import get_current_user
+from core.models import User
 from core.limiter import limiter
+from core.errors import ValidationAppError
+from core import schemas
 
 load_dotenv()
-router = APIRouter(dependencies=[Depends(verify_api_key)])
+router = APIRouter()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SUMMARY_PROMPT = """You are a research summarization assistant. Given the text of a research document, produce a structured JSON summary with these exact keys:
@@ -22,15 +23,16 @@ SUMMARY_PROMPT = """You are a research summarization assistant. Given the text o
 
 Respond ONLY with valid JSON. No preamble, no markdown fences."""
 
-class SummaryRequest(BaseModel):
-    text: str
-    source: str = "Document"
-
-@router.post("/")
+@router.post(
+    "/",
+    response_model=schemas.SummaryResponse,
+    summary="Summarize a document",
+    description="Generate a structured summary (tldr, key concepts, methodology, results, limitations) for a document's text.",
+)
 @limiter.limit("20/minute")
-async def summarize(request: Request, body: SummaryRequest, x_session_id: str = Header(...)):
+async def summarize(request: Request, body: schemas.SummaryRequest, current_user: User = Depends(get_current_user)):
     if len(body.text.strip()) < 100:
-        raise HTTPException(status_code=400, detail="Text too short to summarize.")
+        raise ValidationAppError("Text too short to summarize.")
 
     truncated = body.text[:12000]
 
@@ -58,7 +60,4 @@ async def summarize(request: Request, body: SummaryRequest, x_session_id: str = 
             "limitations": "",
         }
 
-    return JSONResponse({
-        "source": body.source,
-        "summary": summary,
-    })
+    return schemas.SummaryResponse(source=body.source, summary=schemas.SummaryResult(**summary))
