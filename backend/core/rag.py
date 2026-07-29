@@ -17,6 +17,8 @@ Rules:
 - Do not hallucinate facts, numbers, or claims not present in the context.
 - Structure your answer clearly with numbered points when listing multiple findings.
 - Do not use markdown asterisks for bold — write plainly and clearly instead.
+- Every context chunk you are given is labeled with a source number, e.g. "[Source 2: ...]". Whenever you state a fact drawn from a specific source, immediately append a bracketed citation marker with that source number, e.g. [2]. Use multiple markers back to back like [1][3] when a statement draws on more than one source.
+- Only use marker numbers that correspond to a source actually provided in the context. Never invent a marker number beyond the number of sources given.
 """
 VALID_MODELS = {
     "llama-3.3-70b-versatile",
@@ -93,7 +95,8 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
                     f"Context:\n{context}\n\n"
                     f"Question: {query}\n\n"
                     f"Answer based strictly on the context above. "
-                    f"Do not use ** for bold text — write in plain prose."
+                    f"Do not use ** for bold text — write in plain prose. "
+                    f"Cite the source number in brackets, e.g. [1], right after each fact you draw from it."
                 ),
             }
         ]

@@ -1,18 +1,34 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { S, C } from "@/lib/styles";
 import { useGenerate } from "@/lib/queries/generations";
-import { Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Settings } from "lucide-react";
+import { useDocuments } from "@/lib/queries/documents";
+import CitationPopover, { type Citation } from "@/components/CitationPopover";
+import {
+  Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
+  Settings, RefreshCw, MessageSquarePlus, Inbox, RotateCcw,
+} from "lucide-react";
 import Link from "next/link";
 
 const STORAGE_KEY = "prism_settings";
 const LOG_KEY = "prism_query_log";
+const CONVERSATION_KEY = "prism_workspace_conversation";
 
-type Citation = { id: string; text: string; source: string; score: number; chunk_index: number };
 type GroundingClaim = { claim: string; label: "supported" | "unsupported"; confidence: number; supporting_chunk: string | null };
-type Message  = { id: string; role: "user" | "assistant"; content: string; citations?: Citation[]; confidence?: number; grounding?: GroundingClaim[]; latency?: number; streaming?: boolean };
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  query?: string;
+  citations?: Citation[];
+  confidence?: number;
+  grounding?: GroundingClaim[];
+  latency?: number;
+  streaming?: boolean;
+  errored?: boolean;
+};
 
 function getSettings() {
   if (typeof window === "undefined") return { model: "llama-3.3-70b-versatile", topK: 5 };
@@ -32,6 +48,23 @@ function logQuery(confidence: number, latency: number) {
   }
 }
 
+function loadConversation(): Message[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(CONVERSATION_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw.map((m: Message) => ({ ...m, streaming: false }));
+  } catch { return []; }
+}
+
+function saveConversation(messages: Message[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CONVERSATION_KEY, JSON.stringify(messages));
+  } catch {
+  }
+}
+
 const MODEL_NAMES: Record<string, string> = {
   "llama-3.3-70b-versatile": "LLaMA 3.3 70B",
   "llama-3.1-8b-instant":    "LLaMA 3.1 8B",
@@ -45,7 +78,24 @@ const SUGGESTIONS = [
   "What are the key contributions?",
 ];
 
-function RenderMarkdown({ text }: { text: string }) {
+function TypingDots() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 0" }}>
+      {[0, 1, 2].map(i => (
+        <span
+          key={i}
+          style={{
+            width: 6, height: 6, borderRadius: 99, background: C.textMuted,
+            animation: `prism-typing 1.1s ease-in-out ${i * 0.15}s infinite`,
+          }}
+        />
+      ))}
+      <span style={{ fontSize: 12, color: C.textMuted, marginLeft: 4 }}>Generating response…</span>
+    </div>
+  );
+}
+
+function RenderMarkdown({ text, citations }: { text: string; citations?: Citation[] }) {
   const lines = text.split("\n");
   return (
     <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78 }}>
@@ -53,13 +103,21 @@ function RenderMarkdown({ text }: { text: string }) {
         const parts: React.ReactNode[] = [];
         const rest = line;
         let key = 0;
-        const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+        const pattern = /(\*\*(.+?)\*\*|\*(.+?)\*|\[(\d+)\])/g;
         let last = 0;
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(rest)) !== null) {
           if (m.index > last) parts.push(<span key={key++}>{rest.slice(last, m.index)}</span>);
           if (m[0].startsWith("**")) {
             parts.push(<strong key={key++} style={{ fontWeight: 700, color: C.text }}>{m[2]}</strong>);
+          } else if (m[4] !== undefined) {
+            const num = parseInt(m[4], 10);
+            const citation = citations && citations[num - 1];
+            if (citation) {
+              parts.push(<CitationPopover key={key++} index={num} citation={citation} />);
+            } else {
+              parts.push(<span key={key++}>{m[0]}</span>);
+            }
           } else {
             parts.push(<em key={key++}>{m[3]}</em>);
           }
@@ -125,16 +183,25 @@ function GroundingBadge({ g }: { g: GroundingClaim }) {
   );
 }
 
-function AiMessage({ msg }: { msg: Message }) {
+function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegenerate: (id: string) => void; canRegenerate: boolean }) {
   const [open, setOpen] = useState(false);
   const [groundingOpen, setGroundingOpen] = useState(false);
+  const isEmptyStreaming = !!msg.streaming && msg.content.length === 0;
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       style={{ maxWidth: "86%", display: "flex", flexDirection: "column", gap: 9 }}>
       <div style={{ ...S.card, padding: "16px 20px" }}>
-        <RenderMarkdown text={msg.content} />
-        {msg.streaming && (
-          <span style={{ display: "inline-block", width: 7, height: 14, background: C.accent, marginLeft: 2, verticalAlign: "middle", animation: "prism-blink 1s steps(1) infinite" }} />
+        <style>{`@keyframes prism-typing { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }`}</style>
+        {isEmptyStreaming ? (
+          <TypingDots />
+        ) : (
+          <>
+            <RenderMarkdown text={msg.content} citations={msg.citations} />
+            {msg.streaming && (
+              <span style={{ display: "inline-block", width: 7, height: 14, background: C.accent, marginLeft: 2, verticalAlign: "middle", animation: "prism-blink 1s steps(1) infinite" }} />
+            )}
+          </>
         )}
         {msg.confidence !== undefined && (
           <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 9 }}>
@@ -210,6 +277,23 @@ function AiMessage({ msg }: { msg: Message }) {
           </AnimatePresence>
         </div>
       )}
+
+      {!msg.streaming && msg.query && (
+        <button
+          onClick={() => onRegenerate(msg.id)}
+          disabled={!canRegenerate}
+          style={{
+            alignSelf: "flex-start",
+            display: "flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 600, color: canRegenerate ? C.textSec : C.textMuted,
+            background: "transparent", border: `1px solid ${C.border}`,
+            borderRadius: 8, padding: "6px 12px",
+            cursor: canRegenerate ? "pointer" : "default", fontFamily: "inherit",
+          }}
+        >
+          <RefreshCw size={12} /> Regenerate
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -218,29 +302,36 @@ export default function WorkspacePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input,    setInput]    = useState("");
   const [error,    setError]    = useState("");
+  const [lastQuery, setLastQuery] = useState<string | null>(null);
   const [settings, setSettings] = useState({ model: "llama-3.3-70b-versatile", topK: 5 });
+  const [hydrated, setHydrated] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const generateMutation = useGenerate();
+  const { data: documents, isLoading: documentsLoading } = useDocuments();
 
-  useEffect(() => { setSettings(getSettings()); }, []);
+  useEffect(() => {
+    setSettings(getSettings());
+    setMessages(loadConversation());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveConversation(messages);
+  }, [messages, hydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, generateMutation.isPending]);
 
-  const send = () => {
-    if (!input.trim() || generateMutation.isPending) return;
-    const q = input.trim();
-    setInput(""); setError("");
-    setMessages(m => [...m, { id: Date.now().toString(), role: "user", content: q }]);
+  const runGeneration = useCallback((query: string, assistantId: string) => {
     const t0 = Date.now();
-
-    const assistantId = Date.now().toString() + "r";
-    setMessages(m => [...m, { id: assistantId, role: "assistant", content: "", streaming: true }]);
+    setError("");
+    setLastQuery(query);
 
     generateMutation.mutate(
       {
-        query: q,
+        query,
         top_k: settings.topK,
         model: settings.model,
         onEvent: (event, data) => {
@@ -273,12 +364,70 @@ export default function WorkspacePage() {
       },
       {
         onError: (e: Error) => {
-          setMessages(m => m.filter(msg => msg.id !== assistantId));
+          setMessages(m => m.map(msg => msg.id === assistantId ? {
+            ...msg,
+            streaming: false,
+            errored: true,
+          } : msg));
           setError(e.message || "Failed to fetch. Make sure the backend is running on port 8000.");
         },
       }
     );
+  }, [generateMutation, settings.model, settings.topK]);
+
+  const send = () => {
+    if (!input.trim() || generateMutation.isPending) return;
+    const q = input.trim();
+    setInput(""); setError("");
+    setMessages(m => [...m, { id: Date.now().toString(), role: "user", content: q }]);
+
+    const assistantId = Date.now().toString() + "r";
+    setMessages(m => [...m, { id: assistantId, role: "assistant", content: "", streaming: true, query: q }]);
+
+    runGeneration(q, assistantId);
   };
+
+  const regenerate = (assistantId: string) => {
+    if (generateMutation.isPending) return;
+    const target = messages.find(m => m.id === assistantId);
+    if (!target || !target.query) return;
+    setMessages(m => m.map(msg => msg.id === assistantId ? {
+      ...msg,
+      content: "",
+      citations: undefined,
+      confidence: undefined,
+      grounding: undefined,
+      latency: undefined,
+      streaming: true,
+      errored: false,
+    } : msg));
+    runGeneration(target.query, assistantId);
+  };
+
+  const retryLast = () => {
+    if (!lastQuery || generateMutation.isPending) return;
+    const failing = [...messages].reverse().find(m => m.role === "assistant" && m.errored);
+    if (failing) {
+      regenerate(failing.id);
+      return;
+    }
+    setError("");
+    setMessages(m => [...m, { id: Date.now().toString(), role: "user", content: lastQuery }]);
+    const assistantId = Date.now().toString() + "r";
+    setMessages(m => [...m, { id: assistantId, role: "assistant", content: "", streaming: true, query: lastQuery }]);
+    runGeneration(lastQuery, assistantId);
+  };
+
+  const newConversation = () => {
+    if (generateMutation.isPending) return;
+    setMessages([]);
+    setInput("");
+    setError("");
+    setLastQuery(null);
+    saveConversation([]);
+  };
+
+  const noDocuments = !documentsLoading && Array.isArray(documents) && documents.length === 0;
 
   return (
     <>
@@ -295,6 +444,13 @@ export default function WorkspacePage() {
               <div style={{ fontSize: 12, color: C.textMuted }}>
                 Using <strong style={{ color: C.text }}>{MODEL_NAMES[settings.model] || settings.model}</strong> · Top-{settings.topK}
               </div>
+              <button
+                onClick={newConversation}
+                disabled={messages.length === 0 || generateMutation.isPending}
+                style={{ ...S.btnSecondary, padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 5, cursor: messages.length === 0 ? "default" : "pointer", opacity: messages.length === 0 ? 0.5 : 1 }}
+              >
+                <MessageSquarePlus size={13} /> New conversation
+              </button>
               <Link href="/settings" style={{ textDecoration: "none" }}>
                 <button style={{ ...S.btnSecondary, padding: "6px 12px", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
                   <Settings size={13} /> Settings
@@ -305,7 +461,22 @@ export default function WorkspacePage() {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "26px 36px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {messages.length === 0 && (
+          {messages.length === 0 && noDocuments && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", marginTop: 60 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <Inbox size={22} color={C.textMuted} />
+              </div>
+              <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 24, color: C.text, marginBottom: 7 }}>No documents ingested yet</div>
+              <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 22px" }}>
+                Prism needs at least one document to ground its answers. Ingest a paper, URL, or note to get started.
+              </p>
+              <Link href="/ingest" style={{ textDecoration: "none" }}>
+                <button style={{ ...S.btnPrimary }}>Go to Ingest</button>
+              </Link>
+            </motion.div>
+          )}
+
+          {messages.length === 0 && !noDocuments && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", marginTop: 60 }}>
               <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                 <BookOpen size={22} color={C.textMuted} />
@@ -336,7 +507,7 @@ export default function WorkspacePage() {
                 }}>
                   {msg.content}
                 </motion.div>
-              ) : <AiMessage msg={msg} />}
+              ) : <AiMessage msg={msg} onRegenerate={regenerate} canRegenerate={!generateMutation.isPending} />}
             </div>
           ))}
 
@@ -344,6 +515,18 @@ export default function WorkspacePage() {
             <div style={{ padding: "11px 15px", borderRadius: 10, background: C.redBg, border: `1px solid rgba(220,38,38,0.2)`, display: "flex", alignItems: "center", gap: 9, alignSelf: "flex-start" }}>
               <AlertTriangle size={15} color={C.red} />
               <span style={{ fontSize: 13, color: C.red }}>{error}</span>
+              <button
+                onClick={retryLast}
+                disabled={generateMutation.isPending}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: 12, fontWeight: 700, color: C.red,
+                  background: "rgba(220,38,38,0.1)", border: "none",
+                  borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                <RotateCcw size={12} /> Retry
+              </button>
             </div>
           )}
           <div ref={bottomRef} />
