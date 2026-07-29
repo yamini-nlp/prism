@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "@/components/Sidebar";
 import { S, C } from "@/lib/styles";
-import { apiUrl, buildHeaders } from "@/lib/api";
+import { useGenerate } from "@/lib/queries/generations";
 import { Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import Link from "next/link";
 
@@ -30,7 +29,6 @@ function logQuery(confidence: number, latency: number) {
     log.push({ confidence, latency, ts: Date.now() });
     localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-200)));
   } catch {
-    /* ignore malformed log entries */
   }
 }
 
@@ -46,21 +44,6 @@ const SUGGESTIONS = [
   "What limitations does the study acknowledge?",
   "What are the key contributions?",
 ];
-
-function parseSSEEvent(raw: string): { event: string; data: string } | null {
-  const lines = raw.split("\n");
-  let event = "message";
-  const dataLines: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("event:")) {
-      event = line.slice(6).trim();
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5).trim());
-    }
-  }
-  if (dataLines.length === 0) return null;
-  return { event, data: dataLines.join("\n") };
-}
 
 function RenderMarkdown({ text }: { text: string }) {
   const lines = text.split("\n");
@@ -234,67 +217,45 @@ function AiMessage({ msg }: { msg: Message }) {
 export default function WorkspacePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input,    setInput]    = useState("");
-  const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [settings, setSettings] = useState({ model: "llama-3.3-70b-versatile", topK: 5 });
   const bottomRef = useRef<HTMLDivElement>(null);
+  const generateMutation = useGenerate();
 
   useEffect(() => { setSettings(getSettings()); }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, generateMutation.isPending]);
 
-  const send = async () => {
-    if (!input.trim() || loading) return;
+  const send = () => {
+    if (!input.trim() || generateMutation.isPending) return;
     const q = input.trim();
     setInput(""); setError("");
     setMessages(m => [...m, { id: Date.now().toString(), role: "user", content: q }]);
-    setLoading(true);
     const t0 = Date.now();
 
     const assistantId = Date.now().toString() + "r";
     setMessages(m => [...m, { id: assistantId, role: "assistant", content: "", streaming: true }]);
 
-    try {
-      const res = await fetch(apiUrl("/generate/"), {
-        method: "POST",
-        headers: buildHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ query: q, top_k: settings.topK, model: settings.model }),
-      });
-      if (!res.ok || !res.body) throw new Error(`Server error ${res.status}`);
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let sepIndex;
-        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-          const rawEvent = buffer.slice(0, sepIndex);
-          buffer = buffer.slice(sepIndex + 2);
-          const parsed = parseSSEEvent(rawEvent);
-          if (!parsed) continue;
-
-          let data: any;
-          try { data = JSON.parse(parsed.data); } catch { continue; }
-
-          if (parsed.event === "retrieval") {
+    generateMutation.mutate(
+      {
+        query: q,
+        top_k: settings.topK,
+        model: settings.model,
+        onEvent: (event, data) => {
+          if (event === "retrieval") {
             setMessages(m => m.map(msg => msg.id === assistantId ? {
               ...msg,
               citations: data.citations,
               confidence: data.confidence_score,
             } : msg));
-          } else if (parsed.event === "token") {
+          } else if (event === "token") {
             setMessages(m => m.map(msg => msg.id === assistantId ? {
               ...msg,
               content: msg.content + (data.token || ""),
             } : msg));
-          } else if (parsed.event === "done") {
+          } else if (event === "done") {
             const latency = (Date.now() - t0) / 1000;
             const conf = data.confidence_score ?? 0;
             logQuery(conf, latency);
@@ -308,21 +269,21 @@ export default function WorkspacePage() {
               streaming: false,
             } : msg));
           }
-        }
+        },
+      },
+      {
+        onError: (e: Error) => {
+          setMessages(m => m.filter(msg => msg.id !== assistantId));
+          setError(e.message || "Failed to fetch. Make sure the backend is running on port 8000.");
+        },
       }
-    } catch (e: any) {
-      setMessages(m => m.filter(msg => msg.id !== assistantId));
-      setError(e.message || "Failed to fetch. Make sure the backend is running on port 8000.");
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg }}>
+    <>
       <style>{`@keyframes prism-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }`}</style>
-      <Sidebar />
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", maxHeight: "100vh", overflow: "hidden" }}>
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden", background: C.bg }}>
 
         <div style={{ padding: "20px 36px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -407,19 +368,19 @@ export default function WorkspacePage() {
               rows={1}
             />
             <motion.button
-              whileHover={{ scale: input.trim() && !loading ? 1.07 : 1 }}
+              whileHover={{ scale: input.trim() && !generateMutation.isPending ? 1.07 : 1 }}
               whileTap={{ scale: 0.93 }}
               onClick={send}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || generateMutation.isPending}
               style={{
                 width: 48, height: 48, borderRadius: 11, flexShrink: 0,
-                background: input.trim() && !loading ? "#111110" : "rgba(0,0,0,0.10)",
+                background: input.trim() && !generateMutation.isPending ? "#111110" : "rgba(0,0,0,0.10)",
                 border: "none", display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: input.trim() && !loading ? "pointer" : "default",
+                cursor: input.trim() && !generateMutation.isPending ? "pointer" : "default",
                 transition: "background 0.18s",
               }}
             >
-              {loading ? <Loader2 size={18} color="#ffffff" className="animate-spin" /> : <Send size={18} color={input.trim() ? "#ffffff" : "#9a9590"} />}
+              {generateMutation.isPending ? <Loader2 size={18} color="#ffffff" className="animate-spin" /> : <Send size={18} color={input.trim() ? "#ffffff" : "#9a9590"} />}
             </motion.button>
           </div>
           <div style={{ marginTop: 7, fontSize: 11, color: "#9a9590" }}>
@@ -427,6 +388,6 @@ export default function WorkspacePage() {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 }
