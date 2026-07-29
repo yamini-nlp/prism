@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
 import { ArrowRight, BookOpen, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
 
@@ -63,10 +62,7 @@ const sections = [
 
 export default function PaperSummaryPage() {
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-base)" }}>
-      <Sidebar />
-
-      <main style={{ flex: 1, padding: "40px 48px", overflowY: "auto", maxWidth: 900 }}>
+    <main style={{ flex: 1, padding: "40px 48px", overflowY: "auto", maxWidth: 900, background: "var(--bg-base)" }}>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="tag tag-indigo" style={{ marginBottom: 16 }}>
             Paper Summary
@@ -192,7 +188,6 @@ export default function PaperSummaryPage() {
             </Link>
           </div>
         </motion.div>
-      </main>
-    </div>
+    </main>
   );
 }

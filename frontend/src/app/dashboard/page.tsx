@@ -1,133 +1,234 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { animate, motion } from "framer-motion";
 import Link from "next/link";
-import Sidebar from "@/components/Sidebar";
+import {
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, LineChart, Line,
+} from "recharts";
 import { S, C } from "@/lib/styles";
-import { ArrowRight, FileText, MessageSquare, Clock, TrendingUp, Plus, RefreshCw } from "lucide-react";
+import Skeleton from "@/components/ui/Skeleton";
+import { useDocuments } from "@/lib/queries/documents";
+import { useEvalReport } from "@/lib/queries/generations";
+import { useAnalyticsSummary } from "@/lib/queries/analytics";
+import {
+  FileText, MessageSquare, ShieldCheck, Loader2,
+  Plus, RefreshCw, AlertTriangle, Gauge, Activity,
+} from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const STORAGE_KEY = "prism_query_log";
-
-type QueryLog = { confidence: number; latency: number; ts: number }[];
-
-function getQueryLog(): QueryLog {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-  catch { return []; }
+function CountUp({ value, decimals = 0, suffix = "" }: { value: number; decimals?: number; suffix?: string }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const controls = animate(0, value, {
+      duration: 0.9,
+      ease: "easeOut",
+      onUpdate: (v) => setDisplay(v),
+    });
+    return () => controls.stop();
+  }, [value]);
+  return <>{display.toFixed(decimals)}{suffix}</>;
 }
 
-const quickLinks = [
-  { href: "/ingest",       label: "Ingest a document",  desc: "Upload PDF, DOCX, or paste text",   color: "#5b5ef4", tag: "Start here" },
-  { href: "/workspace",    label: "Ask a question",      desc: "Query your research library",        color: "#3b82f6", tag: "Core" },
-  { href: "/verification", label: "Verify an answer",    desc: "Check for hallucinations",           color: "#3d9970", tag: "Safety" },
-  { href: "/evaluation",   label: "View evaluation",     desc: "Metrics and system performance",     color: "#d4622a", tag: "Analytics" },
-];
+function cumulative(points: { date: string; count: number }[]) {
+  let running = 0;
+  return points.map((p) => {
+    running += p.count;
+    return { date: p.date, total: running };
+  });
+}
+
+function formatDateLabel(date: string) {
+  const d = new Date(date + "T00:00:00");
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function parseEvalRows(md: string) {
+  const rows: { index: string; supportedRate: number }[] = [];
+  for (const line of md.split("\n")) {
+    if (!line.trim().startsWith("|")) continue;
+    const cells = line.split("|").map((c) => c.trim()).filter((_, i, arr) => i !== 0 && i !== arr.length - 1);
+    if (cells.length !== 9) continue;
+    if (!/^\d+$/.test(cells[0])) continue;
+    const rate = parseFloat(cells[8]);
+    if (Number.isNaN(rate)) continue;
+    rows.push({ index: cells[0], supportedRate: rate });
+  }
+  return rows;
+}
+
+function parseEvalGroundedness(md: string): number | null {
+  const match = md.match(/\*\*Groundedness rate\*\*:\s*\d+\/\d+ claims supported\s*=\s*([\d.]+)%/);
+  return match ? parseFloat(match[1]) : null;
+}
+
+function ChartCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ ...S.card, padding: 22 }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{title}</div>
+        {hint && <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>{hint}</div>}
+      </div>
+      <div style={{ width: "100%", height: 220 }}>{children}</div>
+    </div>
+  );
+}
+
+function ChartEmpty({ label }: { label: string }) {
+  return (
+    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: C.textMuted, fontSize: 12.5 }}>
+      {label}
+    </div>
+  );
+}
+
+const tooltipStyle = {
+  background: "#ffffff",
+  border: `1px solid ${C.border}`,
+  borderRadius: 10,
+  fontSize: 12,
+  color: C.text,
+  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+};
 
 export default function DashboardPage() {
-  const [docCount,    setDocCount]    = useState<number | null>(null);
-  const [queryCount,  setQueryCount]  = useState(0);
-  const [avgConf,     setAvgConf]     = useState<number | null>(null);
-  const [avgLatency,  setAvgLatency]  = useState<number | null>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
+  const documentsQuery = useDocuments();
+  const analyticsQuery = useAnalyticsSummary();
+  const evalQuery = useEvalReport();
 
-  async function loadStats() {
-    setRefreshing(true);
-    try {
-      const res = await fetch(`${API}/retrieve/?query=a&top_k=1`);
-      if (res.ok) {
-        const data = await res.json();
-        setDocCount(data.count > 0 ? data.count : 0);
-      }
-    } catch {
-      setDocCount(0);
-    }
-    const log = getQueryLog();
-    setQueryCount(log.length);
-    if (log.length > 0) {
-      setAvgConf(Math.round(log.reduce((s, q) => s + q.confidence, 0) / log.length));
-      setAvgLatency(+(log.reduce((s, q) => s + q.latency, 0) / log.length).toFixed(2));
-    } else {
-      setAvgConf(null);
-      setAvgLatency(null);
-    }
+  const isLoading = documentsQuery.isLoading || analyticsQuery.isLoading;
+  const isRefetching = documentsQuery.isRefetching || analyticsQuery.isRefetching;
+  const isError = documentsQuery.isError || analyticsQuery.isError;
 
-    setLoading(false);
-    setRefreshing(false);
-  }
+  const analytics = analyticsQuery.data;
 
-  useEffect(() => { loadStats(); }, []);
+  const documentsSeries = useMemo(
+    () => (analytics ? cumulative(analytics.documents.over_time).map((p) => ({ label: formatDateLabel(p.date), total: p.total })) : []),
+    [analytics]
+  );
 
-  const stats = [
+  const generationSeries = useMemo(
+    () => (analytics ? analytics.generations.over_time.map((p) => ({ label: formatDateLabel(p.date), count: p.count })) : []),
+    [analytics]
+  );
+
+  const latencySeries = useMemo(() => {
+    if (!analytics) return [];
+    return analytics.requests.by_route
+      .filter((r) => r.request_count > 0)
+      .map((r) => ({
+        label: r.route.replace("/api/v1", "").replace(/\/$/, "") || r.route,
+        p50: r.p50_latency_ms,
+        p95: r.p95_latency_ms,
+      }));
+  }, [analytics]);
+
+  const liveVerificationSeries = useMemo(
+    () => (analytics ? analytics.verifications.over_time.map((p) => ({ label: formatDateLabel(p.date), count: p.count })) : []),
+    [analytics]
+  );
+
+  const evalRows = useMemo(() => (evalQuery.data ? parseEvalRows(evalQuery.data.content) : []), [evalQuery.data]);
+  const evalGroundedness = useMemo(() => (evalQuery.data ? parseEvalGroundedness(evalQuery.data.content) : null), [evalQuery.data]);
+
+  const hasLiveVerifications = (analytics?.verifications.total ?? 0) > 0;
+  const hasDocuments = (analytics?.documents.total ?? documentsQuery.data?.length ?? 0) > 0;
+  const hasGenerations = (analytics?.generations.total ?? 0) > 0;
+  const showEmptyState = !isLoading && !isError && !hasDocuments && !hasGenerations;
+
+  const statCards = [
     {
-      label: "Documents Ingested",
-      value: loading ? "…" : docCount === null ? "0" : String(docCount),
+      label: "Total Documents",
+      value: analytics?.documents.total ?? 0,
+      decimals: 0,
+      suffix: "",
       icon: FileText,
-      hint: docCount === 0 || docCount === null ? "Add documents in Ingest" : `${docCount} chunk${docCount !== 1 ? "s" : ""} indexed`,
       color: "#5b5ef4",
     },
     {
-      label: "Queries Run",
-      value: String(queryCount),
+      label: "Total Generations",
+      value: analytics?.generations.total ?? 0,
+      decimals: 0,
+      suffix: "",
       icon: MessageSquare,
-      hint: queryCount === 0 ? "Ask questions in Workspace" : `${queryCount} total`,
       color: "#3b82f6",
     },
     {
-      label: "Avg. Confidence",
-      value: avgConf !== null ? `${avgConf}%` : "—",
-      icon: TrendingUp,
-      hint: avgConf === null ? "Run queries to see scores" : "Based on your queries",
+      label: "Avg. Verification Confidence",
+      value: analytics?.verifications.average_grounding_score ?? evalGroundedness ?? 0,
+      decimals: 1,
+      suffix: "%",
+      icon: ShieldCheck,
       color: "#3d9970",
+      unavailable: analytics?.verifications.average_grounding_score == null && evalGroundedness == null,
     },
     {
-      label: "Avg. Latency",
-      value: avgLatency !== null ? `${avgLatency}s` : "—",
-      icon: Clock,
-      hint: avgLatency === null ? "Tracked per query" : "Per query average",
+      label: "Active Jobs",
+      value: analytics?.active_jobs ?? 0,
+      decimals: 0,
+      suffix: "",
+      icon: Gauge,
       color: "#d4622a",
     },
   ];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg }}>
-      <Sidebar />
-      <main style={{ flex: 1, padding: "40px 48px", overflowY: "auto" }}>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+    <main style={{ flex: 1, padding: "40px 48px", overflowY: "auto", background: C.bg }}>
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
 
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
-            <div>
-              <span style={{ ...S.tagIndigo, marginBottom: 12, display: "inline-block" }}>Dashboard</span>
-              <h1 style={{
-                fontFamily: "'DM Serif Display', Georgia, serif",
-                fontSize: 40, letterSpacing: "-0.022em",
-                color: C.text, lineHeight: 1.1, marginBottom: 8,
-              }}>
-                Welcome to Prism
-                <br />
-                <span style={{ fontStyle: "italic", color: C.textSec }}>your research workspace.</span>
-              </h1>
-              <p style={{ fontSize: 14, color: C.textMuted }}>
-                Start by ingesting a document, then query and verify your research.
-              </p>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
-              onClick={loadStats}
-              disabled={refreshing}
-              style={{ ...S.btnSecondary, marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <RefreshCw size={13} style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }} />
-              Refresh
-            </motion.button>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <span style={{ ...S.tagIndigo, marginBottom: 12, display: "inline-block" }}>Dashboard</span>
+            <h1 style={{ ...S.heading, fontSize: 40, marginTop: 10, marginBottom: 8 }}>
+              Welcome to Prism
+              <br />
+              <span style={{ fontStyle: "italic", color: C.textSec }}>your analytics overview.</span>
+            </h1>
+            <p style={{ fontSize: 14, color: C.textMuted }}>
+              Live metrics from your documents, generations, and verifications.
+            </p>
           </div>
+          <motion.button
+            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+            onClick={() => { documentsQuery.refetch(); analyticsQuery.refetch(); evalQuery.refetch(); }}
+            disabled={isRefetching}
+            style={{ ...S.btnSecondary, marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}
+          >
+            <RefreshCw size={13} style={{ animation: isRefetching ? "spin 1s linear infinite" : "none" }} />
+            Refresh
+          </motion.button>
+        </div>
 
-          {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 36 }}>
-            {stats.map((s, i) => (
+        {isError && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 20px", borderRadius: 12, background: C.redBg, border: "1px solid rgba(220,38,38,0.2)", marginBottom: 28 }}>
+            <AlertTriangle size={16} color={C.red} />
+            <div style={{ flex: 1, fontSize: 13.5, color: C.text }}>
+              Couldn't load your analytics. The backend may be unreachable.
+            </div>
+            <button
+              onClick={() => { documentsQuery.refetch(); analyticsQuery.refetch(); }}
+              style={{ ...S.btnSecondary, padding: "7px 14px", fontSize: 12.5 }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ marginBottom: 36 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{ ...S.card, padding: 22 }}>
+                <Skeleton className="mb-4 h-3 w-24" />
+                <Skeleton className="mb-2 h-9 w-16" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!isLoading && !isError && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" style={{ marginBottom: 36 }}>
+            {statCards.map((s, i) => (
               <motion.div key={s.label}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07 }}
@@ -139,54 +240,127 @@ export default function DashboardPage() {
                     <s.icon size={13} color={s.color} />
                   </div>
                 </div>
-                <div style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 38, color: C.text, letterSpacing: "-0.02em", marginBottom: 5 }}>
-                  {s.value}
+                <div style={{ ...S.heading, fontSize: 38, marginBottom: 5 }}>
+                  {s.unavailable ? "—" : <CountUp value={s.value} decimals={s.decimals} suffix={s.suffix} />}
                 </div>
-                <div style={{ fontSize: 11, color: C.textMuted }}>{s.hint}</div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {s.label === "Total Documents" && "Across your session"}
+                  {s.label === "Total Generations" && "Queries answered"}
+                  {s.label === "Avg. Verification Confidence" && (analytics?.verifications.average_grounding_score != null ? "From live verifications" : evalGroundedness != null ? "From offline eval report" : "Run a verification to see this")}
+                  {s.label === "Active Jobs" && "Currently processing"}
+                </div>
               </motion.div>
             ))}
           </div>
+        )}
 
-          {/* Quick actions */}
-          <h2 style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 22, color: C.text, marginBottom: 4 }}>Quick Actions</h2>
-          <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 18 }}>Jump into any part of the workflow</p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 40 }}>
-            {quickLinks.map((q, i) => (
-              <motion.div key={q.href} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.08 }}>
-                <Link href={q.href} style={{ textDecoration: "none" }}>
-                  <motion.div whileHover={{ y: -2, boxShadow: "0 6px 24px rgba(0,0,0,0.09)" }}
-                    style={{ ...S.card, padding: 22, cursor: "pointer", transition: "all 0.18s" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: q.color + "14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <ArrowRight size={16} color={q.color} />
-                      </div>
-                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: q.color, background: q.color + "12", padding: "3px 8px", borderRadius: 5 }}>{q.tag}</span>
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 5 }}>{q.label}</div>
-                    <div style={{ fontSize: 12.5, color: C.textMuted }}>{q.desc}</div>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Banner */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-            style={{ padding: "28px 32px", borderRadius: 18, background: C.text, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
-            <div>
-              <div style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 22, color: "#fff", marginBottom: 6 }}>Ready to start?</div>
-              <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.5)" }}>Ingest your first document to unlock the full Prism workflow.</div>
+        {showEmptyState && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            style={{ ...S.card, padding: "50px 32px", textAlign: "center", marginBottom: 36 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: C.bg, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <Activity size={20} color={C.textMuted} />
             </div>
+            <div style={{ ...S.heading, fontSize: 22, marginBottom: 8 }}>No activity yet</div>
+            <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 22px" }}>
+              Ingest your first document to start populating your analytics overview.
+            </p>
             <Link href="/ingest" style={{ textDecoration: "none" }}>
-              <button style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px", background: "#fff", color: C.text, border: "none", borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+              <button style={{ ...S.btnPrimary, margin: "0 auto" }}>
                 <Plus size={15} /> Ingest Document
               </button>
             </Link>
           </motion.div>
+        )}
 
-        </motion.div>
-      </main>
-    </div>
+        {!isLoading && !isError && !showEmptyState && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" style={{ marginBottom: 40 }}>
+
+            <ChartCard title="Documents Ingested Over Time" hint="Cumulative total across your session">
+              {documentsSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={documentsSeries} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="docGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#5b5ef4" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="#5b5ef4" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Area type="monotone" dataKey="total" stroke="#5b5ef4" strokeWidth={2} fill="url(#docGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : <ChartEmpty label="No documents ingested yet" />}
+            </ChartCard>
+
+            <ChartCard title="Generation Volume" hint="Queries answered per day">
+              {generationSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={generationSeries} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <ChartEmpty label="No generations run yet" />}
+            </ChartCard>
+
+            <ChartCard title="Request Latency by Route" hint="p50 / p95 latency in milliseconds since server start">
+              {latencySeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={latencySeries} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10.5, fill: C.textMuted }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="p50" fill="#3d9970" radius={[6, 6, 0, 0]} name="p50 (ms)" />
+                    <Bar dataKey="p95" fill="#d4622a" radius={[6, 6, 0, 0]} name="p95 (ms)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <ChartEmpty label="No requests recorded yet" />}
+            </ChartCard>
+
+            <ChartCard
+              title="Hallucination / Verification Pass Rate"
+              hint={hasLiveVerifications ? "Verifications run per day" : evalRows.length > 0 ? "Supported claim rate per evaluation question" : undefined}
+            >
+              {hasLiveVerifications && liveVerificationSeries.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={liveVerificationSeries} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="count" fill="#3d9970" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : evalRows.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={evalRows} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="index" tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: C.textMuted }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Line type="monotone" dataKey="supportedRate" stroke="#3d9970" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : evalQuery.isLoading ? (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: C.textMuted }}>
+                  <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Loading evaluation report…
+                </div>
+              ) : (
+                <ChartEmpty label="Run a verification or the offline eval harness to see this" />
+              )}
+            </ChartCard>
+
+          </div>
+        )}
+
+      </motion.div>
+    </main>
   );
 }

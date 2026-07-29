@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from routes import upload, ingest, retrieve, generate, summary, verify, auth as auth_routes
+from routes import upload, ingest, retrieve, generate, summary, verify, analytics, auth as auth_routes
 from core import embedder
 from core.auth import get_current_user, get_session_id
 from core.models import User
@@ -34,6 +34,7 @@ openapi_tags = [
     {"name": "verify", "description": "Claim-level grounding verification of a generated answer against context."},
     {"name": "jobs", "description": "Status polling for background ingestion jobs."},
     {"name": "documents", "description": "Listing and resetting of ingested documents for a session."},
+    {"name": "analytics", "description": "Aggregate, read-only analytics computed from existing session and operational data."},
     {"name": "operational", "description": "Unversioned operational endpoints: health, metrics, and evaluation reports."},
 ]
 
@@ -161,6 +162,7 @@ api_v1.include_router(retrieve.router, prefix="/retrieve", tags=["retrieve"])
 api_v1.include_router(generate.router, prefix="/generate", tags=["generate"])
 api_v1.include_router(summary.router,  prefix="/summary",  tags=["summary"])
 api_v1.include_router(verify.router,   prefix="/verify",   tags=["verify"])
+api_v1.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 
 
 @api_v1.get(

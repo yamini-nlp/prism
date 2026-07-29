@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "@/components/Sidebar";
 import { S, C } from "@/lib/styles";
 import { ShieldCheck, AlertTriangle, CheckCircle, XCircle, Loader2, AlertCircle, Info } from "lucide-react";
 
@@ -51,9 +50,7 @@ export default function VerificationPage() {
   const total = claims.length || 1;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg }}>
-      <Sidebar />
-      <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto" }}>
+    <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto", background: C.bg }}>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
           <span style={{ ...S.tagIndigo, marginBottom: 12 }}>Verification</span>
@@ -62,7 +59,6 @@ export default function VerificationPage() {
             Paste any AI-generated answer below. Prism will check each claim against your ingested documents.
           </p>
 
-          {/* How to use hint */}
           <div style={{
             display: "flex", alignItems: "flex-start", gap: 9,
             padding: "11px 15px", borderRadius: 10,
@@ -75,7 +71,6 @@ export default function VerificationPage() {
             </p>
           </div>
 
-          {/* Full-width input section */}
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: "block", ...S.label, marginBottom: 10 }}>
               Answer to Verify
@@ -103,7 +98,6 @@ export default function VerificationPage() {
               onBlur={e  => { (e.target as HTMLTextAreaElement).style.borderColor = "rgba(0,0,0,0.18)"; }}
             />
 
-            {/* Char count + button row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
               <span style={{ fontSize: 11, color: C.textMuted }}>
                 {answer.length} characters
@@ -124,7 +118,6 @@ export default function VerificationPage() {
             </div>
           </div>
 
-          {/* Error */}
           {error && (
             <div style={{
               padding: "12px 16px", borderRadius: 10,
@@ -136,12 +129,10 @@ export default function VerificationPage() {
             </div>
           )}
 
-          {/* Results */}
           <AnimatePresence>
             {claims.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
-                {/* Summary bar */}
                 <div style={{
                   ...S.card, padding: 24, marginBottom: 24,
                   display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 20, alignItems: "center",
@@ -171,7 +162,6 @@ export default function VerificationPage() {
                     </div>
                   ))}
 
-                  {/* Overall score */}
                   <div style={{ textAlign: "center", padding: "0 12px" }}>
                     <div style={{
                       fontFamily: "'DM Serif Display', Georgia, serif",
@@ -184,14 +174,12 @@ export default function VerificationPage() {
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 <div style={{ height: 6, borderRadius: 99, overflow: "hidden", background: "rgba(0,0,0,0.07)", display: "flex", marginBottom: 28 }}>
                   <div style={{ width: `${(g / total) * 100}%`, background: C.green, transition: "width 0.6s ease" }} />
                   <div style={{ width: `${(p / total) * 100}%`, background: C.orange, transition: "width 0.6s ease" }} />
                   <div style={{ width: `${(u / total) * 100}%`, background: C.red,    transition: "width 0.6s ease" }} />
                 </div>
 
-                {/* Claim-by-claim */}
                 <div style={{ ...S.label, marginBottom: 14 }}>Claim-by-Claim Analysis</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {claims.map((claim, i) => {
@@ -237,7 +225,6 @@ export default function VerificationPage() {
           </AnimatePresence>
 
         </motion.div>
-      </main>
-    </div>
+    </main>
   );
 }

@@ -137,6 +137,48 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   return retryResponse;
 }
 
+export interface AnalyticsSeriesPoint {
+  date: string;
+  count: number;
+}
+
+export interface AnalyticsRouteLatency {
+  route: string;
+  request_count: number;
+  error_count: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+}
+
+export interface AnalyticsSummary {
+  documents: {
+    total: number;
+    over_time: AnalyticsSeriesPoint[];
+  };
+  generations: {
+    total: number;
+    average_confidence: number | null;
+    over_time: AnalyticsSeriesPoint[];
+  };
+  verifications: {
+    total: number;
+    average_grounding_score: number | null;
+    over_time: AnalyticsSeriesPoint[];
+  };
+  active_jobs: number;
+  requests: {
+    total_requests: number;
+    average_latency_ms: number;
+    by_route: AnalyticsRouteLatency[];
+  };
+}
+
+export async function fetchAnalyticsSummary(): Promise<AnalyticsSummary> {
+  const res = await apiFetch("/analytics/summary");
+  return res.json();
+}
+
 export async function fetchDocuments(): Promise<DocumentRecord[]> {
   const res = await apiFetch("/documents/");
   return res.json();

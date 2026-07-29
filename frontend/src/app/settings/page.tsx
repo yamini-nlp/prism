@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "@/components/Sidebar";
 import { S, C } from "@/lib/styles";
 import { Cpu, Database, Sliders, CheckCircle, Save, Info } from "lucide-react";
 
@@ -70,9 +69,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg }}>
-      <Sidebar />
-      <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto" }}>
+    <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto", background: C.bg }}>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
           <span style={{ ...S.tagIndigo, marginBottom: 12 }}>Settings</span>
@@ -81,7 +78,6 @@ export default function SettingsPage() {
             Tune model selection, retrieval parameters, and chunking strategy.
           </p>
 
-          {/* Info note */}
           <div style={{
             display: "flex", alignItems: "flex-start", gap: 9,
             padding: "11px 15px", borderRadius: 10,
@@ -96,10 +92,8 @@ export default function SettingsPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }}>
 
-            {/* Left col */}
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-              {/* Model selection */}
               <div style={{ ...S.card, padding: 26 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
                   <Cpu size={17} color={C.accent} />
@@ -143,7 +137,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Vector store */}
               <div style={{ ...S.card, padding: 26 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
                   <Database size={17} color="#3b82f6" />
@@ -175,7 +168,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Right col — sliders + save */}
             <div style={{ ...S.card, padding: 26 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 22 }}>
                 <Sliders size={17} color={C.orange} />
@@ -189,7 +181,6 @@ export default function SettingsPage() {
               <Slider label="Chunk Overlap"   desc="Token overlap between adjacent chunks"          value={chunkOverlap} min={0}   max={256}  step={16}  onChange={setChunkOverlap} fmt={v=>`${v}t`} />
               <Slider label="Temperature"     desc="LLM generation randomness (0 = deterministic)" value={temperature}  min={0}   max={1}    step={0.05} onChange={setTemperature}  fmt={v=>v.toFixed(2)} />
 
-              {/* Save button */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
@@ -235,7 +226,6 @@ export default function SettingsPage() {
           </div>
 
         </motion.div>
-      </main>
-    </div>
+    </main>
   );
 }
