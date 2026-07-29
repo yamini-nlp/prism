@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import MobileDrawer from "@/components/MobileDrawer";
 import Providers from "@/app/providers";
+import ToastContainer from "@/components/ui/Toast";
 
 const dmSerif = DM_Serif_Display({
   weight: ["400"],
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
             <BackendStatus />
+            <ToastContainer />
           </Providers>
         </ThemeProvider>
       </body>

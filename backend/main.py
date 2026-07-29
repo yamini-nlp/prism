@@ -13,7 +13,7 @@ from core import embedder
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter
-from core.jobs import get_job
+from core.jobs import get_job, cancel_job
 from core.db import get_db
 from core.config import settings
 from core.security import decode_token
@@ -173,6 +173,19 @@ api_v1.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 )
 async def get_job_status(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     job = await get_job(db, job_id)
+    if job is None:
+        raise NotFoundError("Job not found", details={"job_id": job_id})
+    return job
+
+
+@api_v1.delete(
+    "/jobs/{job_id}",
+    tags=["jobs"],
+    summary="Cancel a background job",
+    description="Cancel a background ingestion job (upload, text ingest, or URL ingest) by job id if it has not already reached a terminal state.",
+)
+async def cancel_job_status(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    job = await cancel_job(db, job_id)
     if job is None:
         raise NotFoundError("Job not found", details={"job_id": job_id})
     return job

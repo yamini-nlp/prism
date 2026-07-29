@@ -79,7 +79,8 @@ export interface DocumentRecord {
 }
 
 export interface JobStatus {
-  status: "pending" | "processing" | "complete" | "failed" | string;
+  status: "pending" | "processing" | "complete" | "failed" | "cancelled" | string;
+  stage?: "uploading" | "parsing" | "chunking" | "embedding" | "ready" | "error" | "cancelled" | string;
   result?: any;
   error?: string | null;
 }
@@ -193,6 +194,89 @@ export async function uploadFile(file: File): Promise<UploadJobResponse> {
   const fd = new FormData();
   fd.append("file", file);
   const res = await apiFetch("/upload/", { method: "POST", headers: buildHeaders(), body: fd });
+  return res.json();
+}
+
+function xhrUploadOnce(
+  file: File,
+  headers: Record<string, string>,
+  onProgress: (pct: number) => void,
+  signal?: AbortSignal
+): Promise<{ status: number; body: any; requestId: string | null }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", apiUrl("/upload/"), true);
+    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      let body: any = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {}
+      resolve({ status: xhr.status, body, requestId: xhr.getResponseHeader("X-Request-ID") });
+    };
+
+    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.onabort = () => reject(new ApiError(0, "cancelled", "Upload cancelled.", null, null));
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+        return;
+      }
+      signal.addEventListener("abort", () => xhr.abort());
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    xhr.send(fd);
+  });
+}
+
+export async function uploadFileWithProgress(
+  file: File,
+  onProgress: (pct: number) => void,
+  signal?: AbortSignal
+): Promise<UploadJobResponse> {
+  const first = await xhrUploadOnce(file, buildHeaders(), onProgress, signal);
+
+  if (first.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      onProgress(0);
+      const retry = await xhrUploadOnce(file, buildHeaders(), onProgress, signal);
+      if (retry.status < 200 || retry.status >= 300) {
+        throw apiErrorFromBody(retry.status, retry.body, retry.requestId);
+      }
+      return retry.body;
+    }
+  }
+
+  if (first.status < 200 || first.status >= 300) {
+    throw apiErrorFromBody(first.status, first.body, first.requestId);
+  }
+  return first.body;
+}
+
+function apiErrorFromBody(status: number, body: any, requestId: string | null): ApiError {
+  const errorInfo = body && body.error ? body.error : null;
+  return new ApiError(
+    status,
+    errorInfo?.code || "unknown_error",
+    errorInfo?.message || `Request failed with status ${status}`,
+    errorInfo?.request_id || requestId,
+    errorInfo?.details ?? null
+  );
+}
+
+export async function cancelJob(jobId: string): Promise<JobStatus> {
+  const res = await apiFetch(`/jobs/${jobId}`, { method: "DELETE" });
   return res.json();
 }
 

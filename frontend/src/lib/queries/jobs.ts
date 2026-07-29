@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchJobStatus, type JobStatus } from "@/lib/api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { fetchJobStatus, cancelJob, type JobStatus } from "@/lib/api";
 
 export function jobQueryKey(jobId: string | null) {
   return ["job", jobId] as const;
@@ -16,5 +16,11 @@ export function useJob(jobId: string | null, options?: { enabled?: boolean }) {
       return 1200;
     },
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useCancelJob() {
+  return useMutation<JobStatus, Error, string>({
+    mutationFn: (jobId: string) => cancelJob(jobId),
   });
 }

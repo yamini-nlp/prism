@@ -6,7 +6,7 @@ from core.embedder import chunk_text, embed_and_store
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter
-from core.jobs import create_job, set_job_result, set_job_error
+from core.jobs import create_job, set_job_result, set_job_error, set_job_stage, is_job_cancelled
 from core.db import get_db, AsyncSessionLocal
 from core.errors import ValidationAppError
 from core import schemas
@@ -16,14 +16,33 @@ router = APIRouter()
 async def process_text(job_id: str, text: str, source: str, session_id: str):
     async with AsyncSessionLocal() as db:
         try:
-            chunks = chunk_text(text)
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "parsing")
             title = text.strip()[:60]
+
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "chunking")
+            chunks = chunk_text(text)
+
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "embedding")
             count = await embed_and_store(db, chunks, source=source, session_id=session_id, source_type="text", title=title)
+
+            if await is_job_cancelled(db, job_id):
+                return
+
             await set_job_result(db, job_id, {
                 "status": "success",
                 "source": source,
                 "chunks_created": count,
                 "characters": len(text),
+                "preview": text[:500] + ("..." if len(text) > 500 else ""),
             })
         except Exception as e:
             await set_job_error(db, job_id, str(e))
@@ -31,6 +50,11 @@ async def process_text(job_id: str, text: str, source: str, session_id: str):
 async def process_url(job_id: str, url: str, session_id: str):
     async with AsyncSessionLocal() as db:
         try:
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "parsing")
+
             with httpx.Client(timeout=15.0, follow_redirects=True) as client:
                 response = client.get(url, headers={"User-Agent": "Mozilla/5.0"})
                 response.raise_for_status()
@@ -38,16 +62,32 @@ async def process_url(job_id: str, url: str, session_id: str):
             for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
                 tag.decompose()
             text = soup.get_text(separator="\n", strip=True)
+
+            if await is_job_cancelled(db, job_id):
+                return
+
             if len(text.strip()) < 100:
                 await set_job_error(db, job_id, "Could not extract sufficient text from URL.")
                 return
+
+            await set_job_stage(db, job_id, "chunking")
             chunks = chunk_text(text)
+
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "embedding")
             count = await embed_and_store(db, chunks, source=url, session_id=session_id, source_type="url", title=url[:60])
+
+            if await is_job_cancelled(db, job_id):
+                return
+
             await set_job_result(db, job_id, {
                 "status": "success",
                 "source": url,
                 "chunks_created": count,
                 "characters_extracted": len(text),
+                "preview": text[:500] + ("..." if len(text) > 500 else ""),
             })
         except Exception as e:
             await set_job_error(db, job_id, str(e))

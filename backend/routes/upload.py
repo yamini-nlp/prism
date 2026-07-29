@@ -10,7 +10,7 @@ from core.embedder import chunk_text, embed_and_store
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter, UPLOAD_RATE_LIMIT
-from core.jobs import create_job, set_job_result, set_job_error
+from core.jobs import create_job, set_job_result, set_job_error, set_job_stage, is_job_cancelled
 from core.db import get_db, AsyncSessionLocal
 from core.errors import ValidationAppError
 from core.config import settings
@@ -117,6 +117,11 @@ def extract_docx(path: str) -> str:
 async def process_upload(job_id: str, content: bytes, filename: str, ext: str, session_id: str):
     async with AsyncSessionLocal() as db:
         try:
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "parsing")
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
                 tmp.write(content)
                 tmp_path = tmp.name
@@ -133,12 +138,24 @@ async def process_upload(job_id: str, content: bytes, filename: str, ext: str, s
             finally:
                 os.unlink(tmp_path)
 
+            if await is_job_cancelled(db, job_id):
+                return
+
             if not text or len(text) < 50:
                 await set_job_error(db, job_id, "Could not extract meaningful text from file.")
                 return
 
+            await set_job_stage(db, job_id, "chunking")
             chunks = chunk_text(text)
+
+            if await is_job_cancelled(db, job_id):
+                return
+
+            await set_job_stage(db, job_id, "embedding")
             count = await embed_and_store(db, chunks, source=filename or "Uploaded Document", session_id=session_id)
+
+            if await is_job_cancelled(db, job_id):
+                return
 
             await set_job_result(db, job_id, {
                 "status": "success",
