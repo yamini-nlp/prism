@@ -65,7 +65,10 @@ class Document(Base):
     source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="text")
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     chunk_start_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ready")
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     session: Mapped["Session"] = relationship(back_populates="documents")
     chunks: Mapped[list["DocumentChunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")

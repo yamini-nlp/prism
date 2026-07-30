@@ -76,6 +76,32 @@ export interface DocumentRecord {
   chunk_count: number;
   chunk_start_index: number;
   ingested_at: string;
+  status: string;
+  size_bytes: number;
+  updated_at: string;
+}
+
+export type DocumentSortBy = "title" | "ingested_at" | "updated_at" | "chunk_count" | "size_bytes";
+export type SortDir = "asc" | "desc";
+
+export interface DocumentListParams {
+  q?: string;
+  source_type?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  sort_by?: DocumentSortBy;
+  sort_dir?: SortDir;
+  limit?: number;
+  offset?: number;
+  cursor?: string;
+}
+
+export interface DocumentListResult {
+  items: DocumentRecord[];
+  total: number;
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 export interface JobStatus {
@@ -182,6 +208,38 @@ export async function fetchAnalyticsSummary(): Promise<AnalyticsSummary> {
 
 export async function fetchDocuments(): Promise<DocumentRecord[]> {
   const res = await apiFetch("/documents/");
+  return res.json();
+}
+
+export async function fetchDocumentsList(params: DocumentListParams): Promise<DocumentListResult> {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.source_type) search.set("source_type", params.source_type);
+  if (params.status) search.set("status", params.status);
+  if (params.date_from) search.set("date_from", params.date_from);
+  if (params.date_to) search.set("date_to", params.date_to);
+  if (params.sort_by) search.set("sort_by", params.sort_by);
+  if (params.sort_dir) search.set("sort_dir", params.sort_dir);
+  if (typeof params.limit === "number") search.set("limit", String(params.limit));
+  if (typeof params.offset === "number") search.set("offset", String(params.offset));
+  if (params.cursor) search.set("cursor", params.cursor);
+
+  const qs = search.toString();
+  const res = await apiFetch(`/documents/${qs ? `?${qs}` : ""}`);
+  const items: DocumentRecord[] = await res.json();
+  const totalHeader = res.headers.get("X-Total-Count");
+  const hasMoreHeader = res.headers.get("X-Has-More");
+  const nextCursor = res.headers.get("X-Next-Cursor");
+  return {
+    items,
+    total: totalHeader !== null ? Number(totalHeader) : items.length,
+    hasMore: hasMoreHeader === "true",
+    nextCursor,
+  };
+}
+
+export async function deleteDocument(documentId: string): Promise<{ status: string; document_id: string }> {
+  const res = await apiFetch(`/documents/${documentId}`, { method: "DELETE" });
   return res.json();
 }
 

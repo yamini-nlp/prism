@@ -3,7 +3,8 @@ import uuid
 import asyncio
 from pathlib import Path
 from datetime import datetime
-from fastapi import APIRouter, FastAPI, Depends, Request
+from typing import Optional
+from fastapi import APIRouter, FastAPI, Depends, Request, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -195,10 +196,62 @@ async def cancel_job_status(job_id: str, current_user: User = Depends(get_curren
     "/documents/",
     tags=["documents"],
     summary="List ingested documents",
-    description="List all documents ingested for the current session, ordered by ingestion time.",
+    description="List documents ingested for the current session, ordered by ingestion time. Supports full-text search, filtering, sorting, and pagination via query parameters; with no query parameters supplied it returns the full unfiltered list as before.",
 )
-async def get_documents(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    return await embedder.get_documents(db, get_session_id(current_user))
+async def get_documents(
+    response: Response,
+    q: Optional[str] = Query(None, description="Full-text search over document title and content"),
+    source_type: Optional[str] = Query(None, description="Filter by document source/type"),
+    status: Optional[str] = Query(None, description="Filter by document status"),
+    date_from: Optional[datetime] = Query(None, description="Only include documents ingested on or after this timestamp"),
+    date_to: Optional[datetime] = Query(None, description="Only include documents ingested on or before this timestamp"),
+    sort_by: str = Query("ingested_at", description="Field to sort by: title, ingested_at, updated_at, chunk_count, size_bytes"),
+    sort_dir: str = Query("asc", description="Sort direction: asc or desc"),
+    limit: Optional[int] = Query(None, ge=1, le=200, description="Maximum number of documents to return"),
+    offset: int = Query(0, ge=0, description="Number of documents to skip"),
+    cursor: Optional[str] = Query(None, description="Opaque pagination cursor, alternative to offset"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    session_id = get_session_id(current_user)
+    has_query_params = any(
+        v is not None
+        for v in (q, source_type, status, date_from, date_to, limit, cursor)
+    ) or sort_by != "ingested_at" or sort_dir != "asc" or offset != 0
+
+    if not has_query_params:
+        return await embedder.get_documents(db, session_id)
+
+    result = await embedder.list_documents(
+        db,
+        session_id,
+        q=q,
+        source_type=source_type,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        limit=limit,
+        offset=offset,
+        cursor=cursor,
+    )
+    response.headers["X-Total-Count"] = str(result["total"])
+    response.headers["X-Has-More"] = "true" if result["has_more"] else "false"
+    if result["next_cursor"]:
+        response.headers["X-Next-Cursor"] = result["next_cursor"]
+    return result["items"]
+
+
+@api_v1.delete(
+    "/documents/{document_id}",
+    tags=["documents"],
+    summary="Delete a single document",
+    description="Delete one ingested document and its chunks, scoped to the current session, without affecting other documents.",
+)
+async def delete_document(document_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await embedder.delete_document(db, get_session_id(current_user), document_id)
+    return {"status": "deleted", "document_id": document_id}
 
 
 @api_v1.delete(

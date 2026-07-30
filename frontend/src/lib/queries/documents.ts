@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchDocuments, uploadFile, ingestUrl, ingestText, fetchSummary, type DocumentRecord, type UploadJobResponse, type SummaryResult } from "@/lib/api";
+import {
+  fetchDocuments, fetchDocumentsList, deleteDocument, uploadFile, ingestUrl, ingestText, fetchSummary,
+  type DocumentRecord, type DocumentListParams, type DocumentListResult, type UploadJobResponse, type SummaryResult,
+} from "@/lib/api";
 
 export const documentsQueryKey = ["documents"] as const;
 
@@ -7,6 +10,29 @@ export function useDocuments() {
   return useQuery<DocumentRecord[]>({
     queryKey: documentsQueryKey,
     queryFn: fetchDocuments,
+  });
+}
+
+export function documentsListQueryKey(params: DocumentListParams) {
+  return [...documentsQueryKey, "list", params] as const;
+}
+
+export function useDocumentsList(params: DocumentListParams, options?: { enabled?: boolean }) {
+  return useQuery<DocumentListResult>({
+    queryKey: documentsListQueryKey(params),
+    queryFn: () => fetchDocumentsList(params),
+    enabled: options?.enabled ?? true,
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+export function useDeleteDocument() {
+  const queryClient = useQueryClient();
+  return useMutation<{ status: string; document_id: string }, Error, string>({
+    mutationFn: (documentId: string) => deleteDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: documentsQueryKey });
+    },
   });
 }
 

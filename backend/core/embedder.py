@@ -1,8 +1,11 @@
+import base64
 import hashlib
 import numpy as np
 import re
 import threading
-from sqlalchemy import select, func, delete
+import uuid
+from datetime import datetime
+from sqlalchemy import select, func, delete, or_, and_, exists, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from rank_bm25 import BM25Okapi
@@ -11,6 +14,15 @@ from core.models import Document, DocumentChunk
 from core.db import ensure_session, validate_session_id
 from core.cache import get_cache, set_cache, delete_cache_prefix
 from core.metrics import record_cache_hit, record_cache_miss
+from core.errors import NotFoundError, ValidationAppError
+
+DOCUMENT_SORT_FIELDS = {
+    "title": Document.title,
+    "ingested_at": Document.ingested_at,
+    "updated_at": Document.updated_at,
+    "chunk_count": Document.chunk_count,
+    "size_bytes": Document.size_bytes,
+}
 
 EMBED_DIM = 384
 EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
@@ -118,22 +130,128 @@ def chunk_text(text: str, chunk_size: int = 400, overlap: int = 50) -> list[str]
     return result
 
 
+def _serialize_document(doc: Document) -> dict:
+    return {
+        "id": str(doc.id),
+        "title": doc.title,
+        "source_type": doc.source_type,
+        "chunk_count": doc.chunk_count,
+        "chunk_start_index": doc.chunk_start_index,
+        "ingested_at": doc.ingested_at.isoformat(),
+        "status": doc.status,
+        "size_bytes": doc.size_bytes,
+        "updated_at": doc.updated_at.isoformat(),
+    }
+
+
 async def get_documents(db: AsyncSession, session_id: str) -> list[dict]:
     _validate_session_id(session_id)
     stmt = select(Document).where(Document.session_id == session_id).order_by(Document.ingested_at)
     result = await db.execute(stmt)
     documents = result.scalars().all()
-    return [
-        {
-            "id": str(doc.id),
-            "title": doc.title,
-            "source_type": doc.source_type,
-            "chunk_count": doc.chunk_count,
-            "chunk_start_index": doc.chunk_start_index,
-            "ingested_at": doc.ingested_at.isoformat(),
-        }
-        for doc in documents
-    ]
+    return [_serialize_document(doc) for doc in documents]
+
+
+def _encode_cursor(offset: int) -> str:
+    return base64.urlsafe_b64encode(str(offset).encode("utf-8")).decode("utf-8")
+
+
+def _decode_cursor(cursor: str) -> int:
+    try:
+        decoded = base64.urlsafe_b64decode(cursor.encode("utf-8")).decode("utf-8")
+        offset = int(decoded)
+        if offset < 0:
+            raise ValueError
+        return offset
+    except (ValueError, UnicodeDecodeError, base64.binascii.Error):
+        raise ValidationAppError("Invalid cursor", details={"cursor": cursor})
+
+
+async def list_documents(
+    db: AsyncSession,
+    session_id: str,
+    q: str | None = None,
+    source_type: str | None = None,
+    status: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    sort_by: str = "ingested_at",
+    sort_dir: str = "asc",
+    limit: int | None = None,
+    offset: int = 0,
+    cursor: str | None = None,
+) -> dict:
+    _validate_session_id(session_id)
+
+    if sort_by not in DOCUMENT_SORT_FIELDS:
+        raise ValidationAppError("Invalid sort_by field", details={"sort_by": sort_by, "allowed": list(DOCUMENT_SORT_FIELDS.keys())})
+    if sort_dir not in ("asc", "desc"):
+        raise ValidationAppError("Invalid sort_dir", details={"sort_dir": sort_dir, "allowed": ["asc", "desc"]})
+
+    effective_offset = offset
+    if cursor:
+        effective_offset = _decode_cursor(cursor)
+
+    filters = [Document.session_id == session_id]
+    if source_type:
+        filters.append(Document.source_type == source_type)
+    if status:
+        filters.append(Document.status == status)
+    if date_from:
+        filters.append(Document.ingested_at >= date_from)
+    if date_to:
+        filters.append(Document.ingested_at <= date_to)
+    if q:
+        like_pattern = f"%{q.strip()}%"
+        chunk_match = exists(
+            select(DocumentChunk.id).where(
+                and_(DocumentChunk.document_id == Document.id, DocumentChunk.chunk.ilike(like_pattern))
+            )
+        )
+        filters.append(or_(Document.title.ilike(like_pattern), chunk_match))
+
+    base_stmt = select(Document).where(and_(*filters))
+    count_stmt = select(func.count()).select_from(Document).where(and_(*filters))
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    order_col = DOCUMENT_SORT_FIELDS[sort_by]
+    order_expr = asc(order_col) if sort_dir == "asc" else desc(order_col)
+    stmt = base_stmt.order_by(order_expr, asc(Document.id)).offset(effective_offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+
+    result = await db.execute(stmt)
+    documents = result.scalars().all()
+    items = [_serialize_document(doc) for doc in documents]
+
+    has_more = limit is not None and (effective_offset + len(items)) < total
+    next_cursor = _encode_cursor(effective_offset + limit) if has_more and limit is not None else None
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": effective_offset,
+        "has_more": has_more,
+        "next_cursor": next_cursor,
+    }
+
+
+async def delete_document(db: AsyncSession, session_id: str, document_id: str) -> None:
+    _validate_session_id(session_id)
+    try:
+        parsed_document_id = uuid.UUID(str(document_id))
+    except (ValueError, AttributeError, TypeError):
+        raise NotFoundError("Document not found", details={"document_id": document_id})
+    stmt = select(Document).where(Document.session_id == session_id, Document.id == parsed_document_id)
+    result = await db.execute(stmt)
+    document = result.scalar_one_or_none()
+    if document is None:
+        raise NotFoundError("Document not found", details={"document_id": document_id})
+    await db.execute(delete(DocumentChunk).where(DocumentChunk.document_id == document.id))
+    await db.execute(delete(Document).where(Document.id == document.id))
+    await db.commit()
+    await invalidate_session_cache(session_id)
 
 
 async def reset_storage(db: AsyncSession, session_id: str) -> None:
@@ -153,6 +271,7 @@ async def embed_and_store(db: AsyncSession, text_chunks: list[str], source: str,
     count_stmt = select(func.count()).select_from(DocumentChunk).where(DocumentChunk.session_id == session_id)
     existing_count = (await db.execute(count_stmt)).scalar() or 0
     doc_title = title if title else (source if len(source) <= 60 else source[:60])
+    total_size_bytes = sum(len(chunk.encode("utf-8")) for chunk in text_chunks)
     document = Document(
         session_id=session_id,
         title=doc_title,
@@ -160,6 +279,8 @@ async def embed_and_store(db: AsyncSession, text_chunks: list[str], source: str,
         source_type=source_type,
         chunk_count=len(text_chunks),
         chunk_start_index=existing_count,
+        status="ready",
+        size_bytes=total_size_bytes,
     )
     db.add(document)
     await db.flush()
