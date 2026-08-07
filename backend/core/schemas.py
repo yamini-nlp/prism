@@ -82,6 +82,9 @@ class ClaimResult(BaseModel):
 
     claim: str
     label: str
+    confidence: float = 0.0
+    supporting_chunk: str | None = None
+    source_chunk_index: int | None = None
 
 
 class VerifyResponse(BaseModel):
@@ -91,4 +94,5 @@ class VerifyResponse(BaseModel):
     total_claims: int
     supported_count: int
     unsupported_count: int
+    uncertain_count: int = 0
     grounding_score: float
