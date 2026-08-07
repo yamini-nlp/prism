@@ -1,189 +1,347 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { S, C } from "@/lib/styles";
-import { Search, GitBranch, Loader2, AlertCircle, ChevronRight } from "lucide-react";
+import ConfidenceBadge from "@/components/ConfidenceBadge";
+import EvidenceCard from "@/components/EvidenceCard";
+import {
+  GitBranch,
+  AlertCircle,
+  RotateCcw,
+  Inbox,
+  ArrowUpRight,
+  ArrowRight,
+  FileText,
+} from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const CONVERSATION_KEY = "prism_workspace_conversation";
 
-type Chunk = { chunk:string; source:string; score:number; chunk_index:number; };
+type Citation = {
+  id: string;
+  text: string;
+  source: string;
+  score: number;
+  chunk_index: number;
+};
+
+type GenerationRecord = {
+  id: string;
+  query: string;
+  content: string;
+  citations: Citation[];
+  confidence?: number;
+  latency?: number;
+};
+
+type Phase = "loading" | "ready" | "empty" | "error";
+
+function tsFromId(id: string): number | null {
+  const numeric = id.endsWith("r") ? id.slice(0, -1) : id;
+  const n = Number(numeric);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatTimestamp(id: string): string | null {
+  const ms = tsFromId(id);
+  if (ms === null) return null;
+  try {
+    return new Date(ms).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
+function truncate(text: string, max: number): string {
+  const trimmed = (text || "").trim();
+  if (trimmed.length <= max) return trimmed || "Untitled query";
+  return trimmed.slice(0, max).trim() + "…";
+}
+
+function readGenerations(): GenerationRecord[] {
+  const raw = window.localStorage.getItem(CONVERSATION_KEY);
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) return [];
+
+  const records: GenerationRecord[] = [];
+  for (const m of parsed) {
+    if (!m || typeof m !== "object") continue;
+    if (m.role !== "assistant") continue;
+    if (m.streaming || m.errored) continue;
+    if (typeof m.content !== "string" || !m.content.trim()) continue;
+
+    records.push({
+      id: String(m.id ?? `gen-${records.length}`),
+      query: typeof m.query === "string" ? m.query : "",
+      content: m.content,
+      citations: Array.isArray(m.citations) ? m.citations : [],
+      confidence: typeof m.confidence === "number" ? m.confidence : undefined,
+      latency: typeof m.latency === "number" ? m.latency : undefined,
+    });
+  }
+  return records.reverse();
+}
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ padding: "22px 38px" }}>
+      <style>{`@keyframes pr-pulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }`}</style>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
+        <div style={{ height: 14, width: 160, borderRadius: 6, background: C.border, animation: "pr-pulse 1.4s ease-in-out infinite" }} />
+        <div style={{ height: 38, width: "100%", borderRadius: 11, background: C.border, animation: "pr-pulse 1.4s ease-in-out infinite" }} />
+      </div>
+      <div className="pr-grid" style={{ marginTop: 26 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ height: 92, borderRadius: 12, background: C.border, animation: `pr-pulse 1.4s ease-in-out ${i * 0.15}s infinite` }} />
+          ))}
+        </div>
+        <div style={{ height: 320, borderRadius: 16, background: C.border, animation: "pr-pulse 1.4s ease-in-out 0.2s infinite" }} />
+      </div>
+    </div>
+  );
+}
 
 export default function SourceTracePage() {
-  const [query,    setQuery]    = useState("");
-  const [results,  setResults]  = useState<Chunk[]>([]);
-  const [selected, setSelected] = useState<Chunk|null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
-  const [searched, setSearched] = useState(false);
+  const router = useRouter();
+  const [phase, setPhase] = useState<Phase>("loading");
+  const [generations, setGenerations] = useState<GenerationRecord[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedChunkId, setSelectedChunkId] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const doSearch = async () => {
-    if (!query.trim()) return;
-    setLoading(true); setError(""); setResults([]); setSelected(null); setSearched(true);
-    try {
-      const res = await fetch(`${API}/retrieve/?query=${encodeURIComponent(query.trim())}&top_k=6`);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const data = await res.json();
-      setResults(data.results || []);
-      if (data.results?.length > 0) setSelected(data.results[0]);
-    } catch(e:any) {
-      setError(e.message || "Failed. Is the backend running on port 8000?");
-    } finally { setLoading(false); }
+  const load = useCallback(() => {
+    setPhase("loading");
+    setErrorMsg("");
+    const timer = window.setTimeout(() => {
+      try {
+        const records = readGenerations();
+        setGenerations(records);
+        if (records.length === 0) {
+          setPhase("empty");
+        } else {
+          setSelectedId(prev => (records.some(r => r.id === prev) ? prev : records[0].id));
+          setPhase("ready");
+        }
+      } catch (e: any) {
+        setErrorMsg(e?.message || "Could not read generation history from this browser.");
+        setPhase("error");
+      }
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const cancel = load();
+    return cancel;
+  }, [load]);
+
+  const selected = generations.find(g => g.id === selectedId) || null;
+  const results = selected?.citations ?? [];
+
+  useEffect(() => {
+    if (results.length > 0) {
+      setSelectedChunkId(prev => (results.some(r => r.id === prev) ? prev : results[0].id));
+    } else {
+      setSelectedChunkId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  const selectedChunk = results.find(r => r.id === selectedChunkId) || results[0] || null;
+
+  const jumpToDocument = (source: string) => {
+    router.push(`/library?doc=${encodeURIComponent(source)}`);
   };
 
-  const scoreColor = (s:number) => s>0.8 ? C.green : s>0.6 ? C.accent : C.orange;
-  const scoreBg    = (s:number) => s>0.8 ? C.greenBg : s>0.6 ? C.accentBg : C.orangeBg;
-
   return (
-    <main style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden",background:C.bg}}>
+    <main style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "auto", background: C.bg }}>
+      <style>{`
+        .pr-grid { display:flex; flex:1; overflow:hidden; }
+        .pr-sidebar { width:380px; flex-shrink:0; border-right:1px solid ${C.border}; overflow-y:auto; padding:18px 16px; display:flex; flex-direction:column; gap:9px; }
+        .pr-detail { flex:1; overflow-y:auto; padding:28px 34px; }
+        @media (max-width: 880px) {
+          .pr-grid { flex-direction:column; overflow:visible; }
+          .pr-sidebar { width:100%; border-right:none; border-bottom:1px solid ${C.border}; max-height:420px; }
+          .pr-detail { padding:22px 20px; }
+        }
+      `}</style>
 
-        <div style={{padding:"22px 38px",background:C.surface,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
-          <span style={{...S.tagIndigo,marginBottom:8}}>Source Trace</span>
-          <h1 style={{...S.heading,fontSize:26,marginTop:8,marginBottom:18}}>Retrieval Transparency</h1>
+      <div style={{ padding: "22px 38px", background: C.surface, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <span style={{ ...S.tagIndigo, marginBottom: 8 }}>Source Trace</span>
+        <h1 style={{ ...S.heading, fontSize: 26, marginTop: 8, marginBottom: 8 }}>Retrieval Transparency</h1>
+        <p style={{ fontSize: 13.5, color: C.textSec, marginBottom: phase === "ready" ? 18 : 0, maxWidth: 640 }}>
+          Every retrieved chunk behind a generated answer, with its exact relevance score and originating document.
+        </p>
 
-          <div style={{display:"flex",gap:10,maxWidth:640}}>
-            <div style={{position:"relative",flex:1}}>
-              <Search size={15} color={C.textMuted} style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}/>
-              <input
+        {phase === "ready" && generations.length > 0 && (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", maxWidth: 720 }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <label style={{ ...S.label, display: "block", marginBottom: 6 }}>Generation</label>
+              <select
+                value={selectedId}
+                onChange={e => setSelectedId(e.target.value)}
                 style={{
-                  width:"100%",
-                  background:"#ffffff",
-                  border:"1.5px solid rgba(0,0,0,0.18)",
-                  borderRadius:11,
-                  padding:"11px 14px 11px 38px",
-                  fontSize:14, color:C.text, fontFamily:"inherit",
-                  outline:"none",
+                  width: "100%",
+                  background: "#ffffff",
+                  border: "1.5px solid rgba(0,0,0,0.18)",
+                  borderRadius: 11,
+                  padding: "10px 13px",
+                  fontSize: 13.5,
+                  color: C.text,
+                  fontFamily: "inherit",
+                  outline: "none",
                 }}
-                placeholder="Enter a query to trace sources…"
-                value={query}
-                onChange={e=>setQuery(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter") doSearch(); }}
-                onFocus={e=>{(e.target as HTMLInputElement).style.borderColor="#5b5ef4";}}
-                onBlur={e=>{(e.target as HTMLInputElement).style.borderColor="rgba(0,0,0,0.18)";}}
-              />
+              >
+                {generations.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {truncate(g.query || g.content, 70)}
+                  </option>
+                ))}
+              </select>
             </div>
-            <button
-              onClick={doSearch}
-              disabled={loading||!query.trim()}
-              style={loading||!query.trim() ? S.btnPrimaryDisabled : S.btnPrimary}
-            >
-              {loading ? <><Loader2 size={14} className="spin"/> Searching…</> : <><Search size={14}/> Search</>}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div style={{margin:"16px 38px",padding:"12px 16px",borderRadius:10,background:C.redBg,border:`1px solid rgba(220,38,38,0.2)`,display:"flex",alignItems:"center",gap:9}}>
-            <AlertCircle size={15} color={C.red}/> <span style={{fontSize:13,color:C.red}}>{error}</span>
-          </div>
-        )}
-
-        {!loading && searched && results.length===0 && !error && (
-          <div style={{textAlign:"center",padding:"60px 0",color:C.textMuted}}>
-            <GitBranch size={32} style={{margin:"0 auto 14px",display:"block"}}/>
-            <div style={{fontSize:15,fontWeight:600,marginBottom:5}}>No chunks found</div>
-            <div style={{fontSize:13}}>Try a different query, or ingest some documents first.</div>
-          </div>
-        )}
-
-        {!searched && (
-          <div style={{textAlign:"center",padding:"60px 0",color:C.textMuted}}>
-            <Search size={32} style={{margin:"0 auto 14px",display:"block"}}/>
-            <div style={{fontSize:15,fontWeight:600,marginBottom:5}}>Enter a query above</div>
-            <div style={{fontSize:13}}>Prism will retrieve the most relevant chunks from your ingested documents.</div>
-          </div>
-        )}
-
-        {results.length>0 && (
-          <div style={{flex:1,display:"flex",overflow:"hidden"}}>
-
-            <div style={{width:360,borderRight:`1px solid ${C.border}`,overflowY:"auto",padding:"18px 16px",display:"flex",flexDirection:"column",gap:9}}>
-              <div style={{...S.label,paddingLeft:4,marginBottom:4}}>Retrieved Chunks ({results.length})</div>
-              {results.map((chunk,i)=>(
-                <motion.div key={i}
-                  initial={{opacity:0,x:-10}} animate={{opacity:1,x:0}} transition={{delay:i*0.06}}
-                  onClick={()=>setSelected(chunk)}
-                  style={{
-                    padding:"13px 14px",borderRadius:12,
-                    border:`1.5px solid ${selected===chunk ? "rgba(91,94,244,0.35)" : C.border}`,
-                    background: selected===chunk ? "rgba(91,94,244,0.05)" : C.surface,
-                    cursor:"pointer",transition:"all 0.18s",
-                  }}
-                >
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:7}}>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:700,color: selected===chunk ? C.accent : C.text,marginBottom:2}}>
-                        {chunk.source.length>40 ? chunk.source.slice(0,40)+"…" : chunk.source}
-                      </div>
-                      <div style={{fontSize:10,color:C.textMuted}}>Chunk #{chunk.chunk_index}</div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:5}}>
-                      <div style={{
-                        minWidth:32,height:32,borderRadius:8,
-                        background: scoreBg(chunk.score),
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:11,fontWeight:700,color: scoreColor(chunk.score),
-                        padding:"0 6px",
-                      }}>
-                        {Math.round(chunk.score*100)}
-                      </div>
-                      <ChevronRight size={13} color={C.textMuted}/>
-                    </div>
-                  </div>
-                  <p style={{fontSize:12,color:C.textSec,lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>
-                    {chunk.chunk}
-                  </p>
-                  <div style={{marginTop:9,...S.cbarWrap}}>
-                    <div style={{...S.cbarFill,width:`${chunk.score*100}%`,background: scoreColor(chunk.score)}}/>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {selected && (
-              <div style={{flex:1,overflowY:"auto",padding:"28px 34px"}}>
-                <motion.div key={selected.chunk_index} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.3}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-                    <GitBranch size={18} color={C.accent}/>
-                    <div>
-                      <div style={{fontSize:15,fontWeight:700,color:C.text}}>{selected.source}</div>
-                      <div style={{fontSize:12,color:C.textMuted}}>Chunk #{selected.chunk_index}</div>
-                    </div>
-                    <span style={{marginLeft:"auto",...(selected.score>0.8 ? S.tagGreen : selected.score>0.6 ? S.tagIndigo : S.tagOrange)}}>
-                      {Math.round(selected.score*100)}% similarity
-                    </span>
-                  </div>
-
-                  <div style={{...S.card,padding:26,marginBottom:22}}>
-                    <div style={{...S.label,marginBottom:12}}>Retrieved Chunk</div>
-                    <p style={{fontFamily:"'DM Serif Display',Georgia,serif",fontSize:15,color:C.text,lineHeight:1.78}}>
-                      {selected.chunk}
-                    </p>
-                  </div>
-
-                  <div style={{...S.card,padding:24}}>
-                    <div style={{...S.label,marginBottom:14}}>Similarity Analysis</div>
-                    {[
-                      {label:"Semantic Similarity",   value: selected.score},
-                      {label:"Lexical Overlap",        value: selected.score*0.83},
-                      {label:"Contextual Relevance",   value: selected.score*0.92},
-                    ].map(m=>(
-                      <div key={m.label} style={{marginBottom:13}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:12}}>
-                          <span style={{color:C.textSec,fontWeight:500}}>{m.label}</span>
-                          <span style={{fontWeight:700,color:C.text}}>{Math.round(m.value*100)}%</span>
-                        </div>
-                        <div style={S.cbarWrap}>
-                          <div style={{...S.cbarFill,width:`${m.value*100}%`}}/>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
+            {selected && typeof selected.confidence === "number" && (
+              <div>
+                <div style={{ ...S.label, marginBottom: 6 }}>Answer confidence</div>
+                <ConfidenceBadge value={selected.confidence} />
               </div>
             )}
           </div>
         )}
+      </div>
+
+      {phase === "loading" && <LoadingSkeleton />}
+
+      {phase === "error" && (
+        <div style={{ margin: "24px 38px", padding: "16px 18px", borderRadius: 12, background: C.redBg, border: "1px solid rgba(220,38,38,0.2)", display: "flex", alignItems: "flex-start", gap: 10, maxWidth: 560 }}>
+          <AlertCircle size={16} color={C.red} style={{ marginTop: 1, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, color: C.red, fontWeight: 600, marginBottom: 4 }}>Couldn't load generation history</div>
+            <div style={{ fontSize: 12.5, color: C.red, marginBottom: 10 }}>{errorMsg}</div>
+            <button
+              onClick={load}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.red, background: "rgba(220,38,38,0.1)", border: "none", borderRadius: 8, padding: "7px 13px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              <RotateCcw size={12} /> Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === "empty" && (
+        <div style={{ textAlign: "center", padding: "70px 24px" }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <Inbox size={22} color={C.textMuted} />
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 6 }}>No generation selected yet</div>
+          <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 20px" }}>
+            Ask a question in Workspace first. Once Prism generates a grounded answer, its retrieved chunks will show up here.
+          </p>
+          <Link href="/workspace" style={{ textDecoration: "none" }}>
+            <button style={S.btnPrimary}>
+              Go to Workspace <ArrowRight size={14} />
+            </button>
+          </Link>
+        </div>
+      )}
+
+      {phase === "ready" && selected && results.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 24px" }}>
+          <GitBranch size={30} color={C.textMuted} style={{ margin: "0 auto 14px", display: "block" }} />
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 5 }}>No chunks recorded for this generation</div>
+          <div style={{ fontSize: 13, color: C.textMuted }}>This answer wasn't grounded in any retrieved chunks.</div>
+        </div>
+      )}
+
+      {phase === "ready" && selected && results.length > 0 && (
+        <div className="pr-grid">
+          <div className="pr-sidebar">
+            <div style={{ ...S.label, paddingLeft: 4, marginBottom: 2 }}>Retrieved Chunks ({results.length})</div>
+            {results.map((chunk, i) => (
+              <motion.div key={chunk.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+                <EvidenceCard
+                  title={chunk.source}
+                  meta={`Chunk #${chunk.chunk_index} · Rank ${i + 1} of ${results.length}`}
+                  score={chunk.score}
+                  scoreLabel="Similarity"
+                  snippet={chunk.text}
+                  active={chunk.id === selectedChunkId}
+                  onSelect={() => setSelectedChunkId(chunk.id)}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="pr-detail">
+            {selectedChunk && (
+              <motion.div key={selectedChunk.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                  <FileText size={18} color={C.accent} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{selectedChunk.source}</div>
+                    <div style={{ fontSize: 12, color: C.textMuted }}>
+                      Chunk #{selectedChunk.chunk_index} · Rank {results.findIndex(r => r.id === selectedChunk.id) + 1} of {results.length}
+                    </div>
+                  </div>
+                  <ConfidenceBadge value={selectedChunk.score <= 1 ? selectedChunk.score * 100 : selectedChunk.score} label="Similarity" />
+                  <button
+                    onClick={() => jumpToDocument(selectedChunk.source)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#4547c4", background: "rgba(91,94,244,0.09)", border: "none", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}
+                  >
+                    Jump to document <ArrowUpRight size={13} />
+                  </button>
+                </div>
+
+                <div style={{ ...S.card, padding: 26, marginBottom: 22 }}>
+                  <div style={{ ...S.label, marginBottom: 12 }}>Retrieved Chunk</div>
+                  <p style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 15, color: C.text, lineHeight: 1.78 }}>
+                    {selectedChunk.text}
+                  </p>
+                </div>
+
+                <div style={{ ...S.card, padding: 24 }}>
+                  <div style={{ ...S.label, marginBottom: 14 }}>Retrieval Detail</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 9, fontSize: 12.5 }}>
+                    <span style={{ color: C.textSec }}>Similarity score</span>
+                    <span style={{ fontWeight: 700, color: C.text }}>{Math.round((selectedChunk.score <= 1 ? selectedChunk.score * 100 : selectedChunk.score))}%</span>
+                  </div>
+                  <div style={S.cbarWrap}>
+                    <div style={{ ...S.cbarFill, width: `${Math.min(selectedChunk.score <= 1 ? selectedChunk.score * 100 : selectedChunk.score, 100)}%` }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, fontSize: 12.5 }}>
+                    <span style={{ color: C.textSec }}>Originating document</span>
+                    <span style={{ fontWeight: 600, color: C.text }}>{selectedChunk.source}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 9, fontSize: 12.5 }}>
+                    <span style={{ color: C.textSec }}>Chunk index</span>
+                    <span style={{ fontWeight: 600, color: C.text }}>#{selectedChunk.chunk_index}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 9, fontSize: 12.5 }}>
+                    <span style={{ color: C.textSec }}>Retrieval rank</span>
+                    <span style={{ fontWeight: 600, color: C.text }}>
+                      {results.findIndex(r => r.id === selectedChunk.id) + 1} of {results.length}
+                    </span>
+                  </div>
+                  {selected && formatTimestamp(selected.id) && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 9, fontSize: 12.5 }}>
+                      <span style={{ color: C.textSec }}>Generated</span>
+                      <span style={{ fontWeight: 600, color: C.text }}>{formatTimestamp(selected.id)}</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
