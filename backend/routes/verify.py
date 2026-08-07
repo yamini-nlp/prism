@@ -18,6 +18,7 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
     claims = split_into_claims(body.answer)
     results = verify_claims(claims, body.context_chunks)
     supported = sum(1 for r in results if r["label"] == "supported")
+    uncertain = sum(1 for r in results if r["label"] == "uncertain")
     total = len(results)
     grounding_score = round(supported / total * 100, 1) if total > 0 else 0.0
 
@@ -42,5 +43,6 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
         total_claims=total,
         supported_count=supported,
         unsupported_count=total - supported,
+        uncertain_count=uncertain,
         grounding_score=grounding_score,
     )
