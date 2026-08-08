@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchDocuments, fetchDocumentsList, deleteDocument, uploadFile, ingestUrl, ingestText, fetchSummary,
-  type DocumentRecord, type DocumentListParams, type DocumentListResult, type UploadJobResponse, type SummaryResult,
+  fetchDocuments, fetchDocumentsList, deleteDocument, uploadFile, ingestUrl, ingestText, fetchSummary, resetDocuments,
+  type DocumentRecord, type DocumentListParams, type DocumentListResult, type UploadJobResponse, type SummaryResult, type ResetResponse,
 } from "@/lib/api";
 
 export const documentsQueryKey = ["documents"] as const;
@@ -69,5 +69,15 @@ export function useIngestText() {
 export function useGenerateSummary() {
   return useMutation<{ summary: SummaryResult }, Error, { text: string; source: string }>({
     mutationFn: ({ text, source }) => fetchSummary(text, source),
+  });
+}
+
+export function useResetDocuments() {
+  const queryClient = useQueryClient();
+  return useMutation<ResetResponse, Error, void>({
+    mutationFn: () => resetDocuments(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: documentsQueryKey });
+    },
   });
 }

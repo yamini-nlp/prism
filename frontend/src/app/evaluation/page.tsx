@@ -1,32 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
+import { useQueryClient } from "@tanstack/react-query";
 import { S, C } from "@/lib/styles";
-import { useEvalReport } from "@/lib/queries/generations";
-import { RefreshCw, Target, CheckCircle2, Hash, TrendingUp, HelpCircle, Loader2, AlertTriangle } from "lucide-react";
+import { evalReportQueryKey, useEvalReport, useRunEvalReport } from "@/lib/queries/generations";
+import { useJob } from "@/lib/queries/jobs";
+import { toast } from "@/lib/toast";
+import {
+  RefreshCw, Target, CheckCircle2, Hash, TrendingUp,
+  PlayCircle, Loader2, AlertTriangle,
+} from "lucide-react";
 
-type EvalRow = {
-  index: string;
-  question: string;
-  expectedSource: string;
-  hit: string;
-  rank: string;
-  mrr: string;
-  claims: string;
-  supported: string;
-  supportedRate: string;
-};
-
-type ParsedReport = {
+type ParsedSummary = {
   questionsEvaluated: string | null;
   recall: { hits: string; total: string; pct: string; ciLow: string; ciHigh: string } | null;
   mrr: string | null;
   groundedness: { supported: string; total: string; pct: string; ciLow: string; ciHigh: string } | null;
-  rows: EvalRow[];
 };
 
-function parseReport(md: string): ParsedReport {
+function parseSummary(md: string): ParsedSummary {
   const questionsMatch = md.match(/Questions evaluated:\s*(\d+)/);
 
   const recallMatch = md.match(
@@ -39,29 +35,6 @@ function parseReport(md: string): ParsedReport {
     /\*\*Groundedness rate\*\*:\s*(\d+)\/(\d+) claims supported\s*=\s*([\d.]+)%\s*\(95% Wilson CI:\s*([\d.]+)%\s*-\s*([\d.]+)%\)/
   );
 
-  const rows: EvalRow[] = [];
-  const lines = md.split("\n");
-  for (const line of lines) {
-    if (!line.trim().startsWith("|")) continue;
-    const cells = line
-      .split("|")
-      .map((c) => c.trim())
-      .filter((_, i, arr) => i !== 0 && i !== arr.length - 1);
-    if (cells.length !== 9) continue;
-    if (!/^\d+$/.test(cells[0])) continue;
-    rows.push({
-      index: cells[0],
-      question: cells[1],
-      expectedSource: cells[2],
-      hit: cells[3],
-      rank: cells[4],
-      mrr: cells[5],
-      claims: cells[6],
-      supported: cells[7],
-      supportedRate: cells[8],
-    });
-  }
-
   return {
     questionsEvaluated: questionsMatch ? questionsMatch[1] : null,
     recall: recallMatch
@@ -71,39 +44,126 @@ function parseReport(md: string): ParsedReport {
     groundedness: groundMatch
       ? { supported: groundMatch[1], total: groundMatch[2], pct: groundMatch[3], ciLow: groundMatch[4], ciHigh: groundMatch[5] }
       : null,
-    rows,
   };
 }
 
-export default function EvaluationPage() {
-  const { data, isLoading, isRefetching, isError, error, refetch } = useEvalReport();
+const markdownComponents: Components = {
+  h1: ({ children }) => (
+    <h1 style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 24, color: C.text, marginTop: 6, marginBottom: 14 }}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 19, color: C.text, marginTop: 26, marginBottom: 12, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 style={{ fontSize: 15, fontWeight: 700, color: C.text, marginTop: 18, marginBottom: 8 }}>{children}</h3>
+  ),
+  p: ({ children }) => (
+    <p style={{ fontSize: 13.5, color: C.textSec, lineHeight: 1.7, marginBottom: 10 }}>{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul style={{ margin: "6px 0 16px", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>{children}</ul>
+  ),
+  li: ({ children }) => (
+    <li style={{ fontSize: 13.5, color: C.textSec, lineHeight: 1.6 }}>{children}</li>
+  ),
+  strong: ({ children }) => <strong style={{ color: C.text, fontWeight: 700 }}>{children}</strong>,
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: C.accent, fontWeight: 600, textDecoration: "underline" }}>
+      {children}
+    </a>
+  ),
+  hr: () => <div style={{ ...S.divider, margin: "18px 0" }} />,
+  code: ({ children }) => (
+    <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, background: "rgba(0,0,0,0.05)", padding: "2px 6px", borderRadius: 5, color: C.text }}>
+      {children}
+    </code>
+  ),
+  table: ({ children }) => (
+    <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 12, marginBottom: 18 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 640 }}>{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead style={{ position: "sticky", top: 0, background: C.surface, zIndex: 1 }}>{children}</thead>,
+  th: ({ children }) => (
+    <th style={{ textAlign: "left", padding: "10px 14px", borderBottom: `1px solid ${C.border}`, color: C.textMuted, fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec, verticalAlign: "top" }}>
+      {children}
+    </td>
+  ),
+  tr: ({ children }) => <tr>{children}</tr>,
+};
 
-  const report = useMemo(() => (data ? parseReport(data.content) : null), [data]);
+export default function EvaluationPage() {
+  const queryClient = useQueryClient();
+  const { data, isLoading, isRefetching, isError, error, refetch } = useEvalReport();
+  const runMutation = useRunEvalReport();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const jobQuery = useJob(jobId, { enabled: jobId !== null });
+
+  const summary = useMemo(() => (data ? parseSummary(data.content) : null), [data]);
   const loading = isLoading || isRefetching;
   const errorMessage = isError ? (error instanceof Error ? error.message : "Evaluation report not found.") : null;
+
+  const jobStatus = jobQuery.data?.status ?? null;
+  const isRunning =
+    runMutation.isPending ||
+    (jobId !== null && jobStatus !== "complete" && jobStatus !== "failed" && jobStatus !== "cancelled");
+
+  useEffect(() => {
+    if (!jobId || !jobQuery.data) return;
+    if (jobQuery.data.status === "complete") {
+      toast.success("Evaluation complete", "The report has been regenerated with fresh results.");
+      queryClient.invalidateQueries({ queryKey: evalReportQueryKey });
+      setJobId(null);
+    } else if (jobQuery.data.status === "failed") {
+      toast.error("Evaluation failed", jobQuery.data.error || "The evaluation run did not complete successfully.");
+      setJobId(null);
+    } else if (jobQuery.data.status === "cancelled") {
+      toast.info("Evaluation cancelled");
+      setJobId(null);
+    }
+  }, [jobQuery.data, jobId, queryClient]);
+
+  async function handleRerun() {
+    try {
+      const res = await runMutation.mutateAsync();
+      setJobId(res.job_id);
+      toast.info("Evaluation started", "This ingests the sample dataset and runs the full harness. It can take a minute or two.");
+    } catch (err) {
+      toast.error("Could not start evaluation", err instanceof Error ? err.message : "Please try again.");
+    }
+  }
 
   const statCards = [
     {
       label: "Recall@5",
-      value: report?.recall ? `${report.recall.pct}%` : "—",
-      sub: report?.recall ? `${report.recall.hits}/${report.recall.total} · CI ${report.recall.ciLow}%–${report.recall.ciHigh}%` : "no data",
+      value: summary?.recall ? `${summary.recall.pct}%` : "—",
+      sub: summary?.recall ? `${summary.recall.hits}/${summary.recall.total} · CI ${summary.recall.ciLow}%–${summary.recall.ciHigh}%` : "no data",
       icon: Target,
     },
     {
       label: "Groundedness Rate",
-      value: report?.groundedness ? `${report.groundedness.pct}%` : "—",
-      sub: report?.groundedness ? `${report.groundedness.supported}/${report.groundedness.total} claims · CI ${report.groundedness.ciLow}%–${report.groundedness.ciHigh}%` : "no data",
+      value: summary?.groundedness ? `${summary.groundedness.pct}%` : "—",
+      sub: summary?.groundedness ? `${summary.groundedness.supported}/${summary.groundedness.total} claims · CI ${summary.groundedness.ciLow}%–${summary.groundedness.ciHigh}%` : "no data",
       icon: CheckCircle2,
     },
     {
       label: "Mean MRR",
-      value: report?.mrr ?? "—",
+      value: summary?.mrr ?? "—",
       sub: "reciprocal rank",
       icon: TrendingUp,
     },
     {
       label: "Questions Evaluated",
-      value: report?.questionsEvaluated ?? "—",
+      value: summary?.questionsEvaluated ?? "—",
       sub: "from dataset.json",
       icon: Hash,
     },
@@ -111,9 +171,24 @@ export default function EvaluationPage() {
 
   return (
     <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto", background: C.bg }}>
+      <style>{`
+        .pr-eval-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .pr-eval-actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+        .pr-eval-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+        @media (max-width: 900px) {
+          .pr-eval-stats { grid-template-columns:repeat(2,1fr); }
+        }
+        @media (max-width: 560px) {
+          .pr-eval-header { flex-direction:column; }
+          .pr-eval-actions { width:100%; }
+          .pr-eval-actions > button { flex:1; justify-content:center; }
+          .pr-eval-stats { grid-template-columns:1fr; }
+        }
+      `}</style>
+
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+        <div className="pr-eval-header">
           <div>
             <span style={{ ...S.tagIndigo, marginBottom: 12, display: "inline-block" }}>Evaluation</span>
             <h1 style={{ ...S.heading, fontSize: 38, marginTop: 10, marginBottom: 6 }}>System Evaluation</h1>
@@ -121,22 +196,39 @@ export default function EvaluationPage() {
               Results from the backend evaluation harness{data?.generated_at ? ` · generated ${new Date(data.generated_at).toLocaleString()}` : ""}.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          <div className="pr-eval-actions">
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
-              onClick={() => refetch()} disabled={loading}
+              onClick={() => refetch()} disabled={loading || isRunning}
               style={{ ...S.btnSecondary, display: "flex", alignItems: "center", gap: 6 }}>
               <RefreshCw size={13} style={{ animation: loading ? "spin 0.7s linear infinite" : "none" }} />
               Reload Report
             </motion.button>
-            <button
-              disabled
-              title="Evaluation is run via the backend script (python backend/eval/evaluate.py), not from this UI, in this version."
-              style={{ ...S.btnPrimaryDisabled, display: "flex", alignItems: "center", gap: 6 }}>
-              <HelpCircle size={13} />
-              Re-run Evaluation
-            </button>
+            <motion.button whileHover={{ scale: isRunning ? 1 : 1.04 }} whileTap={{ scale: isRunning ? 1 : 0.95 }}
+              onClick={handleRerun} disabled={isRunning}
+              style={isRunning ? S.btnPrimaryDisabled : { ...S.btnPrimary, display: "flex", alignItems: "center", gap: 6 }}>
+              {isRunning ? (
+                <>
+                  <Loader2 size={13} style={{ animation: "spin 0.7s linear infinite" }} />
+                  Running evaluation…
+                </>
+              ) : (
+                <>
+                  <PlayCircle size={13} />
+                  Re-run Evaluation
+                </>
+              )}
+            </motion.button>
           </div>
         </div>
+
+        {isRunning && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(91,94,244,0.06)", border: "1px solid rgba(91,94,244,0.15)", marginBottom: 28 }}>
+            <Loader2 size={16} color={C.accent} style={{ animation: "spin 0.7s linear infinite" }} />
+            <p style={{ fontSize: 13.5, color: C.textSec }}>
+              Evaluation job {jobId ? <code style={{ fontFamily: "'JetBrains Mono', monospace" }}>{jobId.slice(0, 8)}</code> : null} is {jobStatus ?? "starting"}. The report below will refresh automatically once it finishes.
+            </p>
+          </div>
+        )}
 
         {loading && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(91,94,244,0.06)", border: "1px solid rgba(91,94,244,0.15)", marginBottom: 28 }}>
@@ -149,14 +241,14 @@ export default function EvaluationPage() {
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.15)", marginBottom: 28 }}>
             <AlertTriangle size={16} color={C.orange} style={{ marginTop: 1 }} />
             <p style={{ fontSize: 13.5, color: C.textSec }}>
-              <strong style={{ color: C.text }}>{errorMessage}</strong> Run <code>python backend/eval/evaluate.py</code> from the backend directory to generate a report, then reload.
+              <strong style={{ color: C.text }}>{errorMessage}</strong> Use the <strong style={{ color: C.text }}>Re-run Evaluation</strong> button above to generate a fresh report.
             </p>
           </div>
         )}
 
-        {!loading && !errorMessage && (
+        {!loading && !errorMessage && data && (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
+            <div className="pr-eval-stats">
               {statCards.map((m, i) => (
                 <motion.div key={m.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
                   style={{ ...S.card, padding: 22 }}>
@@ -175,44 +267,14 @@ export default function EvaluationPage() {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
               style={{ ...S.card, padding: 26 }}>
               <div style={{ marginBottom: 18 }}>
-                <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 20, color: C.text, marginBottom: 3 }}>Per-Question Results</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>Retrieval hit and groundedness detail for each evaluation question</div>
+                <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 20, color: C.text, marginBottom: 3 }}>Full Report</div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>Rendered directly from the markdown produced by backend/eval/evaluate.py</div>
               </div>
-
-              {report && report.rows.length > 0 ? (
-                <div style={{ maxHeight: 460, overflowY: "auto", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12 }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                    <thead style={{ position: "sticky", top: 0, background: C.surface, zIndex: 1 }}>
-                      <tr>
-                        {["#", "Question", "Expected Source", "Hit@5", "Rank", "RR", "Claims", "Supported", "Supported %"].map((h) => (
-                          <th key={h} style={{ textAlign: "left", padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.08)", color: C.textMuted, fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {report.rows.map((row) => (
-                        <tr key={row.index}>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.index}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.text, maxWidth: 320 }}>{row.question}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.expectedSource}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                            <span style={row.hit === "yes" ? S.tagGreen : S.tagRed}>{row.hit}</span>
-                          </td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.rank}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.mrr}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.claims}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.supported}</td>
-                          <td style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: C.textSec }}>{row.supportedRate}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p style={{ fontSize: 13, color: C.textMuted }}>No per-question rows found in the report.</p>
-              )}
+              <div style={{ maxWidth: "100%", overflowX: "hidden" }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {data.content}
+                </ReactMarkdown>
+              </div>
             </motion.div>
           </>
         )}

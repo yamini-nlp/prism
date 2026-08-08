@@ -1,231 +1,578 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
+import { motion } from "framer-motion";
 import { S, C } from "@/lib/styles";
-import { Cpu, Database, Sliders, CheckCircle, Save, Info } from "lucide-react";
+import { bootstrapSession, getCurrentUser, type CurrentUser } from "@/lib/auth";
+import { useTheme } from "@/components/ThemeProvider";
+import ThemeToggle from "@/components/ThemeToggle";
+import { useResetDocuments } from "@/lib/queries/documents";
+import { toast } from "@/lib/toast";
+import {
+  User, Mail, Lock, Palette, Bell, ShieldAlert, Save, Loader2,
+  Info, Trash2, CheckCircle2, Sun, Moon,
+} from "lucide-react";
 
-const STORAGE_KEY = "prism_settings";
+const PROFILE_STORAGE_KEY = "prism_profile_display_name";
+const NOTIFICATIONS_STORAGE_KEY = "prism_notification_prefs";
 
-const MODELS = [
-  { id:"llama-3.3-70b-versatile",   name:"LLaMA 3 70B",  desc:"Most capable. Best for complex reasoning.",     speed:"~1.4s avg" },
-  { id:"llama-3.1-8b-instant",    name:"LLaMA 3 8B",   desc:"Faster. Good for simple factual queries.",      speed:"~0.6s avg" },
-  { id:"llama3-8b-8192", name:"Mixtral 8×7B", desc:"Large context window. Good for long documents.",speed:"~1.1s avg" },
-];
+interface NotificationPrefs {
+  evaluationComplete: boolean;
+  ingestionErrors: boolean;
+  weeklySummary: boolean;
+}
 
-function loadSettings() {
-  if (typeof window === "undefined") return null;
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
+const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  evaluationComplete: true,
+  ingestionErrors: true,
+  weeklySummary: false,
+};
+
+function loadDisplayName(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(PROFILE_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function loadNotificationPrefs(): NotificationPrefs {
+  if (typeof window === "undefined") return DEFAULT_NOTIFICATION_PREFS;
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (!raw) return DEFAULT_NOTIFICATION_PREFS;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
+  } catch {
+    return DEFAULT_NOTIFICATION_PREFS;
+  }
+}
+
+const sectionCardStyle = { ...S.card, padding: 26 } as const;
+
+const fieldLabelStyle = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: C.textSec,
+  display: "block",
+  marginBottom: 6,
+} as const;
+
+const fieldHintStyle = {
+  fontSize: 11.5,
+  color: C.textMuted,
+  marginTop: 6,
+  lineHeight: 1.5,
+} as const;
+
+const fieldErrorStyle = {
+  fontSize: 11.5,
+  color: C.red,
+  marginTop: 6,
+  fontWeight: 600,
+} as const;
+
+function SectionHeader({ icon: Icon, iconColor, title }: { icon: typeof User; iconColor: string; title: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
+      <Icon size={17} color={iconColor} />
+      <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 19, color: C.text }}>{title}</div>
+    </div>
+  );
 }
 
 export default function SettingsPage() {
-  const saved = typeof window !== "undefined" ? loadSettings() : null;
+  const { theme } = useTheme();
 
-  const [model,        setModel]        = useState(saved?.model        || "llama-3.3-70b-versatile");
-  const [topK,         setTopK]         = useState(saved?.topK         || 5);
-  const [chunkSize,    setChunkSize]    = useState(saved?.chunkSize    || 512);
-  const [chunkOverlap, setChunkOverlap] = useState(saved?.chunkOverlap || 64);
-  const [temperature,  setTemperature]  = useState(saved?.temperature  || 0.1);
-  const [vectorStore,  setVectorStore]  = useState(saved?.vectorStore  || "FAISS");
-  const [savedOk,      setSavedOk]      = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(getCurrentUser());
+  const [userLoading, setUserLoading] = useState(user === null);
 
-  const save = () => {
-    const config = { model, topK, chunkSize, chunkOverlap, temperature, vectorStore };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    setSavedOk(true);
-    setTimeout(() => setSavedOk(false), 2800);
-  };
+  useEffect(() => {
+    if (user) {
+      setUserLoading(false);
+      return;
+    }
+    let cancelled = false;
+    bootstrapSession().then((restored) => {
+      if (cancelled) return;
+      setUser(restored);
+      setUserLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const Slider = ({
-    label, desc, value, min, max, step, onChange, fmt,
-  }: {
-    label: string; desc: string; value: number; min: number; max: number;
-    step: number; onChange: (v: number) => void; fmt?: (v: number) => string;
-  }) => (
-    <div style={{ paddingBottom: 20, marginBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 5 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{label}</div>
-          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{desc}</div>
-        </div>
-        <div style={{
-          minWidth: 56, padding: "4px 10px", borderRadius: 8,
-          background: C.accentBg, border: `1px solid rgba(91,94,244,0.18)`,
-          fontSize: 13, fontWeight: 700, color: C.accent,
-          fontFamily: "'JetBrains Mono', monospace", textAlign: "center",
-        }}>
-          {fmt ? fmt(value) : value}
-        </div>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ width: "100%", marginTop: 10, accentColor: C.accent, cursor: "pointer", height: 4 }}
-      />
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-        <span style={{ fontSize: 10, color: C.textMuted }}>{fmt ? fmt(min) : min}</span>
-        <span style={{ fontSize: 10, color: C.textMuted }}>{fmt ? fmt(max) : max}</span>
-      </div>
-    </div>
-  );
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSavedAt, setProfileSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    setDisplayName(loadDisplayName());
+  }, []);
+
+  function validateDisplayName(value: string): string | null {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return "Display name is required.";
+    if (trimmed.length > 60) return "Display name must be 60 characters or fewer.";
+    return null;
+  }
+
+  async function handleProfileSave(e: FormEvent) {
+    e.preventDefault();
+    const validationError = validateDisplayName(displayName);
+    setDisplayNameError(validationError);
+    if (validationError) return;
+
+    setProfileSaving(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      localStorage.setItem(PROFILE_STORAGE_KEY, displayName.trim());
+      setProfileSavedAt(Date.now());
+      toast.success("Profile saved", "Your display name has been updated in this browser.");
+    } catch (err) {
+      toast.error("Could not save profile", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  function validatePassword(): Record<string, string> {
+    const errors: Record<string, string> = {};
+    if (!currentPassword) errors.currentPassword = "Enter your current password.";
+    if (!newPassword) {
+      errors.newPassword = "Enter a new password.";
+    } else if (newPassword.length < 8) {
+      errors.newPassword = "New password must be at least 8 characters.";
+    }
+    if (!confirmPassword) {
+      errors.confirmPassword = "Confirm your new password.";
+    } else if (newPassword && confirmPassword !== newPassword) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+    return errors;
+  }
+
+  async function handlePasswordSave(e: FormEvent) {
+    e.preventDefault();
+    const errors = validatePassword();
+    setPasswordErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setPasswordSaving(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      throw new Error(
+        "Password changes aren't available yet in this deployment. The backend doesn't currently expose an account update endpoint."
+      );
+    } catch (err) {
+      toast.error("Could not update password", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [notificationsSaving, setNotificationsSaving] = useState(false);
+  const [notificationsSavedAt, setNotificationsSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNotifications(loadNotificationPrefs());
+  }, []);
+
+  function toggleNotification(key: keyof NotificationPrefs) {
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function handleNotificationsSave() {
+    setNotificationsSaving(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      setNotificationsSavedAt(Date.now());
+      toast.success("Notification preferences saved");
+    } catch (err) {
+      toast.error("Could not save preferences", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setNotificationsSaving(false);
+    }
+  }
+
+  const resetMutation = useResetDocuments();
+  const [dangerZoneOpen, setDangerZoneOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const confirmMatches = confirmText.trim().toUpperCase() === "DELETE";
+
+  async function handleDeleteAllDocuments() {
+    if (!confirmMatches) return;
+    try {
+      await resetMutation.mutateAsync();
+      toast.success("All documents deleted", "Your document library and chunks have been cleared.");
+      setDangerZoneOpen(false);
+      setConfirmText("");
+    } catch (err) {
+      toast.error("Could not delete documents", err instanceof Error ? err.message : "Please try again.");
+    }
+  }
+
+  const memberSince = user?.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : null;
 
   return (
     <main style={{ flex: 1, padding: "38px 46px", overflowY: "auto", background: C.bg }}>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+      <style>{`
+        .pr-settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+        .pr-settings-col { display:flex; flex-direction:column; gap:20px; }
+        .pr-password-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        @media (max-width: 920px) {
+          .pr-settings-grid { grid-template-columns:1fr; }
+        }
+        @media (max-width: 560px) {
+          .pr-password-row { grid-template-columns:1fr; }
+        }
+      `}</style>
 
-          <span style={{ ...S.tagIndigo, marginBottom: 12 }}>Settings</span>
-          <h1 style={{ ...S.heading, fontSize: 38, marginTop: 10, marginBottom: 6 }}>Configuration</h1>
-          <p style={{ color: C.textSec, fontSize: 15, marginBottom: 16 }}>
-            Tune model selection, retrieval parameters, and chunking strategy.
-          </p>
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
 
-          <div style={{
-            display: "flex", alignItems: "flex-start", gap: 9,
-            padding: "11px 15px", borderRadius: 10,
-            background: "rgba(91,94,244,0.06)", border: "1px solid rgba(91,94,244,0.14)",
-            marginBottom: 28,
-          }}>
-            <Info size={15} color={C.accent} style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12.5, color: C.textSec, lineHeight: 1.55 }}>
-              Settings are saved to your browser and applied to all subsequent Workspace queries. The model selection and top-K are passed directly to the backend API on each request.
-            </p>
-          </div>
+        <span style={{ ...S.tagIndigo, marginBottom: 12 }}>Settings</span>
+        <h1 style={{ ...S.heading, fontSize: 38, marginTop: 10, marginBottom: 6 }}>Account &amp; Preferences</h1>
+        <p style={{ color: C.textSec, fontSize: 15, marginBottom: 28 }}>
+          Manage your profile, appearance, notifications, and data.
+        </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }}>
+        <div className="pr-settings-grid">
+          <div className="pr-settings-col">
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={sectionCardStyle}>
+              <SectionHeader icon={User} iconColor={C.accent} title="Profile" />
 
-              <div style={{ ...S.card, padding: 26 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
-                  <Cpu size={17} color={C.accent} />
-                  <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 19, color: C.text }}>
-                    Model Selection
+              {userLoading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.textMuted }}>
+                  <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
+                  Loading account…
+                </div>
+              ) : (
+                <form onSubmit={handleProfileSave} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div>
+                    <label style={fieldLabelStyle} htmlFor="display-name">Display name</label>
+                    <input
+                      id="display-name"
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => {
+                        setDisplayName(e.target.value);
+                        if (displayNameError) setDisplayNameError(null);
+                      }}
+                      placeholder="Your name"
+                      maxLength={60}
+                      style={{ ...S.input, borderColor: displayNameError ? C.red : undefined }}
+                    />
+                    {displayNameError ? (
+                      <div style={fieldErrorStyle}>{displayNameError}</div>
+                    ) : (
+                      <div style={fieldHintStyle}>Shown only in this browser. Not synced to any backend field yet.</div>
+                    )}
                   </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {MODELS.map(m => {
-                    const active = model === m.id;
-                    return (
-                      <div key={m.id} onClick={() => setModel(m.id)} style={{
-                        padding: "13px 15px", borderRadius: 11, cursor: "pointer",
-                        border: `1.5px solid ${active ? C.accent : C.border}`,
-                        background: active ? C.accentBg : C.bg,
-                        display: "flex", alignItems: "center", gap: 12,
-                        transition: "all 0.18s",
-                      }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-                          border: `2px solid ${active ? C.accent : C.borderMid}`,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          {active && <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent }} />}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text, marginBottom: 2 }}>{m.name}</div>
-                          <div style={{ fontSize: 11.5, color: C.textMuted }}>{m.desc}</div>
-                        </div>
-                        <div style={{
-                          fontSize: 10.5, fontWeight: 600,
-                          color: active ? C.accent : C.textMuted,
-                          fontFamily: "'JetBrains Mono', monospace",
-                          whiteSpace: "nowrap",
-                        }}>
-                          {m.speed}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+
+                  <div>
+                    <label style={fieldLabelStyle} htmlFor="email">
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <Mail size={12} /> Email
+                      </span>
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={user?.email ?? ""}
+                      disabled
+                      style={{ ...S.input, background: C.bg, color: C.textMuted, cursor: "not-allowed" }}
+                    />
+                    <div style={fieldHintStyle}>
+                      {memberSince ? `Member since ${memberSince}. ` : ""}Email is managed by the account you registered with and can't be changed from this page.
+                    </div>
+                  </div>
+
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: profileSaving ? 1 : 1.02 }}
+                    whileTap={{ scale: profileSaving ? 1 : 0.97 }}
+                    disabled={profileSaving}
+                    style={profileSaving ? S.btnPrimaryDisabled : { ...S.btnPrimary, justifyContent: "center" }}
+                  >
+                    {profileSaving ? (
+                      <>
+                        <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        Save profile
+                      </>
+                    )}
+                  </motion.button>
+
+                  {profileSavedAt && !profileSaving && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.green }}>
+                      <CheckCircle2 size={13} /> Saved just now
+                    </div>
+                  )}
+                </form>
+              )}
+            </div>
+
+            <div style={sectionCardStyle}>
+              <SectionHeader icon={Lock} iconColor={C.orange} title="Password" />
+
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 15px", borderRadius: 10, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.14)", marginBottom: 18 }}>
+                <Info size={14} color={C.orange} style={{ flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.55 }}>
+                  Password changes require a backend account-update endpoint that isn't available in this deployment yet. You can still fill in the form below to see validation, but saving will show an error.
+                </p>
               </div>
 
-              <div style={{ ...S.card, padding: 26 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
-                  <Database size={17} color="#3b82f6" />
-                  <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 19, color: C.text }}>
-                    Vector Store
+              <form onSubmit={handlePasswordSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={fieldLabelStyle} htmlFor="current-password">Current password</label>
+                  <input
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    style={{ ...S.input, borderColor: passwordErrors.currentPassword ? C.red : undefined }}
+                  />
+                  {passwordErrors.currentPassword && <div style={fieldErrorStyle}>{passwordErrors.currentPassword}</div>}
+                </div>
+
+                <div className="pr-password-row">
+                  <div>
+                    <label style={fieldLabelStyle} htmlFor="new-password">New password</label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{ ...S.input, borderColor: passwordErrors.newPassword ? C.red : undefined }}
+                    />
+                    {passwordErrors.newPassword && <div style={fieldErrorStyle}>{passwordErrors.newPassword}</div>}
+                  </div>
+                  <div>
+                    <label style={fieldLabelStyle} htmlFor="confirm-password">Confirm password</label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={{ ...S.input, borderColor: passwordErrors.confirmPassword ? C.red : undefined }}
+                    />
+                    {passwordErrors.confirmPassword && <div style={fieldErrorStyle}>{passwordErrors.confirmPassword}</div>}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {["FAISS", "ChromaDB"].map(vs => {
-                    const active = vectorStore === vs;
-                    return (
-                      <button key={vs} onClick={() => setVectorStore(vs)} style={{
-                        flex: 1, padding: "13px 0", borderRadius: 10, textAlign: "center",
-                        border: `1.5px solid ${active ? C.accent : C.border}`,
-                        background: active ? C.accentBg : C.bg,
-                        fontSize: 13, fontWeight: active ? 700 : 500,
-                        color: active ? C.accent : C.textSec,
-                        cursor: "pointer", fontFamily: "inherit",
-                        transition: "all 0.18s",
-                      }}>
-                        {vs}
-                      </button>
-                    );
-                  })}
+
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: passwordSaving ? 1 : 1.02 }}
+                  whileTap={{ scale: passwordSaving ? 1 : 0.97 }}
+                  disabled={passwordSaving}
+                  style={passwordSaving ? S.btnPrimaryDisabled : { ...S.btnSecondary, justifyContent: "center" }}
+                >
+                  {passwordSaving ? (
+                    <>
+                      <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
+                      Updating…
+                    </>
+                  ) : (
+                    "Update password"
+                  )}
+                </motion.button>
+              </form>
+            </div>
+
+          </div>
+
+          <div className="pr-settings-col">
+
+            <div style={sectionCardStyle}>
+              <SectionHeader icon={Palette} iconColor="#3b82f6" title="Appearance" />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
+                    {theme === "dark" ? <Moon size={13} /> : <Sun size={13} />}
+                    {theme === "dark" ? "Dark theme" : "Light theme"}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textMuted }}>Switches the interface theme and remembers your choice on this device.</div>
                 </div>
-                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 10, lineHeight: 1.5 }}>
-                  FAISS is recommended for local use. ChromaDB supports persistence and metadata filtering.
-                </div>
+                <ThemeToggle />
               </div>
             </div>
 
-            <div style={{ ...S.card, padding: 26 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 22 }}>
-                <Sliders size={17} color={C.orange} />
-                <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 19, color: C.text }}>
-                  Retrieval Parameters
-                </div>
+            <div style={sectionCardStyle}>
+              <SectionHeader icon={Bell} iconColor={C.green} title="Notifications" />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 18 }}>
+                {[
+                  { key: "evaluationComplete" as const, label: "Evaluation runs finish", desc: "Notify me when a manual evaluation re-run completes." },
+                  { key: "ingestionErrors" as const, label: "Ingestion errors", desc: "Notify me if a document upload or ingest job fails." },
+                  { key: "weeklySummary" as const, label: "Weekly summary", desc: "Send a weekly digest of activity across my workspace." },
+                ].map((item, i, arr) => (
+                  <div key={item.key} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14,
+                    padding: "13px 0", borderBottom: i === arr.length - 1 ? "none" : `1px solid ${C.border}`,
+                  }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{item.label}</div>
+                      <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>{item.desc}</div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={notifications[item.key]}
+                      aria-label={item.label}
+                      onClick={() => toggleNotification(item.key)}
+                      style={{
+                        flexShrink: 0, width: 40, height: 22, borderRadius: 99, border: "none", cursor: "pointer",
+                        background: notifications[item.key] ? C.accent : "rgba(0,0,0,0.15)",
+                        position: "relative", transition: "background 0.18s",
+                      }}
+                    >
+                      <span style={{
+                        position: "absolute", top: 2, left: notifications[item.key] ? 20 : 2,
+                        width: 18, height: 18, borderRadius: "50%", background: "#ffffff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.25)", transition: "left 0.18s",
+                      }} />
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              <Slider label="Top-K Chunks"   desc="Number of chunks retrieved per query"          value={topK}         min={1}   max={20}   step={1}   onChange={setTopK} />
-              <Slider label="Chunk Size"      desc="Tokens per document chunk"                     value={chunkSize}    min={128} max={2048} step={64}  onChange={setChunkSize}    fmt={v=>`${v}t`} />
-              <Slider label="Chunk Overlap"   desc="Token overlap between adjacent chunks"          value={chunkOverlap} min={0}   max={256}  step={16}  onChange={setChunkOverlap} fmt={v=>`${v}t`} />
-              <Slider label="Temperature"     desc="LLM generation randomness (0 = deterministic)" value={temperature}  min={0}   max={1}    step={0.05} onChange={setTemperature}  fmt={v=>v.toFixed(2)} />
+              <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
+                Saved locally in this browser. Prism doesn't currently deliver email or push notifications.
+              </div>
 
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={save}
-                style={{
-                  width: "100%",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  padding: "13px 0",
-                  background: savedOk ? C.green : C.black,
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: 11,
-                  fontSize: 14, fontWeight: 700,
-                  fontFamily: "inherit",
-                  cursor: "pointer",
-                  transition: "background 0.3s",
-                }}
+                type="button"
+                whileHover={{ scale: notificationsSaving ? 1 : 1.02 }}
+                whileTap={{ scale: notificationsSaving ? 1 : 0.97 }}
+                onClick={handleNotificationsSave}
+                disabled={notificationsSaving}
+                style={notificationsSaving ? S.btnPrimaryDisabled : { ...S.btnSecondary, justifyContent: "center", width: "100%" }}
               >
-                {savedOk
-                  ? <><CheckCircle size={16} /> Saved successfully!</>
-                  : <><Save size={15} /> Save Configuration</>
-                }
+                {notificationsSaving ? (
+                  <>
+                    <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
+                    Saving…
+                  </>
+                ) : (
+                  "Save preferences"
+                )}
               </motion.button>
 
-              <AnimatePresence>
-                {savedOk && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: C.greenBg, border: `1px solid rgba(61,153,112,0.2)` }}
-                  >
-                    <div style={{ fontSize: 12, color: C.green, fontWeight: 600, marginBottom: 3 }}>
-                      Configuration saved to browser storage
-                    </div>
-                    <div style={{ fontSize: 11, color: C.textSec }}>
-                      Model: <strong>{MODELS.find(m => m.id === model)?.name}</strong> ·
-                      Top-K: <strong>{topK}</strong> ·
-                      Temp: <strong>{temperature.toFixed(2)}</strong>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {notificationsSavedAt && !notificationsSaving && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.green, marginTop: 10 }}>
+                  <CheckCircle2 size={13} /> Saved just now
+                </div>
+              )}
             </div>
-          </div>
 
-        </motion.div>
+            <div style={{ ...sectionCardStyle, border: `1px solid rgba(220,38,38,0.25)` }}>
+              <SectionHeader icon={ShieldAlert} iconColor={C.red} title="Danger Zone" />
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text, marginBottom: 3 }}>Delete all my documents</div>
+                  <div style={{ fontSize: 12, color: C.textMuted, maxWidth: 360 }}>
+                    Permanently removes every ingested document and chunk in your workspace. This cannot be undone.
+                  </div>
+                </div>
+                {!dangerZoneOpen && (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => setDangerZoneOpen(true)}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px",
+                      background: "#ffffff", color: C.red, border: `1.5px solid rgba(220,38,38,0.4)`,
+                      borderRadius: 11, fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    Delete all documents
+                  </motion.button>
+                )}
+              </div>
+
+              {dangerZoneOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  style={{ marginTop: 18, padding: 16, borderRadius: 12, background: C.redBg, border: "1px solid rgba(220,38,38,0.2)" }}
+                >
+                  <p style={{ fontSize: 12.5, color: C.text, marginBottom: 10, lineHeight: 1.55 }}>
+                    Type <strong>DELETE</strong> to confirm. All documents, chunks, and derived data for your workspace will be removed immediately.
+                  </p>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    style={{ ...S.input, marginBottom: 12, borderColor: "rgba(220,38,38,0.35)" }}
+                  />
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: confirmMatches && !resetMutation.isPending ? 1.02 : 1 }}
+                      whileTap={{ scale: confirmMatches && !resetMutation.isPending ? 0.97 : 1 }}
+                      onClick={handleDeleteAllDocuments}
+                      disabled={!confirmMatches || resetMutation.isPending}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px",
+                        background: confirmMatches ? C.red : "rgba(220,38,38,0.35)",
+                        color: "#ffffff", border: "none", borderRadius: 11, fontSize: 13, fontWeight: 700,
+                        fontFamily: "inherit", cursor: confirmMatches && !resetMutation.isPending ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      {resetMutation.isPending ? (
+                        <>
+                          <Loader2 size={13} style={{ animation: "spin 0.7s linear infinite" }} />
+                          Deleting…
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={13} />
+                          Confirm delete
+                        </>
+                      )}
+                    </motion.button>
+                    <button
+                      type="button"
+                      onClick={() => { setDangerZoneOpen(false); setConfirmText(""); }}
+                      disabled={resetMutation.isPending}
+                      style={{ ...S.btnSecondary }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+          </div>
+        </div>
+
+      </motion.div>
     </main>
   );
 }
