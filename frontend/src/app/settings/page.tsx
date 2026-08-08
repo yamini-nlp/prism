@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
 import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { S, C } from "@/lib/styles";
 import { bootstrapSession, getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { useTheme } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useResetDocuments } from "@/lib/queries/documents";
 import { toast } from "@/lib/toast";
+import {
+  profileSettingsSchema, type ProfileSettingsFormValues,
+  passwordSettingsSchema, type PasswordSettingsFormValues,
+} from "@/lib/validation/schemas";
 import {
   User, Mail, Lock, Palette, Bell, ShieldAlert, Save, Loader2,
   Info, Trash2, CheckCircle2, Sun, Moon,
@@ -106,70 +111,40 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [displayName, setDisplayName] = useState("");
-  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
-  const [profileSaving, setProfileSaving] = useState(false);
   const [profileSavedAt, setProfileSavedAt] = useState<number | null>(null);
 
+  const profileForm = useForm<ProfileSettingsFormValues>({
+    resolver: zodResolver(profileSettingsSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: { displayName: "" },
+  });
+
   useEffect(() => {
-    setDisplayName(loadDisplayName());
+    profileForm.reset({ displayName: loadDisplayName() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function validateDisplayName(value: string): string | null {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return "Display name is required.";
-    if (trimmed.length > 60) return "Display name must be 60 characters or fewer.";
-    return null;
-  }
-
-  async function handleProfileSave(e: FormEvent) {
-    e.preventDefault();
-    const validationError = validateDisplayName(displayName);
-    setDisplayNameError(validationError);
-    if (validationError) return;
-
-    setProfileSaving(true);
+  async function handleProfileSave(values: ProfileSettingsFormValues) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 350));
-      localStorage.setItem(PROFILE_STORAGE_KEY, displayName.trim());
+      localStorage.setItem(PROFILE_STORAGE_KEY, values.displayName.trim());
       setProfileSavedAt(Date.now());
       toast.success("Profile saved", "Your display name has been updated in this browser.");
+      profileForm.reset({ displayName: values.displayName.trim() });
     } catch (err) {
       toast.error("Could not save profile", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setProfileSaving(false);
     }
   }
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  const [passwordSaving, setPasswordSaving] = useState(false);
+  const passwordForm = useForm<PasswordSettingsFormValues>({
+    resolver: zodResolver(passwordSettingsSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  });
 
-  function validatePassword(): Record<string, string> {
-    const errors: Record<string, string> = {};
-    if (!currentPassword) errors.currentPassword = "Enter your current password.";
-    if (!newPassword) {
-      errors.newPassword = "Enter a new password.";
-    } else if (newPassword.length < 8) {
-      errors.newPassword = "New password must be at least 8 characters.";
-    }
-    if (!confirmPassword) {
-      errors.confirmPassword = "Confirm your new password.";
-    } else if (newPassword && confirmPassword !== newPassword) {
-      errors.confirmPassword = "Passwords do not match.";
-    }
-    return errors;
-  }
-
-  async function handlePasswordSave(e: FormEvent) {
-    e.preventDefault();
-    const errors = validatePassword();
-    setPasswordErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setPasswordSaving(true);
+  async function handlePasswordSave(): Promise<void> {
     try {
       await new Promise((resolve) => setTimeout(resolve, 350));
       throw new Error(
@@ -177,8 +152,6 @@ export default function SettingsPage() {
       );
     } catch (err) {
       toast.error("Could not update password", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setPasswordSaving(false);
     }
   }
 
@@ -261,23 +234,20 @@ export default function SettingsPage() {
                   Loading account…
                 </div>
               ) : (
-                <form onSubmit={handleProfileSave} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <form onSubmit={profileForm.handleSubmit(handleProfileSave)} noValidate style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   <div>
                     <label style={fieldLabelStyle} htmlFor="display-name">Display name</label>
                     <input
                       id="display-name"
                       type="text"
-                      value={displayName}
-                      onChange={(e) => {
-                        setDisplayName(e.target.value);
-                        if (displayNameError) setDisplayNameError(null);
-                      }}
                       placeholder="Your name"
                       maxLength={60}
-                      style={{ ...S.input, borderColor: displayNameError ? C.red : undefined }}
+                      aria-invalid={profileForm.formState.errors.displayName ? true : undefined}
+                      style={{ ...S.input, borderColor: profileForm.formState.errors.displayName ? C.red : undefined }}
+                      {...profileForm.register("displayName")}
                     />
-                    {displayNameError ? (
-                      <div style={fieldErrorStyle}>{displayNameError}</div>
+                    {profileForm.formState.errors.displayName ? (
+                      <div style={fieldErrorStyle}>{profileForm.formState.errors.displayName.message}</div>
                     ) : (
                       <div style={fieldHintStyle}>Shown only in this browser. Not synced to any backend field yet.</div>
                     )}
@@ -303,12 +273,12 @@ export default function SettingsPage() {
 
                   <motion.button
                     type="submit"
-                    whileHover={{ scale: profileSaving ? 1 : 1.02 }}
-                    whileTap={{ scale: profileSaving ? 1 : 0.97 }}
-                    disabled={profileSaving}
-                    style={profileSaving ? S.btnPrimaryDisabled : { ...S.btnPrimary, justifyContent: "center" }}
+                    whileHover={{ scale: profileForm.formState.isSubmitting ? 1 : 1.02 }}
+                    whileTap={{ scale: profileForm.formState.isSubmitting ? 1 : 0.97 }}
+                    disabled={profileForm.formState.isSubmitting || !profileForm.formState.isValid}
+                    style={profileForm.formState.isSubmitting || !profileForm.formState.isValid ? S.btnPrimaryDisabled : { ...S.btnPrimary, justifyContent: "center" }}
                   >
-                    {profileSaving ? (
+                    {profileForm.formState.isSubmitting ? (
                       <>
                         <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
                         Saving…
@@ -321,7 +291,7 @@ export default function SettingsPage() {
                     )}
                   </motion.button>
 
-                  {profileSavedAt && !profileSaving && (
+                  {profileSavedAt && !profileForm.formState.isSubmitting && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.green }}>
                       <CheckCircle2 size={13} /> Saved just now
                     </div>
@@ -340,18 +310,18 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              <form onSubmit={handlePasswordSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form onSubmit={passwordForm.handleSubmit(handlePasswordSave)} noValidate style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <label style={fieldLabelStyle} htmlFor="current-password">Current password</label>
                   <input
                     id="current-password"
                     type="password"
                     autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    style={{ ...S.input, borderColor: passwordErrors.currentPassword ? C.red : undefined }}
+                    aria-invalid={passwordForm.formState.errors.currentPassword ? true : undefined}
+                    style={{ ...S.input, borderColor: passwordForm.formState.errors.currentPassword ? C.red : undefined }}
+                    {...passwordForm.register("currentPassword")}
                   />
-                  {passwordErrors.currentPassword && <div style={fieldErrorStyle}>{passwordErrors.currentPassword}</div>}
+                  {passwordForm.formState.errors.currentPassword && <div style={fieldErrorStyle}>{passwordForm.formState.errors.currentPassword.message}</div>}
                 </div>
 
                 <div className="pr-password-row">
@@ -361,11 +331,11 @@ export default function SettingsPage() {
                       id="new-password"
                       type="password"
                       autoComplete="new-password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      style={{ ...S.input, borderColor: passwordErrors.newPassword ? C.red : undefined }}
+                      aria-invalid={passwordForm.formState.errors.newPassword ? true : undefined}
+                      style={{ ...S.input, borderColor: passwordForm.formState.errors.newPassword ? C.red : undefined }}
+                      {...passwordForm.register("newPassword")}
                     />
-                    {passwordErrors.newPassword && <div style={fieldErrorStyle}>{passwordErrors.newPassword}</div>}
+                    {passwordForm.formState.errors.newPassword && <div style={fieldErrorStyle}>{passwordForm.formState.errors.newPassword.message}</div>}
                   </div>
                   <div>
                     <label style={fieldLabelStyle} htmlFor="confirm-password">Confirm password</label>
@@ -373,22 +343,22 @@ export default function SettingsPage() {
                       id="confirm-password"
                       type="password"
                       autoComplete="new-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={{ ...S.input, borderColor: passwordErrors.confirmPassword ? C.red : undefined }}
+                      aria-invalid={passwordForm.formState.errors.confirmPassword ? true : undefined}
+                      style={{ ...S.input, borderColor: passwordForm.formState.errors.confirmPassword ? C.red : undefined }}
+                      {...passwordForm.register("confirmPassword")}
                     />
-                    {passwordErrors.confirmPassword && <div style={fieldErrorStyle}>{passwordErrors.confirmPassword}</div>}
+                    {passwordForm.formState.errors.confirmPassword && <div style={fieldErrorStyle}>{passwordForm.formState.errors.confirmPassword.message}</div>}
                   </div>
                 </div>
 
                 <motion.button
                   type="submit"
-                  whileHover={{ scale: passwordSaving ? 1 : 1.02 }}
-                  whileTap={{ scale: passwordSaving ? 1 : 0.97 }}
-                  disabled={passwordSaving}
-                  style={passwordSaving ? S.btnPrimaryDisabled : { ...S.btnSecondary, justifyContent: "center" }}
+                  whileHover={{ scale: passwordForm.formState.isSubmitting ? 1 : 1.02 }}
+                  whileTap={{ scale: passwordForm.formState.isSubmitting ? 1 : 0.97 }}
+                  disabled={passwordForm.formState.isSubmitting || !passwordForm.formState.isValid}
+                  style={passwordForm.formState.isSubmitting || !passwordForm.formState.isValid ? S.btnPrimaryDisabled : { ...S.btnSecondary, justifyContent: "center" }}
                 >
-                  {passwordSaving ? (
+                  {passwordForm.formState.isSubmitting ? (
                     <>
                       <Loader2 size={14} style={{ animation: "spin 0.7s linear infinite" }} />
                       Updating…
