@@ -7,12 +7,13 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
 import { S, C } from "@/lib/styles";
+import Skeleton from "@/components/ui/Skeleton";
 import { evalReportQueryKey, useEvalReport, useRunEvalReport } from "@/lib/queries/generations";
 import { useJob } from "@/lib/queries/jobs";
 import { toast } from "@/lib/toast";
 import {
   RefreshCw, Target, CheckCircle2, Hash, TrendingUp,
-  PlayCircle, Loader2, AlertTriangle,
+  PlayCircle, Loader2, AlertTriangle, RotateCcw,
 } from "lucide-react";
 
 type ParsedSummary = {
@@ -231,18 +232,66 @@ export default function EvaluationPage() {
         )}
 
         {loading && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(91,94,244,0.06)", border: "1px solid rgba(91,94,244,0.15)", marginBottom: 28 }}>
-            <Loader2 size={16} color={C.accent} style={{ animation: "spin 0.7s linear infinite" }} />
-            <p style={{ fontSize: 13.5, color: C.textSec }}>Loading evaluation report…</p>
-          </div>
+          <>
+            <div className="pr-eval-stats">
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} style={{ ...S.card, padding: 22 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3.5 w-3.5 rounded-full" />
+                  </div>
+                  <Skeleton className="mb-2 h-8 w-16" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
+            <div style={{ ...S.card, padding: 26 }}>
+              <Skeleton className="mb-3 h-5 w-40" />
+              <Skeleton className="mb-6 h-3 w-72" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+            </div>
+          </>
         )}
 
         {!loading && errorMessage && (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.15)", marginBottom: 28 }}>
-            <AlertTriangle size={16} color={C.orange} style={{ marginTop: 1 }} />
-            <p style={{ fontSize: 13.5, color: C.textSec }}>
-              <strong style={{ color: C.text }}>{errorMessage}</strong> Use the <strong style={{ color: C.text }}>Re-run Evaluation</strong> button above to generate a fresh report.
+            <AlertTriangle size={16} color={C.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13.5, color: C.textSec, marginBottom: 12 }}>
+                <strong style={{ color: C.text }}>{errorMessage}</strong> Use the <strong style={{ color: C.text }}>Re-run Evaluation</strong> button above to generate a fresh report.
+              </p>
+              <button
+                onClick={() => refetch()}
+                disabled={loading || isRunning}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.orange, background: "rgba(212,98,42,0.1)", border: "none", borderRadius: 8, padding: "7px 13px", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                <RotateCcw size={12} /> Retry
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !errorMessage && !data && (
+          <div style={{ textAlign: "center", padding: "70px 24px" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <Target size={22} color={C.textMuted} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 6 }}>No evaluation report yet</div>
+            <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 20px" }}>
+              Run the evaluation harness to generate recall, groundedness, and MRR metrics for your workspace.
             </p>
+            <motion.button whileHover={{ scale: isRunning ? 1 : 1.04 }} whileTap={{ scale: isRunning ? 1 : 0.95 }}
+              onClick={handleRerun} disabled={isRunning}
+              style={isRunning ? S.btnPrimaryDisabled : { ...S.btnPrimary, margin: "0 auto", display: "inline-flex" }}>
+              <PlayCircle size={13} />
+              Run Evaluation
+            </motion.button>
           </div>
         )}
 
