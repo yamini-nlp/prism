@@ -1,10 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import { Suspense } from "react";
+import type { CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { login } from "@/lib/auth";
+import { toast } from "@/lib/toast";
+import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
 const inputStyle: CSSProperties = {
   padding: "10px 12px",
@@ -13,6 +17,11 @@ const inputStyle: CSSProperties = {
   fontSize: 13,
   outline: "none",
   fontFamily: "inherit",
+};
+
+const inputErrorStyle: CSSProperties = {
+  ...inputStyle,
+  borderColor: "#b3261e",
 };
 
 const buttonStyle: CSSProperties = {
@@ -26,45 +35,42 @@ const buttonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const fieldErrorStyle: CSSProperties = {
+  fontSize: 11.5,
+  color: "#b3261e",
+  fontWeight: 600,
+};
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  function validate(): string | null {
-    if (!email.trim()) return "Email is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Enter a valid email address.";
-    if (!password) return "Password is required.";
-    if (password.length < 8) return "Password must be at least 8 characters.";
-    return null;
-  }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: { email: "", password: "" },
+  });
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setError(null);
-    setLoading(true);
+  async function onSubmit(values: LoginFormValues) {
     try {
-      await login(email.trim(), password);
+      await login(values.email.trim(), values.password);
+      toast.success("Signed in", "Welcome back to Prism.");
       const from = searchParams.get("from");
       router.push(from && from.startsWith("/") ? from : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
-    } finally {
-      setLoading(false);
+      const message = err instanceof Error ? err.message : "Login failed.";
+      toast.error("Could not sign in", message);
     }
   }
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f7f6f3", padding: 24 }}>
-      <form onSubmit={handleSubmit} style={{ width: 360, background: "#ffffff", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, padding: 32, display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ width: 360, background: "#ffffff", border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, padding: 32, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 24, color: "#111110" }}>
           Sign in to Prism
         </div>
@@ -74,30 +80,30 @@ function LoginForm() {
           <span style={{ fontSize: 12, fontWeight: 600, color: "#5c5a56" }}>Email</span>
           <input
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
+            style={errors.email ? inputErrorStyle : inputStyle}
             placeholder="you@example.com"
             autoComplete="email"
+            aria-invalid={errors.email ? true : undefined}
+            {...register("email")}
           />
+          {errors.email && <span style={fieldErrorStyle}>{errors.email.message}</span>}
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#5c5a56" }}>Password</span>
           <input
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
+            style={errors.password ? inputErrorStyle : inputStyle}
             placeholder="••••••••"
             autoComplete="current-password"
+            aria-invalid={errors.password ? true : undefined}
+            {...register("password")}
           />
+          {errors.password && <span style={fieldErrorStyle}>{errors.password.message}</span>}
         </label>
 
-        {error && <div style={{ fontSize: 12, color: "#b3261e" }}>{error}</div>}
-
-        <button type="submit" disabled={loading} style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}>
-          {loading ? "Signing in..." : "Sign in"}
+        <button type="submit" disabled={isSubmitting || !isValid} style={{ ...buttonStyle, opacity: isSubmitting || !isValid ? 0.7 : 1, cursor: isSubmitting || !isValid ? "not-allowed" : "pointer" }}>
+          {isSubmitting ? "Signing in..." : "Sign in"}
         </button>
 
         <div style={{ fontSize: 12, color: "#5c5a56" }}>
