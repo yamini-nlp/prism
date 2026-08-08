@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { streamGenerate, fetchEvalReport, type GenerateRequestBody, type EvalReportResponse } from "@/lib/api";
+import { streamGenerate, fetchEvalReport, runEvalReport, type GenerateRequestBody, type EvalReportResponse, type UploadJobResponse } from "@/lib/api";
 
 export interface GenerateVariables extends GenerateRequestBody {
   onEvent: (event: string, data: any) => void;
@@ -19,5 +19,11 @@ export function useEvalReport() {
     queryKey: evalReportQueryKey,
     queryFn: fetchEvalReport,
     staleTime: 15_000,
+  });
+}
+
+export function useRunEvalReport() {
+  return useMutation<UploadJobResponse, Error, void>({
+    mutationFn: () => runEvalReport(),
   });
 }
