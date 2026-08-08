@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, FastAPI, Depends, Request, Query, Response
+from fastapi import APIRouter, FastAPI, Depends, Request, Query, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -14,14 +14,15 @@ from core import embedder
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter
-from core.jobs import get_job, cancel_job
-from core.db import get_db
+from core.jobs import get_job, cancel_job, create_job, set_job_stage, set_job_result, set_job_error
+from core.db import get_db, AsyncSessionLocal
 from core.config import settings
 from core.security import decode_token
 from core.logging_config import setup_logging, log_request
 from core.metrics import record_request, get_metrics, generate_prometheus_metrics
 from core.tracing import setup_tracing
 from core.errors import NotFoundError, register_exception_handlers
+from eval import evaluate as eval_module
 
 API_VERSION = "1.0.0"
 
@@ -303,3 +304,26 @@ def get_eval_report():
     content = report_path.read_text(encoding="utf-8")
     generated_at = datetime.fromtimestamp(report_path.stat().st_mtime).isoformat()
     return {"content": content, "generated_at": generated_at}
+
+
+async def _run_eval_job(job_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        try:
+            await set_job_stage(db, job_id, "chunking")
+            result = await eval_module.run_evaluation(print_progress=False)
+            await set_job_result(db, job_id, result)
+        except Exception as e:
+            await set_job_error(db, job_id, str(e))
+
+
+@app.post(
+    "/eval-report/run",
+    tags=["operational"],
+    status_code=202,
+    summary="Re-run the evaluation harness",
+    description="Trigger backend/eval/evaluate.py as a background job against the sample dataset and return a job id compatible with the standard job-status polling endpoint.",
+)
+async def run_eval_report(background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    job_id = await create_job(db, session_id=None)
+    background_tasks.add_task(_run_eval_job, job_id)
+    return {"job_id": job_id}
