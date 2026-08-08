@@ -4,10 +4,13 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { S, C } from "@/lib/styles";
 import { uploadFileWithProgress, cancelJob as apiCancelJob, fetchJobStatus, ApiError, type SummaryResult, type JobStatus } from "@/lib/api";
 import { useIngestUrl, useIngestText, useGenerateSummary, documentsQueryKey } from "@/lib/queries/documents";
 import { toast } from "@/lib/toast";
+import { ingestUrlSchema, type IngestUrlFormValues, ingestTextSchema, type IngestTextFormValues } from "@/lib/validation/schemas";
 import {
   Upload, FileText, Link as LinkIcon, Type, ArrowRight,
   AlertCircle, RotateCcw, Ban, ChevronDown, ChevronUp, Trash2,
@@ -88,13 +91,23 @@ const visuallyHiddenInput: React.CSSProperties = {
 
 export default function IngestPage() {
   const [mode, setMode] = useState<Kind>("file");
-  const [urlValue, setUrlValue] = useState("");
-  const [textValue, setTextValue] = useState("");
   const [dragging, setDragging] = useState(false);
   const [dropError, setDropError] = useState("");
   const [items, setItems] = useState<QueueItem[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  const urlForm = useForm<IngestUrlFormValues>({
+    resolver: zodResolver(ingestUrlSchema),
+    mode: "onChange",
+    defaultValues: { url: "" },
+  });
+
+  const textForm = useForm<IngestTextFormValues>({
+    resolver: zodResolver(ingestTextSchema),
+    mode: "onChange",
+    defaultValues: { text: "" },
+  });
 
   const ingestUrlMutation = useIngestUrl();
   const ingestTextMutation = useIngestText();
@@ -210,58 +223,59 @@ export default function IngestPage() {
     [startItem]
   );
 
-  const addUrl = useCallback(() => {
-    const trimmed = urlValue.trim();
-    if (!trimmed) return;
-    const item: QueueItem = {
-      id: genId(),
-      kind: "url",
-      label: trimmed,
-      detail: "URL source",
-      file: null,
-      payload: trimmed,
-      status: "queued",
-      uploadProgress: 100,
-      stage: "uploading",
-      jobId: null,
-      error: null,
-      summary: null,
-      notified: false,
-      abortController: null,
-      expanded: false,
-    };
-    setItems((prev) => [item, ...prev]);
-    startItem(item);
-    setUrlValue("");
-  }, [urlValue, startItem]);
+  const onSubmitUrl = useCallback(
+    (values: IngestUrlFormValues) => {
+      const trimmed = values.url.trim();
+      const item: QueueItem = {
+        id: genId(),
+        kind: "url",
+        label: trimmed,
+        detail: "URL source",
+        file: null,
+        payload: trimmed,
+        status: "queued",
+        uploadProgress: 100,
+        stage: "uploading",
+        jobId: null,
+        error: null,
+        summary: null,
+        notified: false,
+        abortController: null,
+        expanded: false,
+      };
+      setItems((prev) => [item, ...prev]);
+      startItem(item);
+      urlForm.reset({ url: "" });
+    },
+    [startItem, urlForm]
+  );
 
-  const addText = useCallback(() => {
-    const trimmed = textValue.trim();
-    if (trimmed.length < 50) {
-      toast.error("Text too short", "Please provide at least 50 characters.");
-      return;
-    }
-    const item: QueueItem = {
-      id: genId(),
-      kind: "text",
-      label: "Manual Input",
-      detail: `${trimmed.length} characters`,
-      file: null,
-      payload: trimmed,
-      status: "queued",
-      uploadProgress: 100,
-      stage: "uploading",
-      jobId: null,
-      error: null,
-      summary: null,
-      notified: false,
-      abortController: null,
-      expanded: false,
-    };
-    setItems((prev) => [item, ...prev]);
-    startItem(item);
-    setTextValue("");
-  }, [textValue, startItem]);
+  const onSubmitText = useCallback(
+    (values: IngestTextFormValues) => {
+      const trimmed = values.text.trim();
+      const item: QueueItem = {
+        id: genId(),
+        kind: "text",
+        label: "Manual Input",
+        detail: `${trimmed.length} characters`,
+        file: null,
+        payload: trimmed,
+        status: "queued",
+        uploadProgress: 100,
+        stage: "uploading",
+        jobId: null,
+        error: null,
+        summary: null,
+        notified: false,
+        abortController: null,
+        expanded: false,
+      };
+      setItems((prev) => [item, ...prev]);
+      startItem(item);
+      textForm.reset({ text: "" });
+    },
+    [startItem, textForm]
+  );
 
   const cancelItem = useCallback(
     (item: QueueItem) => {
@@ -433,38 +447,70 @@ export default function IngestPage() {
           )}
 
           {mode === "url" && (
-            <motion.div key="url" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+            <motion.form
+              key="url"
+              onSubmit={urlForm.handleSubmit(onSubmitUrl)}
+              noValidate
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Research Paper URL</label>
               <input
-                style={S.input}
+                style={{ ...S.input, borderColor: urlForm.formState.errors.url ? C.red : undefined }}
                 type="url"
                 placeholder="https://arxiv.org/abs/..."
-                value={urlValue}
-                onChange={(e) => setUrlValue(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addUrl(); }}
+                aria-invalid={urlForm.formState.errors.url ? true : undefined}
+                {...urlForm.register("url")}
               />
-              <div style={{ fontSize: 12, color: C.textMuted, marginTop: 7, marginBottom: 16 }}>
-                Supports arXiv, PubMed, ACL Anthology, and most research sites.
-              </div>
-              <button onClick={addUrl} disabled={!urlValue.trim()} style={urlValue.trim() ? S.btnPrimary : S.btnPrimaryDisabled}>
+              {urlForm.formState.errors.url ? (
+                <div style={{ fontSize: 11.5, color: C.red, fontWeight: 600, marginTop: 7, marginBottom: 16 }}>
+                  {urlForm.formState.errors.url.message}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: C.textMuted, marginTop: 7, marginBottom: 16 }}>
+                  Supports arXiv, PubMed, ACL Anthology, and most research sites.
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={urlForm.formState.isSubmitting || !urlForm.formState.isValid}
+                style={urlForm.formState.isSubmitting || !urlForm.formState.isValid ? S.btnPrimaryDisabled : S.btnPrimary}
+              >
                 Add to Queue <ArrowRight size={14} />
               </button>
-            </motion.div>
+            </motion.form>
           )}
 
           {mode === "text" && (
-            <motion.div key="text" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+            <motion.form
+              key="text"
+              onSubmit={textForm.handleSubmit(onSubmitText)}
+              noValidate
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Paste your text</label>
               <textarea
-                style={{ ...S.textarea, minHeight: 200, marginBottom: 16 }}
+                style={{ ...S.textarea, minHeight: 200, marginBottom: 8, borderColor: textForm.formState.errors.text ? C.red : undefined }}
                 placeholder="Paste abstract, excerpts, or full paper text…"
-                value={textValue}
-                onChange={(e) => setTextValue(e.target.value)}
+                aria-invalid={textForm.formState.errors.text ? true : undefined}
+                {...textForm.register("text")}
               />
-              <button onClick={addText} disabled={textValue.trim().length < 50} style={textValue.trim().length >= 50 ? S.btnPrimary : S.btnPrimaryDisabled}>
+              {textForm.formState.errors.text && (
+                <div style={{ fontSize: 11.5, color: C.red, fontWeight: 600, marginBottom: 16 }}>
+                  {textForm.formState.errors.text.message}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={textForm.formState.isSubmitting || !textForm.formState.isValid}
+                style={textForm.formState.isSubmitting || !textForm.formState.isValid ? S.btnPrimaryDisabled : S.btnPrimary}
+              >
                 Add to Queue <ArrowRight size={14} />
               </button>
-            </motion.div>
+            </motion.form>
           )}
         </AnimatePresence>
 
