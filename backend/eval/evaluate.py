@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import math
+import asyncio
 import statistics
 from pathlib import Path
 
@@ -12,8 +13,9 @@ from dotenv import load_dotenv
 
 load_dotenv(BACKEND_DIR / ".env")
 
-from core.embedder import chunk_text, embed_and_store, hybrid_search, reset_storage, init_storage
+from core.embedder import chunk_text, embed_and_store, hybrid_search, reset_storage
 from core.rag import stream_rag
+from core.db import AsyncSessionLocal
 
 EVAL_DIR = Path(__file__).resolve().parent
 SAMPLE_DOCS_DIR = EVAL_DIR / "sample_docs"
@@ -34,16 +36,15 @@ def wilson_ci(successes: int, n: int, z: float = 1.96):
     return (max(0.0, lower), min(1.0, upper))
 
 
-def ingest_sample_docs():
-    reset_storage(SESSION_ID)
-    init_storage(SESSION_ID)
+async def ingest_sample_docs(db):
+    await reset_storage(db, SESSION_ID)
     doc_paths = sorted(SAMPLE_DOCS_DIR.glob("*.txt"))
     if not doc_paths:
         raise RuntimeError(f"No sample docs found in {SAMPLE_DOCS_DIR}")
     for path in doc_paths:
         text = path.read_text(encoding="utf-8")
         chunks = chunk_text(text)
-        embed_and_store(chunks, source=path.name, session_id=SESSION_ID, source_type="text", title=path.stem)
+        await embed_and_store(db, chunks, source=path.name, session_id=SESSION_ID, source_type="text", title=path.stem)
     return [p.name for p in doc_paths]
 
 
@@ -55,10 +56,10 @@ def compute_recall_and_mrr(results, expected_source):
     return False, 0.0, None
 
 
-def run_generation(query: str):
+async def run_generation(query: str):
     answer = ""
     grounding = []
-    for event in stream_rag(query, SESSION_ID, top_k=5):
+    async for event in stream_rag(query, SESSION_ID, top_k=5):
         if "event: done" not in event:
             continue
         for line in event.splitlines():
@@ -105,17 +106,12 @@ def write_report(rows, n, recall_hits, recall_at_5, recall_ci, mean_mrr,
     REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def main():
+async def run_evaluation(print_progress: bool = True) -> dict:
     if not os.getenv("GROQ_API_KEY"):
-        print("ERROR: GROQ_API_KEY not set. Add it to backend/.env before running the eval.")
-        sys.exit(1)
+        raise RuntimeError("GROQ_API_KEY not set. Add it to backend/.env before running the eval.")
 
     with open(DATASET_PATH, encoding="utf-8") as f:
         dataset = json.load(f)
-
-    print(f"Ingesting sample docs into session '{SESSION_ID}'...")
-    ingested = ingest_sample_docs()
-    print(f"Ingested: {', '.join(ingested)}")
 
     rows = []
     recall_hits = 0
@@ -123,34 +119,42 @@ def main():
     supported_claims_all = 0
     mrr_values = []
 
-    for i, item in enumerate(dataset, start=1):
-        question = item["question"]
-        expected_source = item["expected_source"]
+    async with AsyncSessionLocal() as db:
+        if print_progress:
+            print(f"Ingesting sample docs into session '{SESSION_ID}'...")
+        ingested = await ingest_sample_docs(db)
+        if print_progress:
+            print(f"Ingested: {', '.join(ingested)}")
 
-        print(f"[{i}/{len(dataset)}] {question}")
+        for i, item in enumerate(dataset, start=1):
+            question = item["question"]
+            expected_source = item["expected_source"]
 
-        results = hybrid_search(question, SESSION_ID, top_k=5)
-        hit, mrr, rank = compute_recall_and_mrr(results, expected_source)
-        recall_hits += int(hit)
-        mrr_values.append(mrr)
+            if print_progress:
+                print(f"[{i}/{len(dataset)}] {question}")
 
-        answer, total_claims, supported = run_generation(question)
-        total_claims_all += total_claims
-        supported_claims_all += supported
-        supported_rate = (supported / total_claims * 100) if total_claims else 0.0
+            results = await hybrid_search(db, question, SESSION_ID, top_k=5)
+            hit, mrr, rank = compute_recall_and_mrr(results, expected_source)
+            recall_hits += int(hit)
+            mrr_values.append(mrr)
 
-        rows.append({
-            "index": i,
-            "question": question,
-            "expected_source": expected_source,
-            "recall_hit": hit,
-            "rank": rank if rank else "-",
-            "mrr": round(mrr, 3),
-            "generated_answer": answer,
-            "total_claims": total_claims,
-            "supported_claims": supported,
-            "supported_rate": round(supported_rate, 1),
-        })
+            answer, total_claims, supported = await run_generation(question)
+            total_claims_all += total_claims
+            supported_claims_all += supported
+            supported_rate = (supported / total_claims * 100) if total_claims else 0.0
+
+            rows.append({
+                "index": i,
+                "question": question,
+                "expected_source": expected_source,
+                "recall_hit": hit,
+                "rank": rank if rank else "-",
+                "mrr": round(mrr, 3),
+                "generated_answer": answer,
+                "total_claims": total_claims,
+                "supported_claims": supported,
+                "supported_rate": round(supported_rate, 1),
+            })
 
     n = len(dataset)
     recall_at_5 = recall_hits / n if n else 0.0
@@ -163,13 +167,30 @@ def main():
     write_report(rows, n, recall_hits, recall_at_5, recall_ci, mean_mrr,
                  total_claims_all, supported_claims_all, groundedness_rate, ground_ci)
 
-    print(f"\nRecall@5: {recall_hits}/{n} ({recall_at_5 * 100:.1f}%), 95% CI [{recall_ci[0] * 100:.1f}%, {recall_ci[1] * 100:.1f}%]")
-    print(f"Mean MRR: {mean_mrr:.3f}")
-    print(
-        f"Groundedness: {supported_claims_all}/{total_claims_all} "
-        f"({groundedness_rate * 100:.1f}%), 95% CI [{ground_ci[0] * 100:.1f}%, {ground_ci[1] * 100:.1f}%]"
-    )
-    print(f"Report written to {REPORT_PATH}")
+    if print_progress:
+        print(f"\nRecall@5: {recall_hits}/{n} ({recall_at_5 * 100:.1f}%), 95% CI [{recall_ci[0] * 100:.1f}%, {recall_ci[1] * 100:.1f}%]")
+        print(f"Mean MRR: {mean_mrr:.3f}")
+        print(
+            f"Groundedness: {supported_claims_all}/{total_claims_all} "
+            f"({groundedness_rate * 100:.1f}%), 95% CI [{ground_ci[0] * 100:.1f}%, {ground_ci[1] * 100:.1f}%]"
+        )
+        print(f"Report written to {REPORT_PATH}")
+
+    return {
+        "report_path": str(REPORT_PATH),
+        "questions_evaluated": n,
+        "recall_at_5": recall_at_5,
+        "mean_mrr": mean_mrr,
+        "groundedness_rate": groundedness_rate,
+    }
+
+
+def main():
+    try:
+        asyncio.run(run_evaluation())
+    except RuntimeError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
