@@ -3,7 +3,7 @@ import { getAccessToken, refreshAccessToken } from "./auth";
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const API_VERSION_PREFIX = "/api/v1";
-const UNVERSIONED_PATHS = new Set(["/health", "/metrics", "/eval-report"]);
+const UNVERSIONED_PATHS = new Set(["/health", "/metrics", "/eval-report", "/eval-report/run"]);
 
 export class ApiError extends Error {
   status: number;
@@ -367,6 +367,23 @@ export async function fetchSummary(text: string, source: string): Promise<{ summ
 
 export async function fetchEvalReport(): Promise<EvalReportResponse> {
   const res = await apiFetch("/eval-report");
+  return res.json();
+}
+
+export async function runEvalReport(): Promise<UploadJobResponse> {
+  const res = await apiFetch("/eval-report/run", {
+    method: "POST",
+    headers: buildHeaders(),
+  });
+  return res.json();
+}
+
+export interface ResetResponse {
+  status: string;
+}
+
+export async function resetDocuments(): Promise<ResetResponse> {
+  const res = await apiFetch("/reset/", { method: "DELETE" });
   return res.json();
 }
 
