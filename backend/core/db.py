@@ -37,4 +37,3 @@ async def ensure_session(db: AsyncSession, session_id: str) -> None:
     stmt = pg_insert(SessionModel).values(id=session_id).on_conflict_do_nothing(index_elements=["id"])
     await db.execute(stmt)
     await db.commit()
-    
