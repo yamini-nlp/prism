@@ -23,6 +23,8 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
   if (compact) {
     return (
       <div
+        role="status"
+        aria-live="polite"
         title={status === "online" ? "Backend online" : status === "offline" ? "Backend offline" : "Checking backend…"}
         style={{
           display: "flex", alignItems: "center", gap: 5,
@@ -33,18 +35,18 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
         }}
       >
         {status === "offline" ? (
-          <button onClick={check} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
-            <AlertTriangle size={11} color="#dc2626" />
+          <button onClick={check} aria-label="Backend offline, retry connection" style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
+            <AlertTriangle size={11} color="#dc2626" aria-hidden="true" />
             <span style={{ fontSize: 11, fontWeight: 600, color: "#dc2626" }}>Offline</span>
           </button>
         ) : status === "online" ? (
           <>
-            <CheckCircle size={11} color="#3d9970" />
+            <CheckCircle size={11} color="#3d9970" aria-hidden="true" />
             <span style={{ fontSize: 11, fontWeight: 600, color: "#3d9970" }}>Online</span>
           </>
         ) : (
           <>
-            <RefreshCw size={11} color="#5c5a56" style={{ animation: "spin 1s linear infinite" }} />
+            <RefreshCw size={11} color="#5c5a56" aria-hidden="true" style={{ animation: "spin 1s linear infinite" }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: "#5c5a56" }}>Checking…</span>
           </>
         )}
@@ -55,7 +57,10 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
   if (status === "online") return null; 
 
   return (
-    <div style={{
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
       position: "fixed", bottom: 20, right: 20, zIndex: 9999,
       padding: "12px 16px",
       borderRadius: 12,
@@ -67,7 +72,7 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
     }}>
       {status === "offline" ? (
         <>
-          <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+          <AlertTriangle size={16} color="#dc2626" aria-hidden="true" style={{ flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", marginBottom: 2 }}>
               Backend offline
@@ -78,18 +83,18 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
               </code>
             </div>
           </div>
-          <button onClick={check} style={{
+          <button onClick={check} aria-label="Retry backend connection" style={{
             background: "none", border: "1px solid rgba(220,38,38,0.3)",
             borderRadius: 7, padding: "4px 8px", cursor: "pointer",
             display: "flex", alignItems: "center", gap: 4,
             fontSize: 11, color: "#dc2626", fontFamily: "inherit", fontWeight: 600,
           }}>
-            <RefreshCw size={11} /> Retry
+            <RefreshCw size={11} aria-hidden="true" /> Retry
           </button>
         </>
       ) : (
         <>
-          <CheckCircle size={16} color="#3d9970" />
+          <CheckCircle size={16} color="#3d9970" aria-hidden="true" />
           <span style={{ fontSize: 12, color: "#3d9970", fontWeight: 600 }}>Connecting…</span>
         </>
       )}
