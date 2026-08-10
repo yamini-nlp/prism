@@ -8,6 +8,7 @@ import Topbar from "@/components/Topbar";
 import MobileDrawer from "@/components/MobileDrawer";
 import Providers from "@/app/providers";
 import ToastContainer from "@/components/ui/Toast";
+import SkipToContent from "@/components/SkipToContent";
 
 const dmSerif = DM_Serif_Display({
   weight: ["400"],
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body style={{ fontFamily: "var(--font-sans, 'Syne', system-ui, sans-serif)" }}>
+        <SkipToContent />
         <ThemeScript />
         <ThemeProvider>
           <Providers>
@@ -52,7 +54,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <MobileDrawer />
               <div className="flex min-w-0 flex-1 flex-col">
                 <Topbar />
-                <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+                  {children}
+                </main>
               </div>
             </div>
             <BackendStatus />
