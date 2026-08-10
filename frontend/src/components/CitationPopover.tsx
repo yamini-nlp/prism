@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { BookOpen, ExternalLink } from "lucide-react";
 import { C } from "@/lib/styles";
@@ -21,6 +21,7 @@ export interface CitationPopoverProps {
 export default function CitationPopover({ index, citation }: CitationPopoverProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
+  const panelId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +47,8 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
         type="button"
         onClick={() => setOpen(v => !v)}
         aria-label={`View source ${index}: ${citation.source}`}
+        aria-expanded={open}
+        aria-controls={panelId}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -70,6 +73,9 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
       </button>
       {open && (
         <div
+          id={panelId}
+          role="group"
+          aria-label={`Source ${index}: ${citation.source}`}
           style={{
             position: "absolute",
             bottom: "calc(100% + 8px)",
@@ -84,7 +90,7 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-            <BookOpen size={12} color={C.accent} />
+            <BookOpen size={12} color={C.accent} aria-hidden="true" />
             <span style={{ fontSize: 11.5, fontWeight: 700, color: C.accent, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {citation.source}
             </span>
@@ -100,7 +106,7 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
             style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: C.accent, textDecoration: "none" }}
             onClick={() => setOpen(false)}
           >
-            View in Source Trace <ExternalLink size={11} />
+            View in Source Trace <ExternalLink size={11} aria-hidden="true" />
           </Link>
         </div>
       )}
