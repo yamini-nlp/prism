@@ -8,6 +8,7 @@ import BackendStatus from "@/components/BackendStatus";
 
 export default function Topbar() {
   const pathname = usePathname();
+  const mobileDrawerOpen = useUIStore((s) => s.mobileDrawerOpen);
   const setMobileDrawerOpen = useUIStore((s) => s.setMobileDrawerOpen);
   const title = pageTitleForPath(pathname || "/");
 
@@ -17,9 +18,11 @@ export default function Topbar() {
         type="button"
         onClick={() => setMobileDrawerOpen(true)}
         aria-label="Open navigation menu"
+        aria-expanded={mobileDrawerOpen}
+        aria-controls="mobile-drawer"
         className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-neutral-200 bg-neutral-0 text-neutral-700 outline-none transition-colors hover:text-neutral-950 focus-visible:ring-2 focus-visible:ring-brand-400"
       >
-        <Menu size={17} />
+        <Menu size={17} aria-hidden="true" />
       </button>
 
       <h1 className="min-w-0 flex-1 truncate font-display text-base text-neutral-950">
