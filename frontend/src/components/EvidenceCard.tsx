@@ -41,7 +41,9 @@ export default function EvidenceCard({
           ? (e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                onSelect && onSelect();
+                if (onSelect) {
+                  onSelect();
+                }
               }
             }
           : undefined
