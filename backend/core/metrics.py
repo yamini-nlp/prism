@@ -4,13 +4,13 @@ import threading
 _lock = threading.Lock()
 _total_requests = 0
 _total_latency_ms = 0.0
-_route_counts = {}
+_route_counts: dict[str, int] = {}
 _cache_hits = 0
 _cache_misses = 0
 
-_route_request_count = {}
-_route_error_count = {}
-_route_latencies = {}
+_route_request_count: dict[str, int] = {}
+_route_error_count: dict[str, int] = {}
+_route_latencies: dict[str, list[float]] = {}
 _MAX_SAMPLES_PER_ROUTE = 2000
 
 
