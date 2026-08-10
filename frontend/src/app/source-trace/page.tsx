@@ -153,7 +153,6 @@ export default function SourceTracePage() {
     } else {
       setSelectedChunkId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   const selectedChunk = results.find(r => r.id === selectedChunkId) || results[0] || null;
@@ -185,8 +184,9 @@ export default function SourceTracePage() {
         {phase === "ready" && generations.length > 0 && (
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", maxWidth: 720 }}>
             <div style={{ flex: 1, minWidth: 240 }}>
-              <label style={{ ...S.label, display: "block", marginBottom: 6 }}>Generation</label>
+              <label htmlFor="source-trace-generation" style={{ ...S.label, display: "block", marginBottom: 6 }}>Generation</label>
               <select
+                id="source-trace-generation"
                 value={selectedId}
                 onChange={e => setSelectedId(e.target.value)}
                 style={{
