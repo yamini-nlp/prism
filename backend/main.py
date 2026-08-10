@@ -19,7 +19,7 @@ from core.db import get_db, AsyncSessionLocal
 from core.config import settings
 from core.security import decode_token
 from core.logging_config import setup_logging, log_request
-from core.metrics import record_request, get_metrics, generate_prometheus_metrics
+from core.metrics import record_request, generate_prometheus_metrics
 from core.tracing import setup_tracing
 from core.errors import NotFoundError, register_exception_handlers
 from eval import evaluate as eval_module
