@@ -106,7 +106,7 @@ app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_request_
 app.add_middleware(RequestTimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
 
 
-def _extract_user_id(request: Request) -> str:
+def _extract_user_id(request: Request) -> Optional[str]:
     auth_header = request.headers.get("authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
         token = auth_header.split(" ", 1)[1].strip()
