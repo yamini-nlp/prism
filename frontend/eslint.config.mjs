@@ -5,7 +5,7 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 
 export default tseslint.config(
   {
-    ignores: [".next/**", "node_modules/**", "public/**"],
+    ignores: [".next/**", "node_modules/**", "public/**", "playwright-report/**", "test-results/**", "coverage/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
