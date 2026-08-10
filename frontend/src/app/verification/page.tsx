@@ -205,8 +205,9 @@ export default function VerificationPage() {
           <>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 26, maxWidth: 720 }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <label style={{ ...S.label, display: "block", marginBottom: 6 }}>Generation</label>
+                <label htmlFor="verification-generation" style={{ ...S.label, display: "block", marginBottom: 6 }}>Generation</label>
                 <select
+                  id="verification-generation"
                   value={selectedId}
                   onChange={e => setSelectedId(e.target.value)}
                   style={{
