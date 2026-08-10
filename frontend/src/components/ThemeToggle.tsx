@@ -14,7 +14,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       aria-pressed={isDark}
-      className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-0 text-neutral-700 transition-colors duration-150 hover:bg-neutral-50 focus-visible:outline-none"
+      className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-0 text-neutral-700 transition-colors duration-150 hover:bg-neutral-50"
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
@@ -23,6 +23,7 @@ export default function ThemeToggle() {
           animate={{ opacity: 1, rotate: 0, scale: 1 }}
           exit={{ opacity: 0, rotate: 90, scale: 0.6 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
+          aria-hidden="true"
           className="flex items-center justify-center"
         >
           {isDark ? <Moon size={16} /> : <Sun size={16} />}
