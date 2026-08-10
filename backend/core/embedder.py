@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import numpy as np
 import re
@@ -331,7 +332,7 @@ def _bm25_search(chunks: list, query: str, top_k: int):
 
 
 def _reciprocal_rank_fusion(dense_ranked, bm25_ranked, k: int = 60):
-    fused_scores = {}
+    fused_scores: dict[uuid.UUID, float] = {}
     for rank, (chunk_id, _) in enumerate(dense_ranked):
         fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank + 1)
     for rank, (chunk_id, _) in enumerate(bm25_ranked):
