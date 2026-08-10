@@ -14,6 +14,7 @@ export default function MobileDrawer() {
   const setOpen = useUIStore((s) => s.setMobileDrawerOpen);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setOpen(false);
@@ -22,6 +23,7 @@ export default function MobileDrawer() {
   useEffect(() => {
     if (!open) return;
 
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -53,6 +55,7 @@ export default function MobileDrawer() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      previouslyFocusedRef.current?.focus();
     };
   }, [open, setOpen]);
 
@@ -71,6 +74,7 @@ export default function MobileDrawer() {
           />
           <motion.div
             ref={panelRef}
+            id="mobile-drawer"
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
@@ -83,7 +87,7 @@ export default function MobileDrawer() {
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-[30px] w-[30px] items-center justify-center rounded-sm bg-neutral-950">
-                  <Zap size={15} color="#fff" strokeWidth={2.5} />
+                  <Zap size={15} color="#fff" strokeWidth={2.5} aria-hidden="true" />
                 </div>
                 <span className="font-display text-xl tracking-tight text-neutral-950">Prism</span>
               </div>
@@ -94,11 +98,11 @@ export default function MobileDrawer() {
                 aria-label="Close navigation menu"
                 className="flex h-8 w-8 items-center justify-center rounded-sm border border-neutral-200 text-neutral-700 outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
-            <nav className="flex flex-col gap-1">
+            <nav aria-label="Primary navigation" className="flex flex-col gap-1">
               {navLinks.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
@@ -110,7 +114,7 @@ export default function MobileDrawer() {
                       active ? "bg-neutral-950 font-semibold text-neutral-0" : "text-neutral-700 hover:bg-neutral-50"
                     }`}
                   >
-                    <Icon size={15} strokeWidth={active ? 2.5 : 2} />
+                    <Icon size={15} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
                     {label}
                   </Link>
                 );
