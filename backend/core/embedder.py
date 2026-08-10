@@ -163,7 +163,7 @@ def _decode_cursor(cursor: str) -> int:
         if offset < 0:
             raise ValueError
         return offset
-    except (ValueError, UnicodeDecodeError, base64.binascii.Error):
+    except (ValueError, UnicodeDecodeError, binascii.Error):
         raise ValidationAppError("Invalid cursor", details={"cursor": cursor})
 
 
