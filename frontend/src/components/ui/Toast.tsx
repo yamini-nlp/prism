@@ -48,7 +48,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
         boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
       }}
     >
-      <Icon size={17} color={color} style={{ flexShrink: 0, marginTop: 1 }} />
+      <Icon size={17} color={color} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{toast.title}</div>
         {toast.description && (
@@ -70,7 +70,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
           padding: 2,
         }}
       >
-        <X size={14} />
+        <X size={14} aria-hidden="true" />
       </button>
     </motion.div>
   );
