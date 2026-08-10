@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import nextPlugin from "@next/eslint-plugin-next";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 
 export default tseslint.config(
   {
@@ -17,6 +18,7 @@ export default tseslint.config(
       ...nextPlugin.configs["core-web-vitals"].rules,
     },
   },
+  jsxA11y.flatConfigs.recommended,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
