@@ -15,31 +15,35 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   return <div ref={ref} className={cardVariants({ variant, padding, interactive, className })} {...rest} />;
 });
 
-export interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {}
+export type CardHeaderProps = HTMLAttributes<HTMLDivElement>;
 
 export function CardHeader({ className, ...rest }: CardHeaderProps) {
   return <div className={`mb-4 flex items-center justify-between gap-3 ${className ?? ""}`} {...rest} />;
 }
 
-export interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {}
+export type CardTitleProps = HTMLAttributes<HTMLHeadingElement>;
 
-export function CardTitle({ className, ...rest }: CardTitleProps) {
-  return <h3 className={`font-display text-lg text-neutral-950 ${className ?? ""}`} {...rest} />;
+export function CardTitle({ className, children, ...rest }: CardTitleProps) {
+  return (
+    <h3 className={`font-display text-lg text-neutral-950 ${className ?? ""}`} {...rest}>
+      {children}
+    </h3>
+  );
 }
 
-export interface CardDescriptionProps extends HTMLAttributes<HTMLParagraphElement> {}
+export type CardDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 
 export function CardDescription({ className, ...rest }: CardDescriptionProps) {
   return <p className={`text-sm text-neutral-600 ${className ?? ""}`} {...rest} />;
 }
 
-export interface CardContentProps extends HTMLAttributes<HTMLDivElement> {}
+export type CardContentProps = HTMLAttributes<HTMLDivElement>;
 
 export function CardContent({ className, ...rest }: CardContentProps) {
   return <div className={className} {...rest} />;
 }
 
-export interface CardFooterProps extends HTMLAttributes<HTMLDivElement> {}
+export type CardFooterProps = HTMLAttributes<HTMLDivElement>;
 
 export function CardFooter({ className, ...rest }: CardFooterProps) {
   return <div className={`mt-4 flex items-center gap-3 ${className ?? ""}`} {...rest} />;
