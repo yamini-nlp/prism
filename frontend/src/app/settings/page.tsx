@@ -108,7 +108,6 @@ export default function SettingsPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [profileSavedAt, setProfileSavedAt] = useState<number | null>(null);
@@ -122,7 +121,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     profileForm.reset({ displayName: loadDisplayName() });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleProfileSave(values: ProfileSettingsFormValues) {
