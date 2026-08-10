@@ -455,8 +455,9 @@ export default function IngestPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
             >
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Research Paper URL</label>
+              <label htmlFor="ingest-url-input" style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Research Paper URL</label>
               <input
+                id="ingest-url-input"
                 style={{ ...S.input, borderColor: urlForm.formState.errors.url ? C.red : undefined }}
                 type="url"
                 placeholder="https://arxiv.org/abs/..."
@@ -491,8 +492,9 @@ export default function IngestPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
             >
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Paste your text</label>
+              <label htmlFor="ingest-text-input" style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.textSec, marginBottom: 8 }}>Paste your text</label>
               <textarea
+                id="ingest-text-input"
                 style={{ ...S.textarea, minHeight: 200, marginBottom: 8, borderColor: textForm.formState.errors.text ? C.red : undefined }}
                 placeholder="Paste abstract, excerpts, or full paper text…"
                 aria-invalid={textForm.formState.errors.text ? true : undefined}
@@ -652,27 +654,30 @@ export default function IngestPage() {
                             <button
                               onClick={() => cancelItem(item)}
                               title="Cancel"
+                              aria-label={`Cancel ${item.label || "upload"}`}
                               style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.textSec, padding: 7, display: "flex" }}
                             >
-                              <Ban size={14} />
+                              <Ban size={14} aria-hidden="true" />
                             </button>
                           )}
                           {(item.status === "error" || item.status === "cancelled") && (
                             <button
                               onClick={() => retryItem(item)}
                               title="Retry"
+                              aria-label={`Retry ${item.label || "upload"}`}
                               style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.accent, padding: 7, display: "flex" }}
                             >
-                              <RotateCcw size={14} />
+                              <RotateCcw size={14} aria-hidden="true" />
                             </button>
                           )}
                           {isTerminal && (
                             <button
                               onClick={() => removeItem(item.id)}
                               title="Remove"
+                              aria-label={`Remove ${item.label || "upload"}`}
                               style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.textMuted, padding: 7, display: "flex" }}
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={14} aria-hidden="true" />
                             </button>
                           )}
                         </div>
