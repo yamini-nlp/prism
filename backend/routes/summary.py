@@ -50,7 +50,7 @@ async def summarize(request: Request, body: schemas.SummaryRequest, current_user
     if content is None:
         raise ValidationAppError("Summarization model returned an empty response.")
     raw = content.strip()
-    
+
     try:
         cleaned = raw.replace("```json", "").replace("```", "").strip()
         summary = json.loads(cleaned)
