@@ -105,7 +105,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
 
         stream = client.chat.completions.create(
             model=model,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
+            messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
             temperature=0.1,
             max_tokens=1024,
             stream=True,
