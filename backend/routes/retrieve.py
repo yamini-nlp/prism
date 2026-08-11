@@ -49,7 +49,7 @@ async def retrieve(
         record_cache_hit(cache_key)
         return schemas.RetrieveResponse(**cached_response)
 
-    record_cache_miss(cache_key)
+record_cache_miss(cache_key)
     results = await hybrid_search(db, query, session_id, top_k=top_k)
 
     response_body = {
@@ -60,4 +60,9 @@ async def retrieve(
     }
     await set_cache(cache_key, response_body, RETRIEVAL_CACHE_TTL_SECONDS)
 
-    return schemas.RetrieveResponse(**response_body)
+    return schemas.RetrieveResponse(
+        query=query,
+        top_k=top_k,
+        results=[schemas.RetrievedChunk(**r) for r in results],
+        count=len(results),
+    )
