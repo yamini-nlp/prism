@@ -136,3 +136,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
+    
