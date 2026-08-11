@@ -39,7 +39,7 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
         await db.rollback()
 
     return schemas.VerifyResponse(
-        claims=results,
+        claims=[schemas.ClaimResult(**r) for r in results],
         total_claims=total,
         supported_count=supported,
         unsupported_count=total - supported,
