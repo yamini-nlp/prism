@@ -1,10 +1,12 @@
 import json
+from typing import cast, Iterable
 from core.embedder import hybrid_search
 from core.verifier import split_into_claims, verify_claims
 from core.db import AsyncSessionLocal, ensure_session
 from core.models import Generation
 from core.config import settings
 from groq import Groq
+from groq.types.chat import ChatCompletionMessageParam
 
 client = Groq(api_key=settings.groq_api_key)
 
