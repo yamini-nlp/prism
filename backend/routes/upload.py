@@ -177,6 +177,8 @@ async def process_upload(job_id: str, content: bytes, filename: str, ext: str, s
 @limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_file(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     session_id = get_session_id(current_user)
+    if not file.filename:
+        raise ValidationAppError("Uploaded file is missing a filename.")
     sanitized_filename = sanitize_filename(file.filename)
     ext = os.path.splitext(sanitized_filename)[1].lower()
 
