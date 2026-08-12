@@ -137,3 +137,4 @@ class Verification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
     generation: Mapped[Optional["Generation"]] = relationship(back_populates="verifications")
+    session: Mapped[Optional["Session"]] = relationship(back_populates="verifications")
