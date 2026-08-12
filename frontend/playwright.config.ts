@@ -22,9 +22,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run start",
+    command:
+      "bash -c \"rm -rf .next/standalone/public .next/standalone/.next/static && cp -r public .next/standalone/public && mkdir -p .next/standalone/.next && cp -r .next/static .next/standalone/.next/static && node .next/standalone/server.js\"",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      PORT,
+    },
   },
 });
