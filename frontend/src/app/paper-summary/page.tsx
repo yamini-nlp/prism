@@ -161,7 +161,6 @@ export default function PaperSummaryPage() {
                 </div>
                 <p
                   style={{
-                    fontSize: 14,
                     color: "var(--text-secondary)",
                     lineHeight: 1.75,
                     fontFamily: section.label === "TLDR" ? "'DM Serif Display', serif" : "inherit",
