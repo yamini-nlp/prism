@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import sys
@@ -27,6 +28,13 @@ from core.db import AsyncSessionLocal, init_db, engine
 from core.limiter import limiter
 
 TEST_PASSWORD = "SuperSecret123!"
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
