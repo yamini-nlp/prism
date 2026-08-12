@@ -129,4 +129,3 @@ async def second_registered_user(register_user):
 @pytest_asyncio.fixture
 async def second_auth_headers(second_registered_user):
     return {"Authorization": f"Bearer {second_registered_user['access_token']}"}
-ff
