@@ -21,6 +21,12 @@ export const navLinks: NavLink[] = [
   { href: "/settings",     label: "Settings",     icon: Settings },
 ];
 
+export const NO_CHROME_ROUTES = new Set(["/", "/login", "/register"]);
+
+export function isNoChromeRoute(pathname: string): boolean {
+  return NO_CHROME_ROUTES.has(pathname);
+}
+
 export function pageTitleForPath(pathname: string): string {
   const match = navLinks.find(l => l.href === pathname);
   if (match) return match.label;
