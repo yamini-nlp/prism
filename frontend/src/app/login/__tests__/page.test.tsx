@@ -22,20 +22,24 @@ import LoginPage from "@/app/login/page";
 import { login } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 
-let originalLocation: Location;
+const originalLocation = window.location;
 
 beforeEach(() => {
   vi.mocked(login).mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
 
-  originalLocation = window.location;
-  delete window.location;
-  window.location = { ...originalLocation, href: "" } as Location;
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...originalLocation, href: "" },
+  });
 });
 
 afterEach(() => {
-  window.location = originalLocation;
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: originalLocation,
+  });
 });
 
 describe("LoginPage", () => {
