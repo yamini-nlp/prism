@@ -83,3 +83,27 @@ export async function mockRegister(page: Page, email = "researcher@prism.dev") {
     });
   });
 }
+
+export async function mockAuthenticatedSession(page: Page, email = "researcher@prism.dev") {
+  await page.context().addCookies([
+    {
+      name: "prism_refresh_token",
+      value: "test-refresh-token",
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+
+  await page.route("**/api/auth/refresh", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access_token: "test-access-token",
+        user: { id: "user-1", email, created_at: new Date().toISOString() },
+      }),
+    });
+  });
+}
