@@ -59,6 +59,8 @@ export default function MobileDrawer() {
     };
   }, [open, setOpen]);
 
+  if (pathname === "/") return null;
+
   return (
     <AnimatePresence>
       {open && (
