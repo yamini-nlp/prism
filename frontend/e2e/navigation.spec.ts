@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { mockEmptyDocuments, mockHealth } from "./helpers/mock-api";
+import { mockAuthenticatedSession, mockEmptyDocuments, mockHealth } from "./helpers/mock-api";
 
 test.describe("navigation", () => {
   test.beforeEach(async ({ page }) => {
+    await mockAuthenticatedSession(page);
     await mockHealth(page);
     await mockEmptyDocuments(page);
   });
