@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Zap } from "lucide-react";
-import { navLinks } from "@/lib/navigation";
+import { isNoChromeRoute, navLinks } from "@/lib/navigation";
 import { useUIStore } from "@/lib/store";
 
 export default function MobileDrawer() {
@@ -59,7 +59,7 @@ export default function MobileDrawer() {
     };
   }, [open, setOpen]);
 
-  if (pathname === "/") return null;
+  if (isNoChromeRoute(pathname || "/")) return null;
 
   return (
     <AnimatePresence>
