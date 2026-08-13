@@ -54,7 +54,7 @@ test.describe("ingest", () => {
     await page.setInputFiles("#ingest-file-input", filePath);
 
     await expect(page.getByText("test-paper.txt")).toBeVisible();
-    await expect(page.getByText("Ready")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/test-paper\.txt ingested/i)).toBeVisible();
   });
 
@@ -69,6 +69,6 @@ test.describe("ingest", () => {
     await page.setInputFiles("#ingest-file-input", filePath);
 
     await expect(page.getByText(/unsupported\.exe rejected/i)).toBeVisible();
-    await expect(page.getByText(/unsupported file type/i)).toBeVisible();
+    await expect(page.getByText(/unsupported file type/i).first()).toBeVisible();
   });
 });
