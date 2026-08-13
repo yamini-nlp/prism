@@ -2,10 +2,11 @@ import { test, expect } from "@playwright/test";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { API_BASE_URL, mockHealth } from "./helpers/mock-api";
+import { API_BASE_URL, mockAuthenticatedSession, mockHealth } from "./helpers/mock-api";
 
 test.describe("ingest", () => {
   test("uploading a document moves it through processing to ready", async ({ page }) => {
+    await mockAuthenticatedSession(page);
     await mockHealth(page);
 
     await page.route(`${API_BASE_URL}/api/v1/upload/`, async (route) => {
@@ -58,6 +59,7 @@ test.describe("ingest", () => {
   });
 
   test("rejects an unsupported file type before uploading", async ({ page }) => {
+    await mockAuthenticatedSession(page);
     await mockHealth(page);
 
     const filePath = path.join(os.tmpdir(), "unsupported.exe");
