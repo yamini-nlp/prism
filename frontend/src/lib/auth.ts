@@ -42,12 +42,24 @@ async function parseErrorDetail(res: Response, fallback: string): Promise<string
   }
 }
 
+function toAuthError(err: unknown): Error {
+  if (err instanceof TypeError) {
+    return new Error("Can't reach the server right now. Check your connection and try again.");
+  }
+  return err instanceof Error ? err : new Error("Something went wrong. Please try again.");
+}
+
 export async function login(email: string, password: string): Promise<CurrentUser> {
-  const res = await fetch(apiUrl("/auth/login"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl("/auth/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    throw toAuthError(err);
+  }
 
   if (!res.ok) {
     throw new Error(await parseErrorDetail(res, "Login failed."));
@@ -61,11 +73,16 @@ export async function login(email: string, password: string): Promise<CurrentUse
 }
 
 export async function register(email: string, password: string): Promise<CurrentUser> {
-  const res = await fetch(apiUrl("/auth/register"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(apiUrl("/auth/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    throw toAuthError(err);
+  }
 
   if (!res.ok) {
     throw new Error(await parseErrorDetail(res, "Registration failed."));
