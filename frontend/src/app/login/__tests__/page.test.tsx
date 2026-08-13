@@ -47,15 +47,15 @@ describe("LoginPage", () => {
     render(<LoginPage />);
     expect(screen.getByText(/sign in to prism/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
   });
 
   it("shows a validation error and does not submit for an invalid email", async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "not-an-email");
-    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.type(screen.getByLabelText(/^password$/i), "password123");
     await user.tab();
     expect(await screen.findByText(/enter a valid email address/i)).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
@@ -67,10 +67,10 @@ describe("LoginPage", () => {
 
     render(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "researcher@prism.dev");
-    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.type(screen.getByLabelText(/^password$/i), "password123");
     await user.tab();
-    await waitFor(() => expect(screen.getByRole("button", { name: /sign in/i })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^sign in$/i })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(login).toHaveBeenCalledWith("researcher@prism.dev", "password123"));
     await waitFor(() => expect(window.location.href).toBe("/dashboard"));
@@ -83,10 +83,10 @@ describe("LoginPage", () => {
 
     render(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "researcher@prism.dev");
-    await user.type(screen.getByLabelText(/password/i), "wrongpassword");
+    await user.type(screen.getByLabelText(/^password$/i), "wrongpassword");
     await user.tab();
-    await waitFor(() => expect(screen.getByRole("button", { name: /sign in/i })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^sign in$/i })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not sign in", "Invalid email or password."));
     expect(window.location.href).toBe("");
