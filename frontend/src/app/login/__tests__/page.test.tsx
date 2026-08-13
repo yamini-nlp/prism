@@ -30,7 +30,6 @@ beforeEach(() => {
   vi.mocked(toast.error).mockClear();
 
   originalLocation = window.location;
-  // @ts-expect-error - jsdom doesn't implement real navigation, so stub it for assertions
   delete window.location;
   window.location = { ...originalLocation, href: "" } as Location;
 });
