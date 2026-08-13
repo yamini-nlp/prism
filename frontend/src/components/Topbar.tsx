@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
-import { pageTitleForPath } from "@/lib/navigation";
+import { isNoChromeRoute, pageTitleForPath } from "@/lib/navigation";
 import { useUIStore } from "@/lib/store";
 import BackendStatus from "@/components/BackendStatus";
 
@@ -12,7 +12,7 @@ export default function Topbar() {
   const setMobileDrawerOpen = useUIStore((s) => s.setMobileDrawerOpen);
   const title = pageTitleForPath(pathname || "/");
 
-  if (pathname === "/") return null;
+  if (isNoChromeRoute(pathname || "/")) return null;
 
   return (
     <header className="sticky top-0 z-30 flex h-14 flex-shrink-0 items-center gap-3 border-b border-neutral-200 bg-neutral-0/90 px-4 backdrop-blur lg:hidden">
