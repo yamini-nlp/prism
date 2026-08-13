@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { API_BASE_URL, mockEmptyDocuments, mockHealth } from "./helpers/mock-api";
+import { API_BASE_URL, mockAuthenticatedSession, mockEmptyDocuments, mockHealth } from "./helpers/mock-api";
 
 test.describe("workspace", () => {
   test("sending a message streams back a grounded answer", async ({ page }) => {
+    await mockAuthenticatedSession(page);
     await mockHealth(page);
     await mockEmptyDocuments(page);
 
@@ -35,6 +36,7 @@ test.describe("workspace", () => {
   });
 
   test("shows an error and allows retry when generation fails", async ({ page }) => {
+    await mockAuthenticatedSession(page);
     await mockHealth(page);
     await mockEmptyDocuments(page);
 
