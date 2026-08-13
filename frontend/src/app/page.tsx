@@ -2,319 +2,676 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Zap } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, ArrowUpRight, Check, Menu, X, Zap } from "lucide-react";
 
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 22 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
-});
+const SERIF = "var(--font-display, 'DM Serif Display', Georgia, serif)";
+const SANS = "var(--font-sans, 'Syne', system-ui, sans-serif)";
+const MONO = "var(--font-mono, 'JetBrains Mono', monospace)";
 
-const PIPELINE = [
-  { num: "I",   label: "Ingest",     desc: "PDF, DOCX, URLs, or raw text — extracted and chunked automatically." },
-  { num: "II",  label: "Summarize",  desc: "TLDR, methodology, key concepts, results, surfaced in seconds." },
-  { num: "III", label: "Query",      desc: "RAG-powered answers with inline citations, grounded in your sources." },
-  { num: "IV",  label: "Verify",     desc: "Every claim checked against context. Confidence scored, not assumed." },
+const NAV_LINKS = [
+  { label: "Pipeline", href: "#pipeline" },
+  { label: "Capabilities", href: "#capabilities" },
+  { label: "Workflow", href: "#workflow" },
 ];
 
-const CAPABILITIES = [
-  { label: "Multi-source ingestion", sub: "PDF, DOC, links, raw text" },
-  { label: "Structured summarization", sub: "TLDR, methodology, results, limitations" },
-  { label: "RAG-based querying", sub: "Every answer grounded in your documents" },
-  { label: "Retrieval transparency", sub: "See exactly which chunk backs each claim" },
-  { label: "Claim-level verification", sub: "Confidence scores on every response" },
-  { label: "Evaluation dashboard", sub: "Real-time metrics from your sessions" },
+const STAGES = [
+  { n: "01", t: "Ingest", d: "Drop in a PDF, DOCX, URL, or raw text. Prism extracts and chunks it automatically." },
+  { n: "02", t: "Summarize", d: "TLDR, methodology, key concepts, and results surfaced in seconds, not skims." },
+  { n: "03", t: "Query", d: "Ask anything. Every answer is RAG-grounded and cites the exact source chunk." },
+  { n: "04", t: "Verify", d: "Claims are checked against context and scored for confidence before you trust them." },
 ];
 
-const STATS = [
+const FEATURES = [
+  { t: "Multi-source ingestion", d: "PDF, DOC, links, raw text — one pipeline for everything you read.", big: true },
+  { t: "Structured summarization", d: "TLDR, methodology, results, limitations." },
+  { t: "RAG-based querying", d: "Every answer grounded in your documents." },
+  { t: "Retrieval transparency", d: "See exactly which chunk backs each claim." },
+  { t: "Claim-level verification", d: "Confidence scores on every response." },
+  { t: "Evaluation dashboard", d: "Real-time metrics from your sessions.", big: true },
+];
+
+const NUMBERS = [
   ["100%", "Source cited"],
-  ["0%", "Hallucination"],
-  ["RAG", "Architecture"],
-  ["NLI", "Claim verified"],
+  ["0%", "Hallucination tolerance"],
+  ["RAG", "Core architecture"],
+  ["NLI", "Claim verification"],
 ];
 
-const SERIF = "'DM Serif Display', Georgia, serif";
-const SANS = "'Syne', system-ui, sans-serif";
-const MONO = "'JetBrains Mono', monospace";
+const TICKER_WORDS = ["Ingest", "Summarize", "Query", "Verify", "Cite", "Analyze", "Research", "Understand"];
 
-function PrismDiagram() {
-  return (
-    <svg viewBox="0 0 460 420" style={{ width: "100%", height: "auto", display: "block" }}>
-      <line x1="0" y1="180" x2="150" y2="180" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
-      <motion.polygon
-        points="150,120 230,180 150,240"
-        fill="rgba(255,255,255,0.03)"
-        stroke="rgba(255,255,255,0.55)"
-        strokeWidth="1.2"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.4 }}
-      />
-      {[
-        { y2: 30,  op: 0.95, w: 1.4 },
-        { y2: 95,  op: 0.75, w: 1.1 },
-        { y2: 165, op: 0.55, w: 1.1 },
-        { y2: 240, op: 0.4,  w: 1 },
-        { y2: 310, op: 0.28, w: 1 },
-        { y2: 380, op: 0.18, w: 1 },
-      ].map((b, i) => (
-        <motion.line
-          key={i}
-          x1="190" y1="180" x2="440" y2={b.y2}
-          stroke="#ffffff" strokeOpacity={b.op} strokeWidth={b.w}
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1, delay: 0.7 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-        />
-      ))}
-      <line x1="440" y1="10" x2="440" y2="400" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-      {[30, 95, 165, 240, 310, 380].map((y, i) => (
-        <line key={i} x1="434" y1={y} x2="446" y2={y} stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
-      ))}
-      <text x="20" y="172" fontFamily={MONO} fontSize="9" letterSpacing="0.08em" fill="rgba(255,255,255,0.4)">INPUT</text>
-      <text x="185" y="205" fontFamily={MONO} fontSize="9" letterSpacing="0.08em" fill="rgba(255,255,255,0.4)">λ</text>
-      <text x="452" y="34" fontFamily={MONO} fontSize="9" fill="rgba(255,255,255,0.3)">01</text>
-      <text x="452" y="384" fontFamily={MONO} fontSize="9" fill="rgba(255,255,255,0.3)">06</text>
-    </svg>
-  );
+function fadeUp(delay = 0) {
+  return {
+    initial: { opacity: 0, y: 24 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true, margin: "-80px" },
+    transition: { delay, duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
+  };
 }
 
 export default function LandingPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <div style={{ minHeight: "100vh", background: "#000000", color: "#ffffff", fontFamily: SANS }}>
+    <div style={{ minHeight: "100vh", background: "#000000", color: "#ffffff", fontFamily: SANS, overflowX: "hidden" }}>
       <style>{`
-        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
         ::selection { background: rgba(255,255,255,0.22); }
         a { color: inherit; }
+        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {
           * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
       `}</style>
 
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 52px", height: 64,
-        background: "rgba(0,0,0,0.85)", backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.1)",
-      }}>
+      <header
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 200,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 clamp(20px, 5vw, 56px)",
+          height: 68,
+          background: "rgba(0,0,0,0.78)",
+          backdropFilter: "blur(18px)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
         <Link href="/" style={{ textDecoration: "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: 8,
-              background: "#ffffff",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
               <Zap size={14} color="#000000" strokeWidth={2.5} />
             </div>
-            <span style={{ fontFamily: SERIF, fontSize: 20, letterSpacing: "-0.01em", color: "#ffffff" }}>Prism</span>
+            <span style={{ fontFamily: SERIF, fontSize: 20, letterSpacing: "-0.01em" }}>Prism</span>
           </div>
         </Link>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {[{ label: "Dashboard", href: "/dashboard" }, { label: "Workspace", href: "/workspace" }, { label: "Ingest", href: "/ingest" }].map(({ label, href }) => (
-            <Link key={label} href={href} style={{ textDecoration: "none" }}>
-              <motion.button whileHover={{ borderColor: "rgba(255,255,255,0.4)" } as any}
-                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.7)", borderRadius: 9, padding: "7px 16px", fontSize: 12.5, fontFamily: SANS, fontWeight: 600, letterSpacing: "0.01em", cursor: "pointer" }}>
-                {label}
-              </motion.button>
-            </Link>
+
+        <nav style={{ display: "flex", alignItems: "center", gap: 36 }} className="prism-desktop-nav">
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              style={{
+                fontSize: 13,
+                fontFamily: MONO,
+                color: "rgba(255,255,255,0.6)",
+                textDecoration: "none",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              {l.label}
+            </a>
           ))}
-          <Link href="/ingest" style={{ textDecoration: "none" }}>
-            <motion.button whileHover={{ scale: 1.04 } as any} whileTap={{ scale: 0.96 } as any}
-              style={{ background: "#ffffff", color: "#000000", border: "none", borderRadius: 9, padding: "8px 20px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: SANS, display: "flex", alignItems: "center", gap: 6 }}>
-              Start <ArrowRight size={13} />
+        </nav>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }} className="prism-desktop-cta">
+          <Link href="/login" style={{ textDecoration: "none" }}>
+            <button
+              style={{
+                background: "transparent",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "#ffffff",
+                borderRadius: 9,
+                padding: "8px 18px",
+                fontSize: 12.5,
+                fontFamily: SANS,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Sign in
+            </button>
+          </Link>
+          <Link href="/register" style={{ textDecoration: "none" }}>
+            <motion.button
+              whileHover={{ scale: 1.04 } as any}
+              whileTap={{ scale: 0.96 } as any}
+              style={{
+                background: "#ffffff",
+                color: "#000000",
+                border: "none",
+                borderRadius: 9,
+                padding: "8px 20px",
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: SANS,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              Get started <ArrowRight size={13} />
             </motion.button>
           </Link>
         </div>
-      </nav>
 
-      <section style={{
-        minHeight: "100vh", display: "flex", alignItems: "center",
-        padding: "110px 52px 60px",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 64, maxWidth: 1240, margin: "0 auto", width: "100%" }}>
-          <div style={{ flex: 1, maxWidth: 560 }}>
-            <motion.div {...fadeUp(0.1)} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 30, marginBottom: 28 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffffff" }} />
-              <span style={{ fontSize: 10.5, fontFamily: MONO, color: "rgba(255,255,255,0.7)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>Research Intelligence</span>
-            </motion.div>
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Toggle menu"
+          className="prism-mobile-toggle"
+          style={{
+            display: "none",
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 8,
+            width: 38,
+            height: 38,
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#ffffff",
+            cursor: "pointer",
+          }}
+        >
+          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+      </header>
 
-            <motion.h1 {...fadeUp(0.16)} style={{
-              fontFamily: SERIF,
-              fontSize: "clamp(72px, 10vw, 130px)",
-              lineHeight: 0.88,
-              letterSpacing: "-0.04em",
-              color: "#ffffff",
-              marginBottom: 20,
-            }}>
-              Prism
-            </motion.h1>
+      {menuOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 68,
+            left: 0,
+            right: 0,
+            zIndex: 190,
+            background: "#000000",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            padding: "20px clamp(20px, 5vw, 56px) 28px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+          }}
+          className="prism-mobile-menu"
+        >
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              onClick={() => setMenuOpen(false)}
+              style={{ fontSize: 15, fontFamily: SANS, color: "#ffffff", textDecoration: "none" }}
+            >
+              {l.label}
+            </a>
+          ))}
+          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+            <Link href="/login" style={{ textDecoration: "none", flex: 1 }}>
+              <button
+                style={{
+                  width: "100%",
+                  background: "transparent",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "#ffffff",
+                  borderRadius: 9,
+                  padding: "10px 0",
+                  fontSize: 13,
+                  fontFamily: SANS,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Sign in
+              </button>
+            </Link>
+            <Link href="/register" style={{ textDecoration: "none", flex: 1 }}>
+              <button
+                style={{
+                  width: "100%",
+                  background: "#ffffff",
+                  color: "#000000",
+                  border: "none",
+                  borderRadius: 9,
+                  padding: "10px 0",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: SANS,
+                }}
+              >
+                Get started
+              </button>
+            </Link>
+          </div>
+        </div>
+      )}
 
-            <motion.p {...fadeUp(0.24)} style={{
-              fontFamily: SERIF,
-              fontStyle: "italic",
-              fontSize: "clamp(18px, 2.4vw, 25px)",
-              color: "rgba(255,255,255,0.85)",
-              marginBottom: 18,
-              letterSpacing: "-0.01em",
-              lineHeight: 1.3,
-            }}>
-              Clarity, backed by sources.
-            </motion.p>
+      <section
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: "140px clamp(20px, 5vw, 56px) 80px",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
+            maskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 10%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
 
-            <motion.p {...fadeUp(0.3)} style={{
-              fontSize: 15.5,
-              color: "rgba(255,255,255,0.48)",
-              lineHeight: 1.8,
-              marginBottom: 36,
-              maxWidth: 420,
-            }}>
-              Upload research papers, query your knowledge base, and receive verified answers — every claim traced to its exact source.
-            </motion.p>
-
-            <motion.div {...fadeUp(0.36)} style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
-              <Link href="/ingest" style={{ textDecoration: "none" }}>
-                <motion.button whileHover={{ scale: 1.04 } as any} whileTap={{ scale: 0.96 } as any}
-                  style={{ background: "#ffffff", color: "#000000", border: "none", borderRadius: 13, padding: "14px 32px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: SANS, display: "flex", alignItems: "center", gap: 8 }}>
-                  Start Research <ArrowRight size={16} />
-                </motion.button>
-              </Link>
-              <Link href="/workspace" style={{ textDecoration: "none" }}>
-                <motion.button whileHover={{ borderColor: "rgba(255,255,255,0.4)" } as any}
-                  style={{ background: "transparent", color: "#ffffff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 13, padding: "14px 24px", fontSize: 14.5, cursor: "pointer", fontFamily: SANS, display: "flex", alignItems: "center", gap: 8 }}>
-                  Open Workspace <ArrowUpRight size={15} />
-                </motion.button>
-              </Link>
-            </motion.div>
-
-            <motion.div {...fadeUp(0.44)} style={{ display: "flex", gap: 0, borderTop: "1px solid rgba(255,255,255,0.14)", paddingTop: 24 }}>
-              {STATS.map(([val, label], i) => (
-                <div key={label} style={{ flex: 1, paddingRight: i < 3 ? 20 : 0, borderRight: i < 3 ? "1px solid rgba(255,255,255,0.12)" : "none", paddingLeft: i > 0 ? 20 : 0 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 19, color: "#ffffff", letterSpacing: "-0.01em", fontWeight: 500 }}>{val}</div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.36)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, fontFamily: MONO }}>{label}</div>
-                </div>
-              ))}
-            </motion.div>
+        <motion.div {...fadeUp(0)} style={{ position: "relative", maxWidth: 1180, margin: "0 auto", width: "100%" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 14px",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 30,
+              marginBottom: 32,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffffff" }} />
+            <span
+              style={{
+                fontSize: 10.5,
+                fontFamily: MONO,
+                color: "rgba(255,255,255,0.7)",
+                fontWeight: 500,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              Research intelligence platform
+            </span>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            style={{ flexShrink: 0, width: "min(100%, 460px)" }}
+          <h1
+            style={{
+              fontFamily: SERIF,
+              fontSize: "clamp(42px, 8vw, 108px)",
+              letterSpacing: "-0.04em",
+              lineHeight: 0.98,
+              maxWidth: 980,
+            }}
           >
-            <PrismDiagram />
-          </motion.div>
-        </div>
+            Read less.
+            <br />
+            Know <em style={{ color: "rgba(255,255,255,0.4)" }}>more.</em>
+          </h1>
+
+          <p
+            style={{
+              fontSize: "clamp(15px, 1.6vw, 18px)",
+              color: "rgba(255,255,255,0.5)",
+              maxWidth: 560,
+              lineHeight: 1.7,
+              marginTop: 28,
+            }}
+          >
+            Prism turns papers, reports, and raw text into grounded, citation-backed answers —
+            every claim verified before it reaches you.
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 40 }}>
+            <Link href="/register" style={{ textDecoration: "none" }}>
+              <motion.button
+                whileHover={{ scale: 1.03 } as any}
+                whileTap={{ scale: 0.97 } as any}
+                style={{
+                  background: "#ffffff",
+                  color: "#000000",
+                  border: "none",
+                  borderRadius: 13,
+                  padding: "16px 32px",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: SANS,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 9,
+                }}
+              >
+                Start Research <ArrowRight size={17} />
+              </motion.button>
+            </Link>
+            <Link href="/login" style={{ textDecoration: "none" }}>
+              <motion.button
+                whileHover={{ borderColor: "rgba(255,255,255,0.45)" } as any}
+                style={{
+                  background: "transparent",
+                  color: "#ffffff",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 13,
+                  padding: "16px 28px",
+                  fontSize: 15,
+                  cursor: "pointer",
+                  fontFamily: SANS,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                Sign in <ArrowUpRight size={15} />
+              </motion.button>
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+              gap: 0,
+              borderTop: "1px solid rgba(255,255,255,0.14)",
+              marginTop: 64,
+              paddingTop: 26,
+              maxWidth: 720,
+            }}
+          >
+            {NUMBERS.map(([val, label], i) => (
+              <div
+                key={label}
+                style={{
+                  paddingRight: 20,
+                  paddingLeft: i > 0 ? 20 : 0,
+                  borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.12)" : "none",
+                }}
+              >
+                <div style={{ fontFamily: MONO, fontSize: 21, letterSpacing: "-0.01em", fontWeight: 500 }}>{val}</div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.36)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginTop: 5,
+                    fontFamily: MONO,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </section>
 
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", borderBottom: "1px solid rgba(255,255,255,0.1)", padding: "14px 0", overflow: "hidden" }}>
-        <div style={{ display: "flex", animation: "ticker 24s linear infinite", width: "max-content", whiteSpace: "nowrap" }}>
-          {[...Array(4)].flatMap(() => ["Ingest", "Summarize", "Query", "Verify", "Cite", "Analyze", "Research", "Understand"]).map((w, i) => (
-            <span key={i} style={{ padding: "0 36px", fontSize: 12, fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: i % 2 === 0 ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)" }}>
+      <div
+        style={{
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          padding: "16px 0",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ display: "flex", width: "max-content", animation: "marquee 26s linear infinite", whiteSpace: "nowrap" }}>
+          {[...Array(4)].flatMap(() => TICKER_WORDS).map((w, i) => (
+            <span
+              key={i}
+              style={{
+                padding: "0 34px",
+                fontSize: 12,
+                fontFamily: MONO,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: i % 2 === 0 ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)",
+              }}
+            >
               {w}
             </span>
           ))}
         </div>
       </div>
 
-      <section style={{ padding: "100px 52px", maxWidth: 1000, margin: "0 auto" }}>
-        <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 56 }}>
-          <div style={{ fontSize: 10.5, fontFamily: MONO, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.34)", marginBottom: 14, fontWeight: 500 }}>Pipeline</div>
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px, 4.5vw, 46px)", letterSpacing: "-0.03em", lineHeight: 1.08, color: "#ffffff" }}>
-            From source to insight,{" "}
-            <em style={{ color: "rgba(255,255,255,0.4)" }}>in four steps.</em>
-          </h2>
+      <section id="pipeline" style={{ padding: "120px clamp(20px, 5vw, 56px)", maxWidth: 1180, margin: "0 auto" }}>
+        <motion.div {...fadeUp(0)} style={{ marginBottom: 64, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
+          <div>
+            <div
+              style={{
+                fontSize: 10.5,
+                fontFamily: MONO,
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                color: "rgba(255,255,255,0.34)",
+                marginBottom: 14,
+                fontWeight: 500,
+              }}
+            >
+              How it works
+            </div>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(30px, 4.5vw, 50px)", letterSpacing: "-0.03em", lineHeight: 1.06, maxWidth: 640 }}>
+              From raw source to verified insight.
+            </h2>
+          </div>
         </motion.div>
 
-        <div>
-          {PIPELINE.map((p, i) => (
-            <motion.div key={p.num}
-              initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-              style={{
-                display: "flex", alignItems: "baseline", gap: 28,
-                padding: "28px 0",
-                borderTop: i === 0 ? "1px solid rgba(255,255,255,0.14)" : "none",
-                borderBottom: "1px solid rgba(255,255,255,0.14)",
-              }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, color: "rgba(255,255,255,0.32)", width: 32, flexShrink: 0 }}>{p.num}</span>
-              <h3 style={{ fontFamily: SERIF, fontSize: 26, color: "#ffffff", letterSpacing: "-0.01em", width: 190, flexShrink: 0 }}>{p.label}</h3>
-              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.46)", lineHeight: 1.7, flex: 1 }}>{p.desc}</p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: 1,
+            background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          {STAGES.map((s, i) => (
+            <motion.div
+              key={s.n}
+              {...fadeUp(i * 0.08)}
+              style={{ background: "#000000", padding: "34px 28px", display: "flex", flexDirection: "column", gap: 16, minHeight: 220 }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 12.5, color: "rgba(255,255,255,0.32)" }}>{s.n}</span>
+              <h3 style={{ fontFamily: SERIF, fontSize: 25, letterSpacing: "-0.01em" }}>{s.t}</h3>
+              <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.46)", lineHeight: 1.7 }}>{s.d}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section style={{ padding: "0 52px 100px", maxWidth: 1000, margin: "0 auto" }}>
-        <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} style={{ marginBottom: 40 }}>
-          <div style={{ fontSize: 10.5, fontFamily: MONO, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.34)", marginBottom: 14, fontWeight: 500 }}>Capabilities</div>
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(24px, 3.6vw, 38px)", letterSpacing: "-0.03em", lineHeight: 1.1, color: "#ffffff" }}>
-            A complete research<br /><em style={{ color: "rgba(255,255,255,0.4)" }}>intelligence stack.</em>
+      <section id="capabilities" style={{ padding: "0 clamp(20px, 5vw, 56px) 120px", maxWidth: 1180, margin: "0 auto" }}>
+        <motion.div {...fadeUp(0)} style={{ marginBottom: 48 }}>
+          <div
+            style={{
+              fontSize: 10.5,
+              fontFamily: MONO,
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              color: "rgba(255,255,255,0.34)",
+              marginBottom: 14,
+              fontWeight: 500,
+            }}
+          >
+            Capabilities
+          </div>
+          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(26px, 3.8vw, 42px)", letterSpacing: "-0.03em", lineHeight: 1.1, maxWidth: 620 }}>
+            A complete research intelligence stack.
           </h2>
         </motion.div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 1, background: "rgba(255,255,255,0.1)" }}>
-          {CAPABILITIES.map((item, i) => (
-            <motion.div key={item.label}
-              initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }} transition={{ delay: i * 0.06 }}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "rgba(255,255,255,0.1)" }} className="prism-feature-grid">
+          {FEATURES.map((f, i) => (
+            <motion.div
+              key={f.t}
+              {...fadeUp(i * 0.05)}
               style={{
-                padding: "24px 26px",
                 background: "#000000",
-                display: "flex", alignItems: "flex-start", gap: 14,
-              }}>
-              <span style={{ fontFamily: MONO, fontSize: 12, color: "rgba(255,255,255,0.32)", marginTop: 3, flexShrink: 0 }}>—</span>
-              <div>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: "#ffffff", marginBottom: 5, fontFamily: SANS }}>{item.label}</div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>{item.sub}</div>
-              </div>
+                padding: "30px 26px",
+                gridColumn: f.big ? "span 2" : "span 1",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                minHeight: 150,
+              }}
+              className={f.big ? "prism-feature-big" : undefined}
+            >
+              <Check size={16} color="rgba(255,255,255,0.5)" />
+              <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SANS }}>{f.t}</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", lineHeight: 1.6 }}>{f.d}</div>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section style={{ padding: "90px 52px 110px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 30, marginBottom: 26 }}>
+      <section
+        id="workflow"
+        style={{
+          padding: "110px clamp(20px, 5vw, 56px)",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          display: "flex",
+          justifyContent: "center",
+          textAlign: "center",
+        }}
+      >
+        <motion.div {...fadeUp(0)} style={{ maxWidth: 780 }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 16px",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 30,
+              marginBottom: 28,
+            }}
+          >
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffffff" }} />
-            <span style={{ fontSize: 10.5, fontFamily: MONO, color: "rgba(255,255,255,0.7)", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>Ready when you are</span>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontFamily: MONO,
+                color: "rgba(255,255,255,0.7)",
+                fontWeight: 500,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              Ready when you are
+            </span>
           </div>
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(34px, 5.5vw, 66px)", letterSpacing: "-0.04em", lineHeight: 0.98, marginBottom: 18, color: "#ffffff" }}>
-            Research shouldn't<br /><em style={{ color: "rgba(255,255,255,0.4)" }}>be a guessing game.</em>
+          <h2
+            style={{
+              fontFamily: SERIF,
+              fontSize: "clamp(32px, 5.5vw, 60px)",
+              letterSpacing: "-0.04em",
+              lineHeight: 1,
+              marginBottom: 20,
+            }}
+          >
+            Research shouldn't be a <em style={{ color: "rgba(255,255,255,0.4)" }}>guessing game.</em>
           </h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", marginBottom: 38 }}>Build your research intelligence system today.</p>
+          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", marginBottom: 36 }}>
+            Build your research intelligence system today.
+          </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/ingest" style={{ textDecoration: "none" }}>
-              <motion.button whileHover={{ scale: 1.04 } as any} whileTap={{ scale: 0.96 } as any}
-                style={{ background: "#ffffff", color: "#000000", border: "none", borderRadius: 13, padding: "15px 38px", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: SANS, display: "inline-flex", alignItems: "center", gap: 9 }}>
-                Start Research <ArrowRight size={17} />
+            <Link href="/register" style={{ textDecoration: "none" }}>
+              <motion.button
+                whileHover={{ scale: 1.04 } as any}
+                whileTap={{ scale: 0.96 } as any}
+                style={{
+                  background: "#ffffff",
+                  color: "#000000",
+                  border: "none",
+                  borderRadius: 13,
+                  padding: "15px 36px",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: SANS,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 9,
+                }}
+              >
+                Create account <ArrowRight size={17} />
               </motion.button>
             </Link>
-            <Link href="/dashboard" style={{ textDecoration: "none" }}>
-              <motion.button whileHover={{ borderColor: "rgba(255,255,255,0.4)" } as any}
-                style={{ background: "transparent", color: "#ffffff", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 13, padding: "15px 26px", fontSize: 15, cursor: "pointer", fontFamily: SANS }}>
-                Dashboard
+            <Link href="/login" style={{ textDecoration: "none" }}>
+              <motion.button
+                whileHover={{ borderColor: "rgba(255,255,255,0.4)" } as any}
+                style={{
+                  background: "transparent",
+                  color: "#ffffff",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 13,
+                  padding: "15px 26px",
+                  fontSize: 15,
+                  cursor: "pointer",
+                  fontFamily: SANS,
+                }}
+              >
+                Sign in
               </motion.button>
             </Link>
           </div>
         </motion.div>
       </section>
 
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.1)", padding: "24px 52px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <footer
+        style={{
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          padding: "26px clamp(20px, 5vw, 56px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 14,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 24, height: 24, borderRadius: 7, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 7,
+              background: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Zap size={12} color="#000000" strokeWidth={2.5} />
           </div>
           <span style={{ fontFamily: SERIF, fontSize: 15, color: "rgba(255,255,255,0.5)" }}>Prism</span>
         </div>
-        <div style={{ display: "flex", gap: 24 }}>
-          {[["Dashboard", "/dashboard"], ["Workspace", "/workspace"], ["Ingest", "/ingest"], ["Evaluate", "/evaluation"]].map(([label, href]) => (
-            <Link key={label} href={href} style={{ textDecoration: "none", fontSize: 12.5, fontFamily: MONO, color: "rgba(255,255,255,0.34)" }}>{label}</Link>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          {NAV_LINKS.map((l) => (
+            <a key={l.label} href={l.href} style={{ textDecoration: "none", fontSize: 12.5, fontFamily: MONO, color: "rgba(255,255,255,0.34)" }}>
+              {l.label}
+            </a>
           ))}
         </div>
         <span style={{ fontSize: 11, fontFamily: MONO, color: "rgba(255,255,255,0.24)" }}>Research Intelligence Platform</span>
       </footer>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .prism-desktop-nav, .prism-desktop-cta { display: none !important; }
+          .prism-mobile-toggle { display: flex !important; }
+        }
+        @media (max-width: 720px) {
+          .prism-feature-grid { grid-template-columns: 1fr !important; }
+          .prism-feature-big { grid-column: span 1 !important; }
+        }
+        @media (min-width: 901px) {
+          .prism-mobile-menu { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
