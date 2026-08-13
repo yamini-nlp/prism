@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, LogOut, Zap } from "lucide-react";
 import { bootstrapSession, getCurrentUser, logout, type CurrentUser } from "@/lib/auth";
-import { navLinks } from "@/lib/navigation";
+import { isNoChromeRoute, navLinks } from "@/lib/navigation";
 import { useUIStore } from "@/lib/store";
 
 export default function Sidebar() {
@@ -31,7 +31,7 @@ export default function Sidebar() {
     router.push("/login");
   }
 
-  if (pathname === "/") return null;
+  if (isNoChromeRoute(pathname || "/")) return null;
 
   function handleNavKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const items = navRef.current?.querySelectorAll<HTMLAnchorElement>("a[data-nav-link]");
