@@ -33,15 +33,17 @@ TEST_PASSWORD = "SuperSecret123!"
 @pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     yield loop
+    asyncio.set_event_loop(None)
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def _initialize_database():
-    await init_db()
+@pytest.fixture(scope="session", autouse=True)
+def _initialize_database(event_loop):
+    event_loop.run_until_complete(init_db())
     yield
-    await engine.dispose()
+    event_loop.run_until_complete(engine.dispose())
 
 
 @pytest.fixture(autouse=True)
