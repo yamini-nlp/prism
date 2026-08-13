@@ -1,11 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const pushMock = vi.fn();
-
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -25,11 +22,21 @@ import LoginPage from "@/app/login/page";
 import { login } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 
+let originalLocation: Location;
+
 beforeEach(() => {
-  pushMock.mockClear();
   vi.mocked(login).mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
+
+  originalLocation = window.location;
+  // @ts-expect-error - jsdom doesn't implement real navigation, so stub it for assertions
+  delete window.location;
+  window.location = { ...originalLocation, href: "" } as Location;
+});
+
+afterEach(() => {
+  window.location = originalLocation;
 });
 
 describe("LoginPage", () => {
@@ -63,7 +70,7 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(login).toHaveBeenCalledWith("researcher@prism.dev", "password123"));
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(window.location.href).toBe("/dashboard"));
     expect(toast.success).toHaveBeenCalledWith("Signed in", "Welcome back to Prism.");
   });
 
@@ -79,6 +86,6 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not sign in", "Invalid email or password."));
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(window.location.href).toBe("");
   });
 });
