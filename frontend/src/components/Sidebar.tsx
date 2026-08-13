@@ -31,6 +31,8 @@ export default function Sidebar() {
     router.push("/login");
   }
 
+  if (pathname === "/") return null;
+
   function handleNavKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const items = navRef.current?.querySelectorAll<HTMLAnchorElement>("a[data-nav-link]");
     if (!items || items.length === 0) return;
