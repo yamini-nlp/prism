@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Serif_Display, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import BackendStatus from "@/components/BackendStatus";
 import { ThemeProvider, ThemeScript } from "@/components/ThemeProvider";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
@@ -59,7 +58,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </main>
               </div>
             </div>
-            <BackendStatus />
             <ToastContainer />
           </Providers>
         </ThemeProvider>
