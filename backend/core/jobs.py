@@ -90,3 +90,16 @@ async def get_job(db: AsyncSession, job_id: str):
     if job is None:
         return None
     return {"status": job.status, "stage": job.stage, "result": job.result, "error": job.error}
+
+
+async def job_belongs_to_session(db: AsyncSession, job_id: str, session_id: str) -> Optional[bool]:
+    try:
+        job_uuid = uuid.UUID(job_id)
+    except ValueError:
+        return None
+    job = await db.get(Job, job_uuid, populate_existing=True)
+    if job is None:
+        return None
+    if job.session_id is None:
+        return True
+    return job.session_id == session_id
