@@ -3,42 +3,88 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, ArrowUpRight, Check, Menu, X, Zap } from "lucide-react";
-
-const SERIF = "var(--font-display, 'DM Serif Display', Georgia, serif)";
-const SANS = "var(--font-sans, 'Syne', system-ui, sans-serif)";
-const MONO = "var(--font-mono, 'JetBrains Mono', monospace)";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  BookOpen,
+  Check,
+  GitBranch,
+  LayoutDashboard,
+  MessageSquare,
+  Menu,
+  Settings,
+  ShieldCheck,
+  Upload,
+  X,
+  Zap,
+} from "lucide-react";
 
 const NAV_LINKS = [
   { label: "Pipeline", href: "#pipeline" },
   { label: "Capabilities", href: "#capabilities" },
-  { label: "Workflow", href: "#workflow" },
+  { label: "Inside the app", href: "#product" },
 ];
 
 const STAGES = [
-  { n: "01", t: "Ingest", d: "Drop in a PDF, DOCX, URL, or raw text. Prism extracts and chunks it automatically." },
-  { n: "02", t: "Summarize", d: "TLDR, methodology, key concepts, and results surfaced in seconds, not skims." },
-  { n: "03", t: "Query", d: "Ask anything. Every answer is RAG-grounded and cites the exact source chunk." },
-  { n: "04", t: "Verify", d: "Claims are checked against context and scored for confidence before you trust them." },
+  {
+    n: "01",
+    t: "Ingest",
+    d: "Upload a PDF, DOCX, DOC, or TXT file, fetch a URL, or paste raw text. Content is checked against its file signature, chunked, and embedded with all-MiniLM-L6-v2 in a background job you can track stage by stage.",
+  },
+  {
+    n: "02",
+    t: "Retrieve",
+    d: "A query runs against dense vector search and BM25 keyword search in parallel. Results are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker for the final top-k chunks.",
+  },
+  {
+    n: "03",
+    t: "Generate",
+    d: "Llama 3.3 70B on Groq answers strictly from the retrieved chunks. Every stated fact carries an inline source marker, e.g. [1][2], tied back to the exact chunk it came from.",
+  },
+  {
+    n: "04",
+    t: "Verify",
+    d: "The answer is split into individual claims and matched against the retrieved context by token overlap. Each claim is labeled supported, uncertain, or unsupported with a confidence score.",
+  },
 ];
 
 const FEATURES = [
-  { t: "Multi-source ingestion", d: "PDF, DOC, links, raw text — one pipeline for everything you read.", big: true },
-  { t: "Structured summarization", d: "TLDR, methodology, results, limitations." },
-  { t: "RAG-based querying", d: "Every answer grounded in your documents." },
-  { t: "Retrieval transparency", d: "See exactly which chunk backs each claim." },
-  { t: "Claim-level verification", d: "Confidence scores on every response." },
-  { t: "Evaluation dashboard", d: "Real-time metrics from your sessions.", big: true },
+  {
+    t: "Multi-format ingestion",
+    d: "PDF, DOCX, DOC, TXT, URLs, and pasted text all flow through the same chunking and embedding pipeline.",
+    big: true,
+  },
+  { t: "Structured summarization", d: "TLDR, key concepts, methodology, results, and limitations returned as one structured summary." },
+  { t: "Hybrid retrieval", d: "Dense embeddings and BM25 fused with reciprocal rank fusion, then cross-encoder reranked." },
+  { t: "Claim-level verification", d: "Every claim in an answer scored and labeled against its supporting evidence." },
+  { t: "Retrieval transparency", d: "Inspect the exact chunks, sources, and similarity scores behind every answer." },
+  {
+    t: "Evaluation harness",
+    d: "Run recall, groundedness, and MRR metrics against your workspace whenever you need a system-level check.",
+    big: true,
+  },
+];
+
+const PRODUCT_PAGES = [
+  { label: "Dashboard", icon: LayoutDashboard, d: "Live metrics across documents, generations, and verifications, plus latency and pass-rate charts." },
+  { label: "Ingest", icon: Upload, d: "Add sources by upload, URL, or pasted text, with background jobs tracked through each stage." },
+  { label: "Library", icon: BookOpen, d: "Every ingested document, searchable by title and sortable by size and chunk count." },
+  { label: "Workspace", icon: MessageSquare, d: "Query your research in plain language and get answers grounded in your documents." },
+  { label: "Source Trace", icon: GitBranch, d: "See the retrieved chunks, their sources, and similarity scores behind any answer." },
+  { label: "Verification", icon: ShieldCheck, d: "Review each claim in an answer, labeled supported, uncertain, or unsupported." },
+  { label: "Evaluation", icon: BarChart3, d: "Run the evaluation harness for recall, groundedness, and MRR across your workspace." },
+  { label: "Settings", icon: Settings, d: "Manage your account, profile, and password from one place." },
 ];
 
 const NUMBERS = [
-  ["100%", "Source cited"],
-  ["0%", "Hallucination tolerance"],
-  ["RAG", "Core architecture"],
-  ["NLI", "Claim verification"],
+  ["04", "Pipeline stages"],
+  ["Hybrid", "Retrieval method"],
+  ["Groq", "Inference runtime"],
+  ["JWT", "Session security"],
 ];
 
-const TICKER_WORDS = ["Ingest", "Summarize", "Query", "Verify", "Cite", "Analyze", "Research", "Understand"];
+const TICKER_WORDS = ["Ingest", "Retrieve", "Generate", "Verify", "Cite", "Trace", "Evaluate", "Research"];
 
 function fadeUp(delay = 0) {
   return {
@@ -53,110 +99,47 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000000", color: "#ffffff", fontFamily: SANS, overflowX: "hidden" }}>
+    <div className="min-h-screen w-full overflow-x-hidden bg-neutral-950 font-sans text-white">
       <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        ::selection { background: rgba(255,255,255,0.22); }
-        a { color: inherit; }
-        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        ::selection { background: rgba(255,255,255,0.18); }
+        @keyframes prism-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {
           * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
       `}</style>
 
-      <header
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 200,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 clamp(20px, 5vw, 56px)",
-          height: 68,
-          background: "rgba(0,0,0,0.78)",
-          backdropFilter: "blur(18px)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-        }}
-      >
-        <Link href="/" style={{ textDecoration: "none" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: "#ffffff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Zap size={14} color="#000000" strokeWidth={2.5} />
-            </div>
-            <span style={{ fontFamily: SERIF, fontSize: 20, letterSpacing: "-0.01em" }}>Prism</span>
+      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/10 bg-neutral-950/85 px-5 backdrop-blur-md sm:px-8 lg:px-14">
+        <Link href="/" className="flex items-center gap-2.5 no-underline">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white">
+            <Zap size={15} color="#000000" strokeWidth={2.5} />
           </div>
+          <span className="font-display text-xl tracking-tight text-white">Prism</span>
         </Link>
 
-        <nav style={{ display: "flex", alignItems: "center", gap: 36 }} className="prism-desktop-nav">
+        <nav className="hidden items-center gap-9 md:flex">
           {NAV_LINKS.map((l) => (
-            <a
+            
               key={l.label}
               href={l.href}
-              style={{
-                fontSize: 13,
-                fontFamily: MONO,
-                color: "rgba(255,255,255,0.6)",
-                textDecoration: "none",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
+              className="font-mono text-[12px] uppercase tracking-[0.08em] text-white/55 no-underline transition-colors hover:text-white"
             >
               {l.label}
             </a>
           ))}
         </nav>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }} className="prism-desktop-cta">
-          <Link href="/login" style={{ textDecoration: "none" }}>
-            <button
-              style={{
-                background: "transparent",
-                border: "1px solid rgba(255,255,255,0.2)",
-                color: "#ffffff",
-                borderRadius: 9,
-                padding: "8px 18px",
-                fontSize: 12.5,
-                fontFamily: SANS,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
+        <div className="hidden items-center gap-2.5 md:flex">
+          <Link href="/login" className="no-underline">
+            <button className="rounded-lg border border-white/20 bg-transparent px-[18px] py-2 text-[12.5px] font-semibold text-white transition-colors hover:border-white/40">
               Sign in
             </button>
           </Link>
-          <Link href="/register" style={{ textDecoration: "none" }}>
+          <Link href="/register" className="no-underline">
             <motion.button
-              whileHover={{ scale: 1.04 } as any}
-              whileTap={{ scale: 0.96 } as any}
-              style={{
-                background: "#ffffff",
-                color: "#000000",
-                border: "none",
-                borderRadius: 9,
-                padding: "8px 20px",
-                fontSize: 12.5,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: SANS,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-1.5 rounded-lg bg-white px-5 py-2 text-[12.5px] font-bold text-black"
             >
               Get started <ArrowRight size={13} />
             </motion.button>
@@ -166,85 +149,32 @@ export default function LandingPage() {
         <button
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Toggle menu"
-          className="prism-mobile-toggle"
-          style={{
-            display: "none",
-            background: "transparent",
-            border: "1px solid rgba(255,255,255,0.2)",
-            borderRadius: 8,
-            width: 38,
-            height: 38,
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#ffffff",
-            cursor: "pointer",
-          }}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 text-white md:hidden"
         >
-          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          {menuOpen ? <X size={17} /> : <Menu size={17} />}
         </button>
       </header>
 
       {menuOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 68,
-            left: 0,
-            right: 0,
-            zIndex: 190,
-            background: "#000000",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            padding: "20px clamp(20px, 5vw, 56px) 28px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 18,
-          }}
-          className="prism-mobile-menu"
-        >
+        <div className="fixed inset-x-0 top-16 z-40 flex flex-col gap-4 border-b border-white/10 bg-neutral-950 px-5 pb-7 pt-5 sm:px-8 md:hidden">
           {NAV_LINKS.map((l) => (
-            <a
+            
               key={l.label}
               href={l.href}
               onClick={() => setMenuOpen(false)}
-              style={{ fontSize: 15, fontFamily: SANS, color: "#ffffff", textDecoration: "none" }}
+              className="text-[15px] text-white no-underline"
             >
               {l.label}
             </a>
           ))}
-          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <Link href="/login" style={{ textDecoration: "none", flex: 1 }}>
-              <button
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  color: "#ffffff",
-                  borderRadius: 9,
-                  padding: "10px 0",
-                  fontSize: 13,
-                  fontFamily: SANS,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
+          <div className="mt-1 flex gap-2.5">
+            <Link href="/login" className="flex-1 no-underline">
+              <button className="w-full rounded-lg border border-white/20 bg-transparent py-2.5 text-[13px] font-semibold text-white">
                 Sign in
               </button>
             </Link>
-            <Link href="/register" style={{ textDecoration: "none", flex: 1 }}>
-              <button
-                style={{
-                  width: "100%",
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "none",
-                  borderRadius: 9,
-                  padding: "10px 0",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: SANS,
-                }}
-              >
+            <Link href="/register" className="flex-1 no-underline">
+              <button className="w-full rounded-lg bg-white py-2.5 text-[13px] font-bold text-black">
                 Get started
               </button>
             </Link>
@@ -252,186 +182,74 @@ export default function LandingPage() {
         </div>
       )}
 
-      <section
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "140px clamp(20px, 5vw, 56px) 80px",
-          position: "relative",
-        }}
-      >
+      <section className="relative flex min-h-screen flex-col justify-center px-5 pb-20 pt-36 sm:px-8 lg:px-14">
         <div
+          className="pointer-events-none absolute inset-0 opacity-[0.05]"
           style={{
-            position: "absolute",
-            inset: 0,
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+              "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
             backgroundSize: "64px 64px",
-            maskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 10%, transparent 70%)",
-            pointerEvents: "none",
           }}
         />
 
-        <motion.div {...fadeUp(0)} style={{ position: "relative", maxWidth: 1180, margin: "0 auto", width: "100%" }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 14px",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 30,
-              marginBottom: 32,
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffffff" }} />
-            <span
-              style={{
-                fontSize: 10.5,
-                fontFamily: MONO,
-                color: "rgba(255,255,255,0.7)",
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
+        <motion.div {...fadeUp(0)} className="relative mx-auto w-full max-w-[1180px]">
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/20 px-3.5 py-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/70">
               Research intelligence platform
             </span>
           </div>
 
-          <h1
-            style={{
-              fontFamily: SERIF,
-              fontSize: "clamp(42px, 8vw, 108px)",
-              letterSpacing: "-0.04em",
-              lineHeight: 0.98,
-              maxWidth: 980,
-            }}
-          >
+          <h1 className="max-w-[980px] font-display text-[clamp(42px,8vw,104px)] leading-[0.98] tracking-[-0.04em]">
             Read less.
             <br />
-            Know <em style={{ color: "rgba(255,255,255,0.4)" }}>more.</em>
+            Know <em className="text-white/40">more.</em>
           </h1>
 
-          <p
-            style={{
-              fontSize: "clamp(15px, 1.6vw, 18px)",
-              color: "rgba(255,255,255,0.5)",
-              maxWidth: 560,
-              lineHeight: 1.7,
-              marginTop: 28,
-            }}
-          >
-            Prism turns papers, reports, and raw text into grounded, citation-backed answers —
-            every claim verified before it reaches you.
+          <p className="mt-7 max-w-[560px] text-[clamp(15px,1.6vw,18px)] leading-[1.7] text-white/55">
+            Prism turns papers, reports, and raw text into grounded, citation-backed answers.
+            Every claim is checked against its retrieved source and scored before it reaches you.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 40 }}>
-            <Link href="/register" style={{ textDecoration: "none" }}>
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Link href="/register" className="no-underline">
               <motion.button
-                whileHover={{ scale: 1.03 } as any}
-                whileTap={{ scale: 0.97 } as any}
-                style={{
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "none",
-                  borderRadius: 13,
-                  padding: "16px 32px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: SANS,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 9,
-                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-[15px] font-bold text-black"
               >
                 Start Research <ArrowRight size={17} />
               </motion.button>
             </Link>
-            <Link href="/login" style={{ textDecoration: "none" }}>
+            <Link href="/login" className="no-underline">
               <motion.button
-                whileHover={{ borderColor: "rgba(255,255,255,0.45)" } as any}
-                style={{
-                  background: "transparent",
-                  color: "#ffffff",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: 13,
-                  padding: "16px 28px",
-                  fontSize: 15,
-                  cursor: "pointer",
-                  fontFamily: SANS,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
+                whileHover={{ borderColor: "rgba(255,255,255,0.45)" }}
+                className="flex items-center gap-2 rounded-xl border border-white/20 bg-transparent px-7 py-4 text-[15px] text-white"
               >
                 Sign in <ArrowUpRight size={15} />
               </motion.button>
             </Link>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-              gap: 0,
-              borderTop: "1px solid rgba(255,255,255,0.14)",
-              marginTop: 64,
-              paddingTop: 26,
-              maxWidth: 720,
-            }}
-          >
+          <div className="mt-16 grid max-w-[720px] grid-cols-2 gap-y-6 border-t border-white/[0.14] pt-6 sm:grid-cols-4">
             {NUMBERS.map(([val, label], i) => (
-              <div
-                key={label}
-                style={{
-                  paddingRight: 20,
-                  paddingLeft: i > 0 ? 20 : 0,
-                  borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.12)" : "none",
-                }}
-              >
-                <div style={{ fontFamily: MONO, fontSize: 21, letterSpacing: "-0.01em", fontWeight: 500 }}>{val}</div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.36)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginTop: 5,
-                    fontFamily: MONO,
-                  }}
-                >
-                  {label}
-                </div>
+              <div key={label} className={i > 0 ? "border-white/10 pl-5 sm:border-l" : ""}>
+                <div className="font-mono text-[21px] font-medium tracking-[-0.01em]">{val}</div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-white/40">{label}</div>
               </div>
             ))}
           </div>
         </motion.div>
       </section>
 
-      <div
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-          padding: "16px 0",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ display: "flex", width: "max-content", animation: "marquee 26s linear infinite", whiteSpace: "nowrap" }}>
+      <div className="overflow-hidden border-y border-white/10 py-4">
+        <div className="flex w-max animate-[prism-marquee_26s_linear_infinite] whitespace-nowrap">
           {[...Array(4)].flatMap(() => TICKER_WORDS).map((w, i) => (
             <span
               key={i}
-              style={{
-                padding: "0 34px",
-                fontSize: 12,
-                fontFamily: MONO,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: i % 2 === 0 ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)",
-              }}
+              className={`px-9 font-mono text-[12px] uppercase tracking-[0.1em] ${
+                i % 2 === 0 ? "text-white/50" : "text-white/15"
+              }`}
             >
               {w}
             </span>
@@ -439,181 +257,105 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <section id="pipeline" style={{ padding: "120px clamp(20px, 5vw, 56px)", maxWidth: 1180, margin: "0 auto" }}>
-        <motion.div {...fadeUp(0)} style={{ marginBottom: 64, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
+      <section id="pipeline" className="mx-auto max-w-[1180px] px-5 py-28 sm:px-8 lg:px-14">
+        <motion.div {...fadeUp(0)} className="mb-14 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <div
-              style={{
-                fontSize: 10.5,
-                fontFamily: MONO,
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                color: "rgba(255,255,255,0.34)",
-                marginBottom: 14,
-                fontWeight: 500,
-              }}
-            >
+            <div className="mb-3.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-white/35">
               How it works
             </div>
-            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(30px, 4.5vw, 50px)", letterSpacing: "-0.03em", lineHeight: 1.06, maxWidth: 640 }}>
+            <h2 className="max-w-[640px] font-display text-[clamp(30px,4.5vw,50px)] leading-[1.06] tracking-[-0.03em]">
               From raw source to verified insight.
             </h2>
           </div>
         </motion.div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 1,
-            background: "rgba(255,255,255,0.1)",
-            border: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
+        <div className="grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-2">
           {STAGES.map((s, i) => (
-            <motion.div
-              key={s.n}
-              {...fadeUp(i * 0.08)}
-              style={{ background: "#000000", padding: "34px 28px", display: "flex", flexDirection: "column", gap: 16, minHeight: 220 }}
-            >
-              <span style={{ fontFamily: MONO, fontSize: 12.5, color: "rgba(255,255,255,0.32)" }}>{s.n}</span>
-              <h3 style={{ fontFamily: SERIF, fontSize: 25, letterSpacing: "-0.01em" }}>{s.t}</h3>
-              <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.46)", lineHeight: 1.7 }}>{s.d}</p>
+            <motion.div key={s.n} {...fadeUp(i * 0.08)} className="flex min-h-[220px] flex-col gap-4 bg-neutral-950 p-8">
+              <span className="font-mono text-[12.5px] text-white/30">{s.n}</span>
+              <h3 className="font-display text-[25px] tracking-[-0.01em]">{s.t}</h3>
+              <p className="text-[13.5px] leading-[1.7] text-white/45">{s.d}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section id="capabilities" style={{ padding: "0 clamp(20px, 5vw, 56px) 120px", maxWidth: 1180, margin: "0 auto" }}>
-        <motion.div {...fadeUp(0)} style={{ marginBottom: 48 }}>
-          <div
-            style={{
-              fontSize: 10.5,
-              fontFamily: MONO,
-              textTransform: "uppercase",
-              letterSpacing: "0.14em",
-              color: "rgba(255,255,255,0.34)",
-              marginBottom: 14,
-              fontWeight: 500,
-            }}
-          >
+      <section id="capabilities" className="mx-auto max-w-[1180px] px-5 pb-28 sm:px-8 lg:px-14">
+        <motion.div {...fadeUp(0)} className="mb-12">
+          <div className="mb-3.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-white/35">
             Capabilities
           </div>
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(26px, 3.8vw, 42px)", letterSpacing: "-0.03em", lineHeight: 1.1, maxWidth: 620 }}>
+          <h2 className="max-w-[620px] font-display text-[clamp(26px,3.8vw,42px)] leading-[1.1] tracking-[-0.03em]">
             A complete research intelligence stack.
           </h2>
         </motion.div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "rgba(255,255,255,0.1)" }} className="prism-feature-grid">
+        <div className="grid grid-cols-1 gap-px bg-white/10 sm:grid-cols-3">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.t}
               {...fadeUp(i * 0.05)}
-              style={{
-                background: "#000000",
-                padding: "30px 26px",
-                gridColumn: f.big ? "span 2" : "span 1",
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                minHeight: 150,
-              }}
-              className={f.big ? "prism-feature-big" : undefined}
+              className={`flex min-h-[150px] flex-col gap-3 bg-neutral-950 p-7 ${f.big ? "sm:col-span-2" : "sm:col-span-1"}`}
             >
-              <Check size={16} color="rgba(255,255,255,0.5)" />
-              <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SANS }}>{f.t}</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", lineHeight: 1.6 }}>{f.d}</div>
+              <Check size={16} className="text-white/50" />
+              <div className="text-[15px] font-semibold">{f.t}</div>
+              <div className="text-[13px] leading-[1.6] text-white/42">{f.d}</div>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section
-        id="workflow"
-        style={{
-          padding: "110px clamp(20px, 5vw, 56px)",
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          display: "flex",
-          justifyContent: "center",
-          textAlign: "center",
-        }}
-      >
-        <motion.div {...fadeUp(0)} style={{ maxWidth: 780 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 16px",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 30,
-              marginBottom: 28,
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffffff" }} />
-            <span
-              style={{
-                fontSize: 10.5,
-                fontFamily: MONO,
-                color: "rgba(255,255,255,0.7)",
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
+      <section id="product" className="border-t border-white/10 px-5 py-28 sm:px-8 lg:px-14">
+        <div className="mx-auto max-w-[1180px]">
+          <motion.div {...fadeUp(0)} className="mb-12">
+            <div className="mb-3.5 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-white/35">
+              Inside the app
+            </div>
+            <h2 className="max-w-[620px] font-display text-[clamp(26px,3.8vw,42px)] leading-[1.1] tracking-[-0.03em]">
+              Eight workspaces, one pipeline.
+            </h2>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-px border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4">
+            {PRODUCT_PAGES.map((p, i) => (
+              <motion.div key={p.label} {...fadeUp(i * 0.04)} className="flex flex-col gap-3 bg-neutral-950 p-6">
+                <p.icon size={17} className="text-white/50" />
+                <div className="text-[13.5px] font-semibold">{p.label}</div>
+                <div className="text-[12px] leading-[1.6] text-white/42">{p.d}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow" className="flex justify-center border-t border-white/10 px-5 py-28 text-center sm:px-8 lg:px-14">
+        <motion.div {...fadeUp(0)} className="max-w-[780px]">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="font-mono text-[10.5px] font-medium uppercase tracking-[0.1em] text-white/70">
               Ready when you are
             </span>
           </div>
-          <h2
-            style={{
-              fontFamily: SERIF,
-              fontSize: "clamp(32px, 5.5vw, 60px)",
-              letterSpacing: "-0.04em",
-              lineHeight: 1,
-              marginBottom: 20,
-            }}
-          >
-            Research shouldn't be a <em style={{ color: "rgba(255,255,255,0.4)" }}>guessing game.</em>
+          <h2 className="mb-5 font-display text-[clamp(32px,5.5vw,60px)] leading-none tracking-[-0.04em]">
+            Research shouldn&apos;t be a <em className="text-white/40">guessing game.</em>
           </h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.42)", marginBottom: 36 }}>
-            Build your research intelligence system today.
+          <p className="mb-9 text-[15px] text-white/42">
+            Ingest your first document and see every answer traced back to its source.
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/register" style={{ textDecoration: "none" }}>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link href="/register" className="no-underline">
               <motion.button
-                whileHover={{ scale: 1.04 } as any}
-                whileTap={{ scale: 0.96 } as any}
-                style={{
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "none",
-                  borderRadius: 13,
-                  padding: "15px 36px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: SANS,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 9,
-                }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 rounded-2xl bg-white px-9 py-4 text-[15px] font-bold text-black"
               >
                 Create account <ArrowRight size={17} />
               </motion.button>
             </Link>
-            <Link href="/login" style={{ textDecoration: "none" }}>
+            <Link href="/login" className="no-underline">
               <motion.button
-                whileHover={{ borderColor: "rgba(255,255,255,0.4)" } as any}
-                style={{
-                  background: "transparent",
-                  color: "#ffffff",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: 13,
-                  padding: "15px 26px",
-                  fontSize: 15,
-                  cursor: "pointer",
-                  fontFamily: SANS,
-                }}
+                whileHover={{ borderColor: "rgba(255,255,255,0.4)" }}
+                className="rounded-2xl border border-white/20 bg-transparent px-7 py-4 text-[15px] text-white"
               >
                 Sign in
               </motion.button>
@@ -622,56 +364,22 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      <footer
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          padding: "26px clamp(20px, 5vw, 56px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 14,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 7,
-              background: "#ffffff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+      <footer className="flex flex-wrap items-center justify-between gap-3.5 border-t border-white/10 px-5 py-6 sm:px-8 lg:px-14">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white">
             <Zap size={12} color="#000000" strokeWidth={2.5} />
           </div>
-          <span style={{ fontFamily: SERIF, fontSize: 15, color: "rgba(255,255,255,0.5)" }}>Prism</span>
+          <span className="font-display text-[15px] text-white/50">Prism</span>
         </div>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap gap-6">
           {NAV_LINKS.map((l) => (
-            <a key={l.label} href={l.href} style={{ textDecoration: "none", fontSize: 12.5, fontFamily: MONO, color: "rgba(255,255,255,0.34)" }}>
+            <a key={l.label} href={l.href} className="font-mono text-[12.5px] text-white/35 no-underline">
               {l.label}
             </a>
           ))}
         </div>
-        <span style={{ fontSize: 11, fontFamily: MONO, color: "rgba(255,255,255,0.24)" }}>Research Intelligence Platform</span>
+        <span className="font-mono text-[11px] text-white/25">Research Intelligence Platform</span>
       </footer>
-
-      <style>{`
-        @media (max-width: 900px) {
-          .prism-desktop-nav, .prism-desktop-cta { display: none !important; }
-          .prism-mobile-toggle { display: flex !important; }
-        }
-        @media (max-width: 720px) {
-          .prism-feature-grid { grid-template-columns: 1fr !important; }
-          .prism-feature-big { grid-column: span 1 !important; }
-        }
-        @media (min-width: 901px) {
-          .prism-mobile-menu { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 }
