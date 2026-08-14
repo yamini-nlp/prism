@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthRoute, isProtectedPath } from "@/lib/routes";
 
-const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/ingest",
-  "/library",
-  "/workspace",
-  "/source-trace",
-  "/verification",
-  "/evaluation",
-  "/settings",
-];
+const REFRESH_COOKIE_NAME = "prism_refresh_token";
 
 function isPrefetchRequest(request: NextRequest): boolean {
   return (
@@ -21,23 +13,25 @@ function isPrefetchRequest(request: NextRequest): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isProtected = PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
+  const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME);
 
-  if (!isProtected) {
+  if (isProtectedPath(pathname)) {
+    if (!refreshToken) {
+      if (isPrefetchRequest(request)) {
+        return new NextResponse(null, { status: 204 });
+      }
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("from", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
     return NextResponse.next();
   }
 
-  const refreshToken = request.cookies.get("prism_refresh_token");
-
-  if (!refreshToken) {
-    if (isPrefetchRequest(request)) {
-      return new NextResponse(null, { status: 204 });
+  if (isAuthRoute(pathname)) {
+    if (refreshToken && !isPrefetchRequest(request)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.next();
   }
 
   return NextResponse.next();
@@ -53,5 +47,7 @@ export const config = {
     "/verification/:path*",
     "/evaluation/:path*",
     "/settings/:path*",
+    "/login",
+    "/register",
   ],
 };
