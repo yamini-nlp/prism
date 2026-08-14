@@ -4,6 +4,8 @@ import asyncio
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from fastapi import APIRouter, FastAPI, Depends, Request, Query, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -23,8 +25,6 @@ from core.metrics import record_request, generate_prometheus_metrics
 from core.tracing import setup_tracing
 from core.errors import NotFoundError, register_exception_handlers
 from eval import evaluate as eval_module
-from alembic import command
-from alembic.config import Config as AlembicConfig
 
 API_VERSION = "1.0.0"
 
@@ -69,6 +69,7 @@ app.add_middleware(
     expose_headers=["X-Request-ID", "X-Total-Count", "X-Has-More", "X-Next-Cursor"],
 )
 
+
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_body_bytes: int):
         super().__init__(app)
@@ -107,6 +108,22 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_request_body_bytes)
 app.add_middleware(RequestTimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+
+
+def _run_migrations_sync() -> None:
+    backend_dir = Path(__file__).resolve().parent
+    alembic_cfg = AlembicConfig(str(backend_dir / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(backend_dir / "alembic"))
+    command.upgrade(alembic_cfg, "head")
+
+
+@app.on_event("startup")
+async def apply_database_migrations() -> None:
+    try:
+        await asyncio.to_thread(_run_migrations_sync)
+        logger.info("Database migrations applied successfully.")
+    except Exception as exc:
+        logger.error(f"Database migration failed on startup: {exc}")
 
 
 def _extract_user_id(request: Request) -> Optional[str]:
