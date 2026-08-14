@@ -37,7 +37,13 @@ async function persistRefreshToken(refreshToken: string): Promise<void> {
 async function parseErrorDetail(res: Response, fallback: string): Promise<string> {
   try {
     const data = await res.json();
-    return typeof data?.detail === "string" ? data.detail : fallback;
+    if (typeof data?.error?.message === "string") {
+      return data.error.message;
+    }
+    if (typeof data?.detail === "string") {
+      return data.detail;
+    }
+    return fallback;
   } catch {
     return fallback;
   }
