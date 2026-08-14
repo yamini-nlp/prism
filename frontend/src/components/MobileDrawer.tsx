@@ -84,27 +84,27 @@ export default function MobileDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 340, damping: 34 }}
-            className="absolute inset-y-0 left-0 flex w-[80vw] max-w-[280px] flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-surface)] px-4 py-6"
+            className="absolute inset-y-0 left-0 flex w-64 max-w-[80vw] flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--bg-surface)]"
           >
-            <div className="mb-6 flex items-center justify-between">
+            <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border)] px-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-[30px] w-[30px] items-center justify-center rounded-sm bg-[var(--text-primary)]">
-                  <Zap size={15} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--text-primary)]">
+                  <Zap size={14} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
                 </div>
-                <span className="font-display text-xl tracking-tight text-[var(--text-primary)]">Prism</span>
+                <span className="font-display text-lg leading-none tracking-tight text-[var(--text-primary)]">Prism</span>
               </div>
               <button
                 ref={closeButtonRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close navigation menu"
-                className="flex h-8 w-8 items-center justify-center rounded-sm border border-[var(--border)] text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
               >
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
 
-            <nav aria-label="Primary navigation" className="flex flex-col gap-1">
+            <nav aria-label="Primary navigation" className="flex flex-col gap-0.5 px-3 py-4">
               {navLinks.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
@@ -113,14 +113,14 @@ export default function MobileDrawer() {
                     href={href}
                     prefetch={false}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-[13px] font-medium no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 ${
+                    className={`flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium leading-none no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 ${
                       active
-                        ? "bg-[var(--text-primary)] font-semibold text-[var(--bg-surface)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-base)]"
+                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    <Icon size={15} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                    {label}
+                    <Icon size={16} strokeWidth={active ? 2.25 : 1.85} aria-hidden="true" className="flex-shrink-0" />
+                    <span className="truncate">{label}</span>
                   </Link>
                 );
               })}
