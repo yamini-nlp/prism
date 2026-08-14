@@ -8,6 +8,7 @@ export interface CurrentUser {
 
 let accessToken: string | null = null;
 let currentUser: CurrentUser | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -95,7 +96,7 @@ export async function register(email: string, password: string): Promise<Current
   return data.user;
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+async function doRefresh(): Promise<string | null> {
   try {
     const res = await fetch("/api/auth/refresh", { method: "POST" });
     if (!res.ok) {
@@ -114,6 +115,16 @@ export async function refreshAccessToken(): Promise<string | null> {
     setCurrentUser(null);
     return null;
   }
+}
+
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  refreshInFlight = doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
 }
 
 export async function logout(): Promise<void> {
