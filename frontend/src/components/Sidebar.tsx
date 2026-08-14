@@ -64,6 +64,7 @@ export default function Sidebar() {
     >
       <Link
         href="/"
+        prefetch={false}
         aria-label={collapsed ? "Prism — go to home" : undefined}
         className={`mb-7 flex items-center gap-2.5 no-underline ${collapsed ? "justify-center px-0" : "pl-3"}`}
       >
@@ -100,6 +101,7 @@ export default function Sidebar() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 data-nav-link
                 aria-current={active ? "page" : undefined}
                 title={collapsed ? label : undefined}
