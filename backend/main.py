@@ -23,6 +23,8 @@ from core.metrics import record_request, generate_prometheus_metrics
 from core.tracing import setup_tracing
 from core.errors import NotFoundError, register_exception_handlers
 from eval import evaluate as eval_module
+from alembic import command
+from alembic.config import Config as AlembicConfig
 
 API_VERSION = "1.0.0"
 
