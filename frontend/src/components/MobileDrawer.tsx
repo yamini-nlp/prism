@@ -111,6 +111,7 @@ export default function MobileDrawer() {
                   <Link
                     key={href}
                     href={href}
+                    prefetch={false}
                     aria-current={active ? "page" : undefined}
                     className={`flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-[13px] font-medium no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 ${
                       active
