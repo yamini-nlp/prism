@@ -60,11 +60,12 @@ allowed_origins = settings.allowed_origins_list
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=settings.allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "X-Session-Id"],
+    expose_headers=["X-Request-ID", "X-Total-Count", "X-Has-More", "X-Next-Cursor"],
 )
-
 
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_body_bytes: int):
