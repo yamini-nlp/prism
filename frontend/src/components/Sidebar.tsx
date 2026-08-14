@@ -58,118 +58,121 @@ export default function Sidebar() {
   return (
     <aside
       aria-label="Sidebar"
-      className={`hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-shrink-0 lg:flex-col lg:overflow-y-auto lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-surface)] lg:py-7 lg:transition-[width] lg:duration-200 lg:ease-premium ${
-        collapsed ? "lg:w-[76px] lg:px-2" : "lg:w-[220px] lg:px-3.5"
+      className={`hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-shrink-0 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-surface)] lg:transition-[width] lg:duration-200 lg:ease-premium ${
+        collapsed ? "lg:w-16" : "lg:w-56"
       }`}
     >
-      <Link
-        href="/"
-        prefetch={false}
-        aria-label={collapsed ? "Prism — go to home" : undefined}
-        className={`mb-7 flex items-center gap-2.5 no-underline ${collapsed ? "justify-center px-0" : "pl-3"}`}
-      >
-        <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-sm bg-[var(--text-primary)]">
-          <Zap size={15} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
-        </div>
-        {!collapsed && (
-          <span className="font-display text-xl tracking-tight text-[var(--text-primary)]">Prism</span>
-        )}
-      </Link>
-
-      {!collapsed && (
-        <div className="mb-1.5 pl-3 text-[10px] font-bold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Navigation
-        </div>
-      )}
-
-      <nav
-        id="sidebar-nav"
-        aria-label="Primary navigation"
-        className="relative flex flex-col gap-0.5"
-      >
-        <div
-          ref={navRef}
-          onKeyDown={handleNavKeyDown}
-          role="toolbar"
-          aria-orientation="vertical"
-          aria-label="Primary navigation links"
-          className="contents"
+      <div className={`flex h-14 flex-shrink-0 items-center border-b border-[var(--border)] ${collapsed ? "justify-center px-0" : "px-4"}`}>
+        <Link
+          href="/"
+          prefetch={false}
+          aria-label={collapsed ? "Prism — go to home" : undefined}
+          className="flex items-center gap-2.5 no-underline"
         >
-          {navLinks.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
-            return (
-              <Link
-                key={href}
-                href={href}
-                prefetch={false}
-                data-nav-link
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? label : undefined}
-                className={`relative z-10 flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-[13px] font-medium no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
-                  collapsed ? "justify-center px-0" : ""
-                } ${active ? "font-semibold text-[var(--bg-surface)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="sidebar-active-indicator"
-                    className="absolute inset-0 -z-10 rounded-sm bg-[var(--text-primary)]"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    aria-hidden="true"
-                  />
-                )}
-                <Icon size={15} strokeWidth={active ? 2.5 : 2} aria-hidden="true" />
-                {!collapsed && label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-
-      <div className="flex-1" />
-
-      {user && !collapsed && (
-        <div className="mb-2 flex items-center justify-between rounded-sm border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2.5">
-          <div className="max-w-[132px] overflow-hidden text-ellipsis whitespace-nowrap text-xs text-[var(--text-secondary)]">
-            {user.email}
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[var(--text-primary)]">
+            <Zap size={14} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
           </div>
+          {!collapsed && (
+            <span className="font-display text-lg leading-none tracking-tight text-[var(--text-primary)]">Prism</span>
+          )}
+        </Link>
+      </div>
+
+      <div className={`flex flex-1 flex-col overflow-y-auto ${collapsed ? "px-2 py-4" : "px-3 py-4"}`}>
+        {!collapsed && (
+          <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+            Navigation
+          </div>
+        )}
+
+        <nav id="sidebar-nav" aria-label="Primary navigation" className="relative flex flex-col gap-0.5">
+          <div
+            ref={navRef}
+            onKeyDown={handleNavKeyDown}
+            role="toolbar"
+            aria-orientation="vertical"
+            aria-label="Primary navigation links"
+            className="contents"
+          >
+            {navLinks.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  prefetch={false}
+                  data-nav-link
+                  aria-current={active ? "page" : undefined}
+                  title={collapsed ? label : undefined}
+                  className={`relative z-10 flex h-9 items-center gap-2.5 rounded-lg text-[13px] font-medium leading-none no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
+                    collapsed ? "justify-center px-0" : "px-2.5"
+                  } ${
+                    active
+                      ? "text-[var(--accent)]"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="sidebar-active-indicator"
+                      className="absolute inset-0 -z-10 rounded-lg bg-[var(--accent-light)]"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <Icon size={16} strokeWidth={active ? 2.25 : 1.85} aria-hidden="true" className="flex-shrink-0" />
+                  {!collapsed && <span className="truncate">{label}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+
+      <div className={`flex flex-shrink-0 flex-col gap-2 border-t border-[var(--border)] ${collapsed ? "px-2 py-3" : "px-3 py-3"}`}>
+        {user && !collapsed && (
+          <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[11px] font-semibold text-[var(--text-secondary)]">
+                {user.email.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 truncate text-xs font-medium text-[var(--text-secondary)]">
+                {user.email}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Log out"
+              aria-label="Log out"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border-none bg-transparent text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+            >
+              <LogOut size={14} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {user && collapsed && (
           <button
             onClick={handleLogout}
             title="Log out"
             aria-label="Log out"
-            className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-xs border-none bg-transparent text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="flex h-9 w-full items-center justify-center rounded-lg text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
           >
-            <LogOut size={14} aria-hidden="true" />
+            <LogOut size={15} aria-hidden="true" />
           </button>
-        </div>
-      )}
+        )}
 
-      {user && collapsed && (
         <button
-          onClick={handleLogout}
-          title="Log out"
-          aria-label="Log out"
-          className="mb-2 flex h-[34px] items-center justify-center rounded-sm border border-[var(--border)] bg-[var(--bg-base)] text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          aria-controls="sidebar-nav"
+          className="flex h-8 w-full items-center justify-center gap-2 rounded-lg text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
         >
-          <LogOut size={14} aria-hidden="true" />
+          {collapsed ? <ChevronsRight size={14} aria-hidden="true" /> : <ChevronsLeft size={14} aria-hidden="true" />}
+          {!collapsed && <span className="text-[11px] font-medium">Collapse</span>}
         </button>
-      )}
-
-      {!collapsed && (
-        <footer className="mt-3 rounded-sm border border-[var(--border)] bg-[var(--bg-base)] px-3.5 py-2.5">
-          <div className="mb-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">Prism v1.0</div>
-          <div className="text-[10px] leading-normal text-[var(--text-muted)]">Research intelligence platform</div>
-        </footer>
-      )}
-
-      <button
-        onClick={toggleCollapsed}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        aria-expanded={!collapsed}
-        aria-controls="sidebar-nav"
-        className="mt-3 flex h-[30px] w-full items-center justify-center rounded-sm border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
-      >
-        {collapsed ? <ChevronsRight size={14} aria-hidden="true" /> : <ChevronsLeft size={14} aria-hidden="true" />}
-      </button>
+      </div>
     </aside>
   );
 }
