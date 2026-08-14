@@ -43,7 +43,25 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+        origins = []
+        for origin in self.allowed_origins.split(","):
+            origin = origin.strip()
+            if not origin:
+                continue
+            origin = origin.rstrip("/")
+            origins.append(origin)
+        for default_origin in (
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://prism-nine-tau.vercel.app",
+        ):
+            if default_origin not in origins:
+                origins.append(default_origin)
+        return origins
+
+    @property
+    def allowed_origin_regex(self) -> str:
+        return r"^https:\/\/prism(-[a-z0-9]+)*\.vercel\.app$"
 
 
 def _fail_fast_on_missing_secrets(current_settings: "Settings") -> None:
