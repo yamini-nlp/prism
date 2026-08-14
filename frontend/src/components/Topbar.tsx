@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { isNoChromeRoute, pageTitleForPath } from "@/lib/navigation";
 import { useUIStore } from "@/lib/store";
-import BackendStatus from "@/components/BackendStatus";
 
 export default function Topbar() {
   const pathname = usePathname();
@@ -22,7 +21,7 @@ export default function Topbar() {
         aria-label="Open navigation menu"
         aria-expanded={mobileDrawerOpen}
         aria-controls="mobile-drawer"
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-sm border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
       >
         <Menu size={17} aria-hidden="true" />
       </button>
@@ -30,8 +29,6 @@ export default function Topbar() {
       <h1 className="min-w-0 flex-1 truncate font-display text-base text-[var(--text-primary)]">
         {title}
       </h1>
-
-      <BackendStatus compact />
 
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[11px] font-semibold text-[var(--text-secondary)]">
         <span aria-hidden="true">U</span>
