@@ -11,6 +11,14 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
+function isPrefetchRequest(request: NextRequest): boolean {
+  return (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    (request.headers.get("sec-purpose") || "").includes("prefetch")
+  );
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some(
@@ -24,6 +32,9 @@ export function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get("prism_refresh_token");
 
   if (!refreshToken) {
+    if (isPrefetchRequest(request)) {
+      return new NextResponse(null, { status: 204 });
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
