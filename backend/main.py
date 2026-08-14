@@ -16,7 +16,7 @@ from core import embedder
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter
-from core.jobs import get_job, cancel_job, create_job, set_job_stage, set_job_result, set_job_error
+from core.jobs import get_job, cancel_job, create_job, job_belongs_to_session, set_job_stage, set_job_result, set_job_error
 from core.db import get_db, AsyncSessionLocal
 from core.config import settings
 from core.security import decode_token
@@ -194,6 +194,10 @@ api_v1.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
     description="Poll the status of a background ingestion job (upload, text ingest, or URL ingest) by job id.",
 )
 async def get_job_status(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    session_id = get_session_id(current_user)
+    owned = await job_belongs_to_session(db, job_id, session_id)
+    if not owned:
+        raise NotFoundError("Job not found", details={"job_id": job_id})
     job = await get_job(db, job_id)
     if job is None:
         raise NotFoundError("Job not found", details={"job_id": job_id})
@@ -207,6 +211,10 @@ async def get_job_status(job_id: str, current_user: User = Depends(get_current_u
     description="Cancel a background ingestion job (upload, text ingest, or URL ingest) by job id if it has not already reached a terminal state.",
 )
 async def cancel_job_status(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    session_id = get_session_id(current_user)
+    owned = await job_belongs_to_session(db, job_id, session_id)
+    if not owned:
+        raise NotFoundError("Job not found", details={"job_id": job_id})
     job = await cancel_job(db, job_id)
     if job is None:
         raise NotFoundError("Job not found", details={"job_id": job_id})
