@@ -3,6 +3,7 @@ import {
   GitBranch, ShieldCheck, BarChart3, Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { AUTH_ROUTES } from "./routes";
 
 export type NavLink = {
   href: string;
@@ -21,7 +22,7 @@ export const navLinks: NavLink[] = [
   { href: "/settings",     label: "Settings",     icon: Settings },
 ];
 
-export const NO_CHROME_ROUTES = new Set(["/", "/login", "/register"]);
+export const NO_CHROME_ROUTES = new Set<string>(["/", ...AUTH_ROUTES]);
 
 export function isNoChromeRoute(pathname: string): boolean {
   return NO_CHROME_ROUTES.has(pathname);
