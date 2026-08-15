@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { REFRESH_COOKIE_NAME, refreshCookieOptions } from "@/lib/cookies";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function POST(request: NextRequest) {
-  const refreshToken = request.cookies.get("prism_refresh_token")?.value;
+  const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value;
 
   if (!refreshToken) {
     return NextResponse.json({ error: "no refresh token" }, { status: 401 });
@@ -22,24 +23,16 @@ export async function POST(request: NextRequest) {
 
   if (!backendResponse.ok) {
     const response = NextResponse.json({ error: "refresh failed" }, { status: 401 });
-    response.cookies.set("prism_refresh_token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
+    response.cookies.set(REFRESH_COOKIE_NAME, "", refreshCookieOptions(request, 0));
     return response;
   }
 
   const data = await backendResponse.json();
   const response = NextResponse.json({ access_token: data.access_token, user: data.user ?? null });
-  response.cookies.set("prism_refresh_token", data.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  response.cookies.set(
+    REFRESH_COOKIE_NAME,
+    data.refresh_token,
+    refreshCookieOptions(request, 60 * 60 * 24 * 30)
+  );
   return response;
 }
