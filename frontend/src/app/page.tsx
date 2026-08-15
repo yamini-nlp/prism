@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useMotionValue, useMotionTemplate, useSpring, useScroll, useTransform, useInView, useReducedMotion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useScroll, useTransform, useInView, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -25,6 +25,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
+
+const ACCENT = "#E3B23C";
+const ACCENT_SOFT = "rgba(227,178,60,0.16)";
 
 const NAV_LINKS = [
   { label: "Problem", href: "#problem" },
@@ -201,15 +204,6 @@ const STAT_PANEL = [
   { value: 4, suffix: "", label: "Pipeline stages, start to verified answer", decimals: 0 },
 ];
 
-const MARQUEE_ITEMS = [
-  "Hybrid Retrieval",
-  "Reciprocal Rank Fusion",
-  "Cross-Encoder Reranking",
-  "Claim-Level Verification",
-  "Source Trace",
-  "Evaluation Harness",
-];
-
 function fadeUp(delay = 0) {
   return {
     initial: { opacity: 0, y: 22 },
@@ -301,20 +295,6 @@ export default function LandingPage() {
   const { scrollYProgress } = useScroll();
   const progressScaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 40, restDelta: 0.001 });
 
-  const heroRef = useRef<HTMLDivElement>(null);
-  const glowX = useMotionValue(50);
-  const glowY = useMotionValue(20);
-  const glowXSpring = useSpring(glowX, { stiffness: 60, damping: 20 });
-  const glowYSpring = useSpring(glowY, { stiffness: 60, damping: 20 });
-  const glowBackground = useMotionTemplate`radial-gradient(620px circle at ${glowXSpring}% ${glowYSpring}%, rgba(91,94,244,0.22), transparent 62%)`;
-
-  function handleHeroMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (prefersReducedMotion || !heroRef.current) return;
-    const rect = heroRef.current.getBoundingClientRect();
-    glowX.set(((e.clientX - rect.left) / rect.width) * 100);
-    glowY.set(((e.clientY - rect.top) / rect.height) * 100);
-  }
-
   const mockRef = useRef<HTMLDivElement>(null);
   const tiltX = useMotionValue(0.5);
   const tiltY = useMotionValue(0.5);
@@ -360,7 +340,7 @@ export default function LandingPage() {
           .pl-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 
-        .pl-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #a3a6f8, #ffffff); transform-origin: 0% 50%; z-index: 80; }
+        .pl-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: ${ACCENT}; transform-origin: 0% 50%; z-index: 80; }
 
         .pl-header {
           position: sticky;
@@ -388,7 +368,7 @@ export default function LandingPage() {
         .pl-nav { display: none; align-items: center; gap: 40px; }
         @media (min-width: 900px) { .pl-nav { display: flex; } }
         .pl-nav a { position: relative; font-family: var(--font-mono, monospace); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; padding-bottom: 4px; }
-        .pl-nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: #ffffff; transition: right 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .pl-nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: ${ACCENT}; transition: right 0.3s cubic-bezier(0.22,1,0.36,1); }
         .pl-nav a:hover { color: #ffffff; }
         .pl-nav a:hover::after { right: 0; }
 
@@ -401,7 +381,7 @@ export default function LandingPage() {
           font-size: 14px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
           transition: opacity 0.2s ease, box-shadow 0.3s ease;
         }
-        .pl-btn-primary:hover { opacity: 0.88; box-shadow: 0 14px 30px -10px rgba(255,255,255,0.35); }
+        .pl-btn-primary:hover { opacity: 0.88; box-shadow: 0 14px 30px -10px rgba(255,255,255,0.3); }
         .pl-btn-secondary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           padding: 12px 25px; border-radius: 9px; background: transparent; color: #ffffff;
@@ -419,26 +399,23 @@ export default function LandingPage() {
         .pl-mobile-actions { display: flex; gap: 12px; margin-top: 8px; }
         .pl-mobile-actions > * { flex: 1; }
 
-        .pl-hero { position: relative; overflow: hidden; padding: 88px 24px 96px; }
-        @media (min-width: 768px) { .pl-hero { padding: 100px 48px 120px; } }
-        @media (min-width: 1200px) { .pl-hero { padding: 140px 80px 150px; } }
-        .pl-hero-glow { position: absolute; inset: 0; pointer-events: none; }
-        .pl-hero-glow-base { position: absolute; inset: 0 0 auto 0; height: 760px; pointer-events: none;
-          background: radial-gradient(ellipse 50% 45% at 50% 0%, rgba(91,94,244,0.12), transparent 70%),
-                      radial-gradient(ellipse 35% 30% at 92% 6%, rgba(212,98,42,0.07), transparent 60%); }
+        .pl-hero { position: relative; overflow: hidden; padding: 52px 24px 72px; }
+        @media (min-width: 768px) { .pl-hero { padding: 60px 48px 92px; } }
+        @media (min-width: 1200px) { .pl-hero { padding: 84px 80px 120px; } }
         .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 72px; }
         @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 96px; } }
 
-        .pl-eyebrow { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: rgba(125,128,246,0.14); color: #a3a6f8; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 32px; }
+        .pl-hero-brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase; color: ${ACCENT}; margin-bottom: 18px; }
+        .pl-hero-brand-mark { width: 7px; height: 7px; border-radius: 999px; background: ${ACCENT}; }
 
         .pl-h1 { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: clamp(40px, 6vw, 68px); line-height: 1.05; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
-        .pl-h1 em { font-style: normal; color: #a3a6f8; }
+        .pl-h1 em { font-style: normal; color: ${ACCENT}; }
 
-        .pl-lead { margin-top: 32px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.56); }
+        .pl-lead { margin-top: 28px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.56); }
 
-        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 44px; }
+        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px; }
 
-        .pl-trust-strip { margin-top: 80px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
+        .pl-trust-strip { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
         @media (min-width: 560px) { .pl-trust-strip { grid-template-columns: repeat(4, 1fr); } }
         .pl-trust-item { padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07); transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease; }
         .pl-trust-item:hover { background: #ffffff; transform: translateY(-3px); border-color: #ffffff; }
@@ -455,7 +432,7 @@ export default function LandingPage() {
         .pl-mock-body { display: flex; flex-direction: column; gap: 20px; padding: 26px; }
         .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 16px 16px 4px 16px; background: #ffffff; color: #07070a; padding: 12px 18px; font-size: 13.5px; }
         .pl-mock-ai { max-width: 92%; border-radius: 16px 16px 16px 4px; border: 1px solid rgba(255,255,255,0.09); background: #131317; color: rgba(255,255,255,0.8); padding: 15px 18px; font-size: 13.5px; line-height: 1.7; }
-        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: #a3a6f8; }
+        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${ACCENT}; }
         .pl-chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
         .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.09); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.55); }
         .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); }
@@ -463,14 +440,8 @@ export default function LandingPage() {
         .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 16px; font-weight: 700; }
         .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .pl-bars { display: flex; align-items: flex-end; gap: 7px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); height: 46px; }
-        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg,#a3a6f8,#5b5ef4); opacity: 0.9; transform-origin: bottom; }
+        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: ${ACCENT}; opacity: 0.92; transform-origin: bottom; }
         .pl-bars-caption { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
-
-        .pl-marquee { overflow: hidden; background: #0a0a0d; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 20px 0; }
-        .pl-marquee-track { display: flex; width: max-content; gap: 56px; animation: pl-marquee-scroll 30s linear infinite; }
-        .pl-marquee-item { display: flex; align-items: center; gap: 14px; font-family: var(--font-mono, monospace); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); white-space: nowrap; }
-        .pl-marquee-dot { width: 4px; height: 4px; border-radius: 999px; background: #a3a6f8; }
-        @keyframes pl-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         .pl-section { padding: 96px 24px; }
         @media (min-width: 768px) { .pl-section { padding: 116px 48px; } }
@@ -504,7 +475,7 @@ export default function LandingPage() {
         .pl-card-title.serif { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: 24px; letter-spacing: -0.01em; }
         .pl-card-desc { font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
 
-        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(125,128,246,0.13); flex-shrink: 0; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${ACCENT_SOFT}; flex-shrink: 0; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
         .pl-card:hover .pl-icon-badge { transform: scale(1.08) rotate(-4deg); }
         .pl-icon-badge.plain { background: rgba(255,255,255,0.055); }
 
@@ -520,7 +491,7 @@ export default function LandingPage() {
         .pl-flow-step { display: flex; gap: 26px; }
         .pl-flow-rail { display: flex; flex-direction: column; align-items: center; }
         .pl-flow-num { width: 42px; height: 42px; border-radius: 999px; background: #131317; border: 1px solid rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: #ffffff; flex-shrink: 0; transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
-        .pl-flow-step:hover .pl-flow-num { background: #ffffff; border-color: #ffffff; color: #07070a; }
+        .pl-flow-step:hover .pl-flow-num { background: ${ACCENT}; border-color: ${ACCENT}; color: #07070a; }
         .pl-flow-line { width: 1px; flex: 1; background: rgba(255,255,255,0.09); min-height: 52px; }
         .pl-flow-body { flex: 1; padding-bottom: 48px; }
         .pl-flow-title { padding-top: 8px; font-size: 16.5px; font-weight: 700; color: #ffffff; }
@@ -534,7 +505,6 @@ export default function LandingPage() {
         .pl-stat { text-align: center; }
         .pl-stat-value { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: clamp(42px, 5vw, 64px); color: #07070a; letter-spacing: -0.02em; }
         .pl-stat-label { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(7,7,10,0.48); max-width: 220px; margin-left: auto; margin-right: auto; }
-        .pl-stat-divider { display: none; }
         @media (min-width: 700px) { .pl-stat:not(:last-child) { border-right: 1px solid rgba(7,7,10,0.09); } }
 
         .pl-security-row { display: flex; flex-direction: column; gap: 28px; max-width: 1320px; margin: 0 auto; }
@@ -543,6 +513,7 @@ export default function LandingPage() {
 
         .pl-final { display: flex; justify-content: center; text-align: center; }
         .pl-final-inner { max-width: 760px; }
+        .pl-eyebrow { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${ACCENT_SOFT}; color: ${ACCENT}; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 32px; }
 
         .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 40px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
         @media (min-width: 768px) { .pl-footer { padding: 40px 48px; } }
@@ -594,14 +565,13 @@ export default function LandingPage() {
         </div>
       )}
 
-      <section className="pl-hero" ref={heroRef} onMouseMove={handleHeroMove}>
-        <div className="pl-hero-glow">
-          <div className="pl-hero-glow-base" />
-          <motion.div style={{ position: "absolute", inset: 0, background: glowBackground }} />
-        </div>
+      <section className="pl-hero">
         <div className="pl-hero-grid">
           <motion.div {...fadeUp(0)}>
-            <span className="pl-eyebrow">Research intelligence platform</span>
+            <div className="pl-hero-brand">
+              <span className="pl-hero-brand-mark" />
+              Prism
+            </div>
 
             <h1 className="pl-h1">
               Read less.
@@ -697,17 +667,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <div className="pl-marquee">
-        <div className="pl-marquee-track">
-          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
-            <span key={i} className="pl-marquee-item">
-              <span className="pl-marquee-dot" />
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-
       <section id="problem" className="pl-section">
         <div className="pl-section-inner">
           <motion.div {...fadeUp(0)} className="pl-section-head">
@@ -776,7 +735,7 @@ export default function LandingPage() {
                 style={{ minHeight: 190 }}
               >
                 <span className="pl-icon-badge">
-                  <f.icon size={17} color="#a3a6f8" />
+                  <f.icon size={17} color={ACCENT} />
                 </span>
                 <div className="pl-card-title">{f.t}</div>
                 <div className="pl-card-desc">{f.d}</div>
@@ -955,7 +914,7 @@ export default function LandingPage() {
         <motion.div {...fadeUp(0)} className="pl-final-inner">
           <span className="pl-eyebrow">Ready when you are</span>
           <h2 className="pl-h2" style={{ marginTop: 0, marginBottom: 28, fontSize: "clamp(32px,4.6vw,54px)" }}>
-            Research shouldn&apos;t be a <em style={{ color: "#a3a6f8" }}>guessing game.</em>
+            Research shouldn&apos;t be a <em style={{ color: ACCENT }}>guessing game.</em>
           </h2>
           <p className="pl-section-sub" style={{ marginTop: 0, marginBottom: 44 }}>
             Ingest your first document and see every answer traced back to its source.
