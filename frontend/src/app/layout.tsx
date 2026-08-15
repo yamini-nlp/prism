@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Serif_Display, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import BackendStatus from "@/components/BackendStatus";
 import { ThemeProvider, ThemeScript } from "@/components/ThemeProvider";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
@@ -11,10 +12,11 @@ import SkipToContent from "@/components/SkipToContent";
 
 const dmSerif = DM_Serif_Display({
   weight: ["400"],
-  style: ["normal", "italic"],
+  style: ["normal"],
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
+  fallback: ["Georgia", "serif"],
 });
 
 const syne = Syne({
@@ -58,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </main>
               </div>
             </div>
+            <BackendStatus />
             <ToastContainer />
           </Providers>
         </ThemeProvider>
