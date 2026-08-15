@@ -204,602 +204,577 @@ function fadeUp(delay = 0) {
   };
 }
 
-const PAGE_BG = "#08080a";
-const SURFACE = "#0d0d10";
-const SURFACE_RAISED = "#131317";
-const HAIRLINE = "rgba(255,255,255,0.08)";
-const HAIRLINE_STRONG = "rgba(255,255,255,0.16)";
-
-const SECTION_X = "px-6 sm:px-10 lg:px-20";
-const SECTION_Y = "py-28 lg:py-32";
-const SECTION_Y_SM = "py-20 lg:py-24";
-
-const btnPrimary =
-  "inline-flex items-center justify-center rounded-md bg-white px-5 py-2.5 text-[13.5px] font-semibold text-black no-underline transition-opacity hover:opacity-85";
-const btnSecondary =
-  "inline-flex items-center justify-center rounded-md border px-5 py-2.5 text-[13.5px] font-medium text-white no-underline transition-colors hover:border-white/40";
+const DISPLAY_FONT = "var(--font-display, 'DM Serif Display', Georgia, serif)";
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div
-      className="min-h-screen w-full overflow-x-hidden font-sans text-white"
-      style={{ background: PAGE_BG, colorScheme: "dark" }}
-    >
+    <div className="pl-root">
       <style>{`
+        .pl-root {
+          background: #07070a;
+          color: #ffffff;
+          min-height: 100vh;
+          width: 100%;
+          overflow-x: hidden;
+          font-family: var(--font-sans, 'Syne', system-ui, sans-serif);
+        }
+        .pl-root * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         @media (prefers-reduced-motion: reduce) {
-          * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+          .pl-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
+
+        .pl-header {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          height: 84px;
+          padding: 0 24px;
+          background: rgba(7,7,10,0.86);
+          backdrop-filter: blur(14px);
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        @media (min-width: 768px) { .pl-header { padding: 0 48px; } }
+        @media (min-width: 1200px) { .pl-header { padding: 0 80px; } }
+
+        .pl-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+        .pl-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pl-logo-text { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: 21px; letter-spacing: -0.02em; color: #ffffff; }
+
+        .pl-nav { display: none; align-items: center; gap: 40px; }
+        @media (min-width: 900px) { .pl-nav { display: flex; } }
+        .pl-nav a { font-family: var(--font-mono, monospace); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; }
+        .pl-nav a:hover { color: #ffffff; }
+
+        .pl-header-actions { display: none; align-items: center; gap: 14px; }
+        @media (min-width: 900px) { .pl-header-actions { display: flex; } }
+
+        .pl-btn-primary {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          padding: 13px 26px; border-radius: 9px; background: #ffffff; color: #07070a;
+          font-size: 14px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
+          transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .pl-btn-primary:hover { opacity: 0.86; transform: translateY(-1px); }
+        .pl-btn-secondary {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          padding: 12px 25px; border-radius: 9px; background: transparent; color: #ffffff;
+          font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.18);
+          transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.5); transform: translateY(-1px); }
+
+        .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #ffffff; cursor: pointer; }
+        @media (min-width: 900px) { .pl-menu-btn { display: none; } }
+
+        .pl-mobile-menu { position: fixed; inset: 84px 0 auto 0; z-index: 40; background: #07070a; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 28px 24px 36px; display: flex; flex-direction: column; gap: 22px; }
+        @media (min-width: 900px) { .pl-mobile-menu { display: none; } }
+        .pl-mobile-menu a { color: #ffffff; font-size: 16px; text-decoration: none; }
+        .pl-mobile-actions { display: flex; gap: 12px; margin-top: 8px; }
+        .pl-mobile-actions > * { flex: 1; }
+
+        .pl-hero { position: relative; overflow: hidden; padding: 88px 24px 96px; }
+        @media (min-width: 768px) { .pl-hero { padding: 100px 48px 120px; } }
+        @media (min-width: 1200px) { .pl-hero { padding: 140px 80px 150px; } }
+        .pl-hero-glow { position: absolute; inset: 0 0 auto 0; height: 760px; pointer-events: none;
+          background: radial-gradient(ellipse 50% 45% at 50% 0%, rgba(91,94,244,0.16), transparent 70%),
+                      radial-gradient(ellipse 35% 30% at 92% 6%, rgba(212,98,42,0.08), transparent 60%); }
+        .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 72px; }
+        @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 96px; } }
+
+        .pl-eyebrow { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: rgba(125,128,246,0.14); color: #a3a6f8; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 32px; }
+
+        .pl-h1 { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: clamp(40px, 6vw, 68px); line-height: 1.05; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
+        .pl-h1 em { font-style: normal; color: #a3a6f8; }
+
+        .pl-lead { margin-top: 32px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.56); }
+
+        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 44px; }
+
+        .pl-trust-strip { margin-top: 80px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px 24px; max-width: 580px; }
+        @media (min-width: 560px) { .pl-trust-strip { grid-template-columns: repeat(4, 1fr); } }
+        .pl-trust-item { padding-left: 0; }
+        .pl-trust-item.bordered { border-left: 1px solid rgba(255,255,255,0.09); padding-left: 20px; }
+        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 600; line-height: 1.4; color: #ffffff; }
+        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+
+        .pl-mock { border-radius: 16px; overflow: hidden; background: #0e0e12; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -26px rgba(0,0,0,0.75); }
+        .pl-mock-top { display: flex; align-items: center; gap: 8px; padding: 16px 22px; background: #131317; border-bottom: 1px solid rgba(255,255,255,0.09); }
+        .pl-mock-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+        .pl-mock-url { margin-left: 10px; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.5); }
+        .pl-mock-body { display: flex; flex-direction: column; gap: 20px; padding: 26px; }
+        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 16px 16px 4px 16px; background: #ffffff; color: #07070a; padding: 12px 18px; font-size: 13.5px; }
+        .pl-mock-ai { max-width: 92%; border-radius: 16px 16px 16px 4px; border: 1px solid rgba(255,255,255,0.09); background: #131317; color: rgba(255,255,255,0.8); padding: 15px 18px; font-size: 13.5px; line-height: 1.7; }
+        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: #a3a6f8; }
+        .pl-chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
+        .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.09); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.55); }
+        .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); }
+        .pl-verify-cell { border-radius: 10px; padding: 12px 14px; }
+        .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 16px; font-weight: 700; }
+        .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pl-bars { display: flex; align-items: flex-end; gap: 7px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); height: 46px; }
+        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg,#a3a6f8,#5b5ef4); opacity: 0.9; }
+        .pl-bars-caption { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
+
+        .pl-section { padding: 96px 24px; }
+        @media (min-width: 768px) { .pl-section { padding: 116px 48px; } }
+        @media (min-width: 1200px) { .pl-section { padding: 150px 80px; } }
+        .pl-section.tight { padding-top: 76px; padding-bottom: 76px; }
+        @media (min-width: 768px) { .pl-section.tight { padding-top: 92px; padding-bottom: 92px; } }
+        .pl-section.surface { background: #0c0c0f; }
+        .pl-section-inner { max-width: 1320px; margin: 0 auto; }
+
+        .pl-section-head { max-width: 660px; margin-bottom: 76px; }
+        .pl-label { font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); margin-bottom: 20px; }
+        .pl-h2 { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: clamp(30px, 4vw, 48px); line-height: 1.12; letter-spacing: -0.03em; color: #ffffff; margin: 0; }
+        .pl-h2.small { font-size: clamp(28px, 3.2vw, 40px); }
+        .pl-section-sub { margin-top: 24px; font-size: 16px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+
+        .pl-grid { display: grid; gap: 28px; }
+        .pl-grid.cols-2 { grid-template-columns: 1fr; }
+        @media (min-width: 700px) { .pl-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
+        .pl-grid.cols-3 { grid-template-columns: 1fr; }
+        @media (min-width: 700px) { .pl-grid.cols-3 { grid-template-columns: repeat(3, 1fr); } }
+        .pl-grid.cols-4 { grid-template-columns: 1fr; }
+        @media (min-width: 640px) { .pl-grid.cols-4 { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1050px) { .pl-grid.cols-4 { grid-template-columns: repeat(4, 1fr); } }
+
+        .pl-card { background: #0e0e12; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 34px; display: flex; flex-direction: column; gap: 18px; }
+        .pl-card.raised { background: #131317; }
+        .pl-card-num { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.28); }
+        .pl-card-title { font-size: 16.5px; font-weight: 700; color: #ffffff; }
+        .pl-card-title.serif { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: 24px; letter-spacing: -0.01em; }
+        .pl-card-desc { font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+
+        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(125,128,246,0.13); flex-shrink: 0; }
+        .pl-icon-badge.plain { background: rgba(255,255,255,0.055); }
+
+        .pl-feature-span-2 { grid-column: span 1; }
+        @media (min-width: 700px) { .pl-feature-span-2.big { grid-column: span 2; } }
+
+        .pl-two-col { display: grid; grid-template-columns: 1fr; gap: 60px; }
+        @media (min-width: 900px) { .pl-two-col { grid-template-columns: 0.8fr 1.2fr; gap: 100px; align-items: start; } }
+        .pl-editorial p { font-size: 17px; line-height: 1.9; color: rgba(255,255,255,0.62); margin: 0 0 30px; }
+        .pl-editorial p:last-child { margin-bottom: 0; }
+
+        .pl-flow { max-width: 660px; margin: 0 auto; }
+        .pl-flow-step { display: flex; gap: 26px; }
+        .pl-flow-rail { display: flex; flex-direction: column; align-items: center; }
+        .pl-flow-num { width: 42px; height: 42px; border-radius: 999px; background: #131317; border: 1px solid rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: #ffffff; flex-shrink: 0; }
+        .pl-flow-line { width: 1px; flex: 1; background: rgba(255,255,255,0.09); min-height: 52px; }
+        .pl-flow-body { flex: 1; padding-bottom: 48px; }
+        .pl-flow-title { padding-top: 8px; font-size: 16.5px; font-weight: 700; color: #ffffff; }
+        .pl-flow-desc { margin-top: 10px; font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+
+        .pl-diff-card { display: flex; gap: 22px; }
+
+        .pl-security-row { display: flex; flex-direction: column; gap: 28px; max-width: 1320px; margin: 0 auto; }
+        @media (min-width: 700px) { .pl-security-row { flex-direction: row; align-items: center; justify-content: space-between; } }
+        .pl-security-left { display: flex; align-items: flex-start; gap: 20px; max-width: 540px; }
+
+        .pl-final { display: flex; justify-content: center; text-align: center; }
+        .pl-final-inner { max-width: 760px; }
+
+        .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 40px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
+        @media (min-width: 768px) { .pl-footer { padding: 40px 48px; } }
+        @media (min-width: 1200px) { .pl-footer { padding: 40px 80px; } }
+        .pl-footer-brand { display: flex; align-items: center; gap: 10px; }
+        .pl-footer-links { display: flex; flex-wrap: wrap; gap: 30px; }
+        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.36); text-decoration: none; }
+        .pl-footer-tag { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.3); }
       `}</style>
 
-      <header
-        className={`sticky top-0 z-50 flex h-20 items-center justify-between ${SECTION_X} backdrop-blur-md`}
-        style={{ background: "rgba(8,8,10,0.85)", borderBottom: `1px solid ${HAIRLINE}` }}
-      >
-        <Link href="/" className="flex items-center gap-3 no-underline">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-white">
-            <Zap size={15} color="#08080a" strokeWidth={2.5} />
-          </div>
-          <span className="font-display text-xl tracking-tight text-white">Prism</span>
+      <header className="pl-header">
+        <Link href="/" className="pl-logo">
+          <span className="pl-logo-mark">
+            <Zap size={16} color="#07070a" strokeWidth={2.5} />
+          </span>
+          <span className="pl-logo-text">Prism</span>
         </Link>
 
-        <nav className="hidden items-center gap-10 md:flex">
+        <nav className="pl-nav">
           {NAV_LINKS.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              className="font-mono text-[11.5px] uppercase tracking-[0.08em] text-white/50 no-underline transition-colors hover:text-white"
-            >
-              {l.label}
-            </a>
+            <a key={l.label} href={l.href}>{l.label}</a>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <Link href="/login" style={{ borderColor: HAIRLINE_STRONG }} className={btnSecondary}>
-            Sign in
-          </Link>
-          <Link href="/register" className={`${btnPrimary} gap-1.5`}>
-            Get started <ArrowRight size={14} color="#08080a" />
+        <div className="pl-header-actions">
+          <Link href="/login" className="pl-btn-secondary">Sign in</Link>
+          <Link href="/register" className="pl-btn-primary">
+            Get started <ArrowRight size={14} color="#07070a" />
           </Link>
         </div>
 
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Toggle menu"
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-white/15 text-white md:hidden"
-        >
-          {menuOpen ? <X size={17} /> : <Menu size={17} />}
+        <button onClick={() => setMenuOpen((v) => !v)} aria-label="Toggle menu" className="pl-menu-btn">
+          {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
       </header>
 
       {menuOpen && (
-        <div
-          className={`fixed inset-x-0 top-20 z-40 flex flex-col gap-5 ${SECTION_X} pb-8 pt-6 md:hidden`}
-          style={{ background: PAGE_BG, borderBottom: `1px solid ${HAIRLINE}` }}
-        >
+        <div className="pl-mobile-menu">
           {NAV_LINKS.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              onClick={() => setMenuOpen(false)}
-              className="text-[15px] text-white no-underline"
-            >
-              {l.label}
-            </a>
+            <a key={l.label} href={l.href} onClick={() => setMenuOpen(false)}>{l.label}</a>
           ))}
-          <div className="mt-2 flex gap-3">
-            <Link href="/login" style={{ borderColor: HAIRLINE_STRONG }} className={`${btnSecondary} flex-1`}>
-              Sign in
-            </Link>
-            <Link href="/register" className={`${btnPrimary} flex-1`}>
-              Get started
-            </Link>
+          <div className="pl-mobile-actions">
+            <Link href="/login" className="pl-btn-secondary">Sign in</Link>
+            <Link href="/register" className="pl-btn-primary">Get started</Link>
           </div>
         </div>
       )}
 
-      <section className={`relative overflow-hidden ${SECTION_X} pb-24 pt-24 lg:pb-32 lg:pt-36`}>
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[720px]"
-          style={{
-            background:
-              "radial-gradient(ellipse 50% 45% at 50% 0%, rgba(91,94,244,0.15), transparent 70%), radial-gradient(ellipse 35% 30% at 92% 8%, rgba(212,98,42,0.07), transparent 60%)",
-          }}
-        />
-
-        <div className="relative mx-auto grid max-w-[1280px] gap-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <section className="pl-hero">
+        <div className="pl-hero-glow" />
+        <div className="pl-hero-grid">
           <motion.div {...fadeUp(0)}>
-            <span
-              className="mb-8 inline-flex items-center rounded-full px-3.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em]"
-              style={{ background: "rgba(125,128,246,0.13)", color: "#a3a6f8" }}
-            >
-              Research intelligence platform
-            </span>
+            <span className="pl-eyebrow">Research intelligence platform</span>
 
-            <h1
-              style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-              className="max-w-[600px] font-display text-[clamp(40px,5.6vw,66px)] leading-[1.05] tracking-[-0.03em] text-white"
-            >
+            <h1 className="pl-h1">
               Read less.
               <br />
-              Know <em className="not-italic" style={{ color: "#a3a6f8" }}>more.</em>
+              Know <em>more.</em>
             </h1>
 
-            <p className="mt-8 max-w-[470px] text-[16.5px] leading-[1.75] text-white/55">
+            <p className="pl-lead">
               Prism turns papers, reports, and raw text into grounded, citation-backed answers.
               Every claim is checked against its retrieved source and scored before it reaches you.
             </p>
 
-            <div className="mt-11 flex flex-wrap gap-4">
-              <Link href="/register" className={`${btnPrimary} gap-2 !px-7 !py-3.5 text-[15px]`}>
-                Start Research <ArrowRight size={16} color="#08080a" />
+            <div className="pl-cta-row">
+              <Link href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }}>
+                Start Research <ArrowRight size={17} color="#07070a" />
               </Link>
-              <Link href="/login" style={{ borderColor: HAIRLINE_STRONG }} className={`${btnSecondary} gap-2 !px-7 !py-3.5 text-[15px]`}>
-                Sign in <ArrowUpRight size={15} />
+              <Link href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }}>
+                Sign in <ArrowUpRight size={16} />
               </Link>
             </div>
 
-            <div className="mt-20 grid max-w-[560px] grid-cols-2 gap-x-6 gap-y-8 pt-8 sm:grid-cols-4" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
+            <div className="pl-trust-strip">
               {TRUST_STRIP.map((s, i) => (
-                <div key={s.label} className={i > 0 ? "sm:border-l sm:pl-6" : ""} style={i > 0 ? { borderColor: HAIRLINE } : undefined}>
-                  <div className="font-mono text-[12.5px] font-medium leading-snug tracking-[-0.01em] text-white">{s.value}</div>
-                  <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.08em] text-white/40">{s.label}</div>
+                <div key={s.label} className={`pl-trust-item ${i > 0 ? "bordered" : ""}`}>
+                  <div className="pl-trust-value">{s.value}</div>
+                  <div className="pl-trust-label">{s.label}</div>
                 </div>
               ))}
             </div>
           </motion.div>
 
-          <motion.div {...fadeUp(0.1)} className="relative">
-            <div
-              className="overflow-hidden rounded-xl"
-              style={{ background: SURFACE, border: `1px solid ${HAIRLINE}`, boxShadow: "0 1px 2px rgba(0,0,0,0.4), 0 40px 80px -24px rgba(0,0,0,0.75)" }}
-            >
-              <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: `1px solid ${HAIRLINE}`, background: SURFACE_RAISED }}>
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-                <span className="ml-2 rounded-full px-3 py-1 font-mono text-[10.5px] text-white/50" style={{ background: "rgba(255,255,255,0.05)" }}>
-                  prism.app/workspace
-                </span>
+          <motion.div {...fadeUp(0.1)}>
+            <div className="pl-mock">
+              <div className="pl-mock-top">
+                <span className="pl-mock-dot" />
+                <span className="pl-mock-dot" />
+                <span className="pl-mock-dot" />
+                <span className="pl-mock-url">prism.app/workspace</span>
               </div>
 
-              <div className="flex flex-col gap-5 p-6">
-                <div className="ml-auto max-w-[78%] rounded-xl rounded-tr-sm bg-white px-4 py-2.5 text-[13px] text-black">
-                  What did the ablation study find?
+              <div className="pl-mock-body">
+                <div className="pl-mock-user">What did the ablation study find?</div>
+
+                <div className="pl-mock-ai">
+                  Removing the reranking stage reduced retrieval precision by a measurable margin{" "}
+                  <span className="mark">[1]</span>, while the hybrid dense and keyword setup outperformed
+                  either method alone <span className="mark">[2]</span>.
                 </div>
 
-                <div
-                  className="max-w-[92%] rounded-xl rounded-tl-sm px-4 py-3.5 text-[13px] leading-relaxed text-white/80"
-                  style={{ border: `1px solid ${HAIRLINE}`, background: SURFACE_RAISED }}
-                >
-                  Removing the reranking stage reduced retrieval precision by a measurable margin
-                  <span className="font-mono font-semibold" style={{ color: "#a3a6f8" }}>[1]</span>, while the
-                  hybrid dense and keyword setup outperformed either method alone
-                  <span className="font-mono font-semibold" style={{ color: "#a3a6f8" }}>[2]</span>.
+                <div className="pl-chip-row">
+                  <span className="pl-chip">[1] ablation_results.pdf · 0.91</span>
+                  <span className="pl-chip">[2] retrieval_ablation.pdf · 0.87</span>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[10.5px] text-white/55"
-                    style={{ border: `1px solid ${HAIRLINE}` }}
-                  >
-                    [1] ablation_results.pdf · 0.91
-                  </span>
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-mono text-[10.5px] text-white/55"
-                    style={{ border: `1px solid ${HAIRLINE}` }}
-                  >
-                    [2] retrieval_ablation.pdf · 0.87
-                  </span>
-                </div>
-
-                <div className="mt-1 grid grid-cols-3 gap-2.5 pt-5" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
-                  <div className="rounded-md px-3 py-2.5" style={{ background: "rgba(61,153,112,0.13)" }}>
-                    <div className="font-mono text-[15px] font-bold" style={{ color: "#69d3a8" }}>82%</div>
-                    <div className="font-mono text-[9px] font-bold uppercase tracking-wide" style={{ color: "rgba(105,211,168,0.8)" }}>Supported</div>
+                <div className="pl-verify-row">
+                  <div className="pl-verify-cell" style={{ background: "rgba(61,153,112,0.13)" }}>
+                    <div className="pl-verify-pct" style={{ color: "#69d3a8" }}>82%</div>
+                    <div className="pl-verify-label" style={{ color: "rgba(105,211,168,0.8)" }}>Supported</div>
                   </div>
-                  <div className="rounded-md px-3 py-2.5" style={{ background: "rgba(212,98,42,0.13)" }}>
-                    <div className="font-mono text-[15px] font-bold" style={{ color: "#eea173" }}>12%</div>
-                    <div className="font-mono text-[9px] font-bold uppercase tracking-wide" style={{ color: "rgba(238,161,115,0.8)" }}>Uncertain</div>
+                  <div className="pl-verify-cell" style={{ background: "rgba(212,98,42,0.13)" }}>
+                    <div className="pl-verify-pct" style={{ color: "#eea173" }}>12%</div>
+                    <div className="pl-verify-label" style={{ color: "rgba(238,161,115,0.8)" }}>Uncertain</div>
                   </div>
-                  <div className="rounded-md px-3 py-2.5" style={{ background: "rgba(255,255,255,0.05)" }}>
-                    <div className="font-mono text-[15px] font-bold text-white/75">6%</div>
-                    <div className="font-mono text-[9px] font-bold uppercase tracking-wide text-white/40">Unsupported</div>
+                  <div className="pl-verify-cell" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    <div className="pl-verify-pct" style={{ color: "rgba(255,255,255,0.75)" }}>6%</div>
+                    <div className="pl-verify-label" style={{ color: "rgba(255,255,255,0.4)" }}>Unsupported</div>
                   </div>
                 </div>
 
-                <div className="flex items-end gap-1.5 pt-5" style={{ borderTop: `1px solid ${HAIRLINE}` }}>
+                <div className="pl-bars">
                   {[38, 62, 46, 80, 58, 70, 90].map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-t-sm"
-                      style={{ height: `${h * 0.44}px`, background: "linear-gradient(180deg,#a3a6f8,#5b5ef4)", opacity: 0.9 }}
-                    />
+                    <div key={i} className="pl-bar" style={{ height: `${h * 0.46}px` }} />
                   ))}
                 </div>
-                <div className="font-mono text-[9.5px] uppercase tracking-wide text-white/35">
-                  Generation volume, last 7 days
-                </div>
+                <div className="pl-bars-caption">Generation volume, last 7 days</div>
               </div>
             </div>
           </motion.div>
         </div>
       </section>
 
-      <section id="problem" className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <motion.div {...fadeUp(0)} className="mb-20 max-w-[640px]">
-          <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-            The problem
+      <section id="problem" className="pl-section">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head">
+            <div className="pl-label">The problem</div>
+            <h2 className="pl-h2">Research is slow because trust is expensive.</h2>
+            <p className="pl-section-sub">
+              Reading everything takes too long. Trusting a fluent AI answer without a source takes a
+              different kind of too long, once you count the time spent checking it.
+            </p>
+          </motion.div>
+
+          <div className="pl-grid cols-2">
+            {PROBLEMS.map((p, i) => (
+              <motion.div key={p.n} {...fadeUp(i * 0.06)} className="pl-card">
+                <span className="pl-card-num">{p.n}</span>
+                <div className="pl-card-title">{p.t}</div>
+                <div className="pl-card-desc">{p.d}</div>
+              </motion.div>
+            ))}
           </div>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="font-display text-[clamp(30px,4vw,46px)] leading-[1.1] tracking-[-0.03em] text-white"
-          >
-            Research is slow because trust is expensive.
-          </h2>
-          <p className="mt-6 text-[15.5px] leading-[1.75] text-white/50">
-            Reading everything takes too long. Trusting a fluent AI answer without a source takes a
-            different kind of too long, once you count the time spent checking it.
-          </p>
-        </motion.div>
+        </div>
+      </section>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-8">
-          {PROBLEMS.map((p, i) => (
-            <motion.div
-              key={p.n}
-              {...fadeUp(i * 0.06)}
-              className="flex flex-col gap-4 rounded-xl p-8"
-              style={{ background: SURFACE, border: `1px solid ${HAIRLINE}` }}
-            >
-              <span className="font-mono text-[12px] text-white/25">{p.n}</span>
-              <h3 className="text-[16px] font-semibold text-white">{p.t}</h3>
-              <p className="text-[13.5px] leading-[1.7] text-white/50">{p.d}</p>
+      <section className="pl-section">
+        <div className="pl-section-inner">
+          <div className="pl-two-col">
+            <motion.div {...fadeUp(0)}>
+              <div className="pl-label">What is Prism?</div>
+              <h2 className="pl-h2 small">A research assistant that shows its work.</h2>
             </motion.div>
-          ))}
-        </div>
-      </section>
 
-      <section className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <div className="grid gap-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-start lg:gap-20">
-          <motion.div {...fadeUp(0)}>
-            <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-              What is Prism?
-            </div>
-            <h2
-              style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-              className="font-display text-[clamp(30px,3.8vw,44px)] leading-[1.15] tracking-[-0.03em] text-white"
-            >
-              A research assistant that shows its work.
-            </h2>
-          </motion.div>
-
-          <motion.div {...fadeUp(0.08)} className="flex flex-col gap-7 text-[16px] leading-[1.85] text-white/60">
-            <p>
-              Prism is a retrieval-augmented research platform. You ingest documents, ask questions in
-              plain language, and get answers generated strictly from what you uploaded, not from the
-              model&apos;s general knowledge.
-            </p>
-            <p>
-              Every answer carries inline citations back to the exact chunk it was drawn from, and every
-              sentence in that answer is independently checked against the retrieved evidence and labeled
-              supported, uncertain, or unsupported.
-            </p>
-            <p>
-              It exists for anyone who works from documents and needs the answer and the receipt in the
-              same place: researchers, students, and knowledge workers moving through papers, reports, and
-              long-form material.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      <section id="capabilities" className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <motion.div {...fadeUp(0)} className="mb-16">
-          <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-            Capabilities
+            <motion.div {...fadeUp(0.08)} className="pl-editorial">
+              <p>
+                Prism is a retrieval-augmented research platform. You ingest documents, ask questions in
+                plain language, and get answers generated strictly from what you uploaded, not from the
+                model&apos;s general knowledge.
+              </p>
+              <p>
+                Every answer carries inline citations back to the exact chunk it was drawn from, and every
+                sentence in that answer is independently checked against the retrieved evidence and labeled
+                supported, uncertain, or unsupported.
+              </p>
+              <p>
+                It exists for anyone who works from documents and needs the answer and the receipt in the
+                same place: researchers, students, and knowledge workers moving through papers, reports,
+                and long-form material.
+              </p>
+            </motion.div>
           </div>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="max-w-[620px] font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-          >
-            A complete research intelligence stack.
-          </h2>
-        </motion.div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:gap-7">
-          {FEATURES.map((f, i) => (
-            <motion.div
-              key={f.t}
-              {...fadeUp(i * 0.05)}
-              className={`flex min-h-[180px] flex-col gap-4 rounded-xl p-7 ${f.big ? "sm:col-span-2" : "sm:col-span-1"}`}
-              style={{ background: SURFACE, border: `1px solid ${HAIRLINE}` }}
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-md" style={{ background: "rgba(125,128,246,0.13)" }}>
-                <f.icon size={16} style={{ color: "#a3a6f8" }} />
-              </div>
-              <div className="text-[15px] font-semibold text-white">{f.t}</div>
-              <div className="text-[13.5px] leading-[1.65] text-white/50">{f.d}</div>
-            </motion.div>
-          ))}
         </div>
       </section>
 
-      <section id="pipeline" className={`${SECTION_X} ${SECTION_Y}`} style={{ background: SURFACE }}>
-        <div className="mx-auto max-w-[1280px]">
-          <motion.div {...fadeUp(0)} className="mb-20 max-w-[640px]">
-            <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-              How it works
-            </div>
-            <h2
-              style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-              className="font-display text-[clamp(30px,4vw,46px)] leading-[1.1] tracking-[-0.03em] text-white"
-            >
-              From raw source to verified insight.
-            </h2>
+      <section id="capabilities" className="pl-section">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+            <div className="pl-label">Capabilities</div>
+            <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A complete research intelligence stack.</h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
+          <div className="pl-grid cols-3">
+            {FEATURES.map((f, i) => (
+              <motion.div
+                key={f.t}
+                {...fadeUp(i * 0.05)}
+                className={`pl-card pl-feature-span-2 ${f.big ? "big" : ""}`}
+                style={{ minHeight: 190 }}
+              >
+                <span className="pl-icon-badge">
+                  <f.icon size={17} color="#a3a6f8" />
+                </span>
+                <div className="pl-card-title">{f.t}</div>
+                <div className="pl-card-desc">{f.d}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="pipeline" className="pl-section surface">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head">
+            <div className="pl-label">How it works</div>
+            <h2 className="pl-h2">From raw source to verified insight.</h2>
+          </motion.div>
+
+          <div className="pl-grid cols-4">
             {STAGES.map((s, i) => (
-              <motion.div
-                key={s.n}
-                {...fadeUp(i * 0.07)}
-                className="flex min-h-[240px] flex-col gap-4 rounded-xl p-7"
-                style={{ background: SURFACE_RAISED, border: `1px solid ${HAIRLINE}` }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[12px] text-white/25">{s.n}</span>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md" style={{ background: "rgba(255,255,255,0.055)" }}>
-                    <s.icon size={14} className="text-white/65" />
-                  </div>
+              <motion.div key={s.n} {...fadeUp(i * 0.07)} className="pl-card raised" style={{ minHeight: 250 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span className="pl-card-num">{s.n}</span>
+                  <span className="pl-icon-badge plain">
+                    <s.icon size={15} color="rgba(255,255,255,0.65)" />
+                  </span>
                 </div>
-                <h3
-                  style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-                  className="font-display text-[23px] tracking-[-0.01em] text-white"
-                >
-                  {s.t}
-                </h3>
-                <p className="text-[13.5px] leading-[1.7] text-white/50">{s.d}</p>
+                <div className="pl-card-title serif">{s.t}</div>
+                <div className="pl-card-desc">{s.d}</div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="architecture" className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <motion.div {...fadeUp(0)} className="mb-20 max-w-[680px]">
-          <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-            Retrieval architecture
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-          >
-            Engineered retrieval, not a wrapper around an LLM.
-          </h2>
-          <p className="mt-6 text-[15.5px] leading-[1.75] text-white/50">
-            Every answer passes through a fixed pipeline of retrieval and verification stages before it
-            reaches the interface. Nothing here is a single prompt to a model.
-          </p>
-        </motion.div>
+      <section id="architecture" className="pl-section">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ maxWidth: 700 }}>
+            <div className="pl-label">Retrieval architecture</div>
+            <h2 className="pl-h2 small">Engineered retrieval, not a wrapper around an LLM.</h2>
+            <p className="pl-section-sub">
+              Every answer passes through a fixed pipeline of retrieval and verification stages before it
+              reaches the interface. Nothing here is a single prompt to a model.
+            </p>
+          </motion.div>
 
-        <div className="mx-auto flex max-w-[640px] flex-col">
-          {ARCHITECTURE_FLOW.map((step, i) => (
-            <motion.div key={step.t} {...fadeUp(i * 0.05)} className="flex gap-6">
-              <div className="flex flex-col items-center">
-                <div
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-mono text-[12.5px] font-semibold text-white"
-                  style={{ background: SURFACE_RAISED, border: `1px solid ${HAIRLINE_STRONG}` }}
-                >
-                  {i + 1}
+          <div className="pl-flow">
+            {ARCHITECTURE_FLOW.map((step, i) => (
+              <motion.div key={step.t} {...fadeUp(i * 0.05)} className="pl-flow-step">
+                <div className="pl-flow-rail">
+                  <div className="pl-flow-num">{i + 1}</div>
+                  {i < ARCHITECTURE_FLOW.length - 1 && <div className="pl-flow-line" />}
                 </div>
-                {i < ARCHITECTURE_FLOW.length - 1 && (
-                  <div className="w-px flex-1" style={{ background: HAIRLINE, minHeight: 44 }} />
-                )}
-              </div>
-              <div className="flex-1 pb-11">
-                <div className="pt-2 text-[16px] font-semibold text-white">{step.t}</div>
-                <div className="mt-2 text-[13.5px] leading-[1.7] text-white/50">{step.d}</div>
-              </div>
-            </motion.div>
-          ))}
+                <div className="pl-flow-body">
+                  <div className="pl-flow-title">{step.t}</div>
+                  <div className="pl-flow-desc">{step.d}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section id="product" className={`${SECTION_X} ${SECTION_Y}`} style={{ background: SURFACE }}>
-        <div className="mx-auto max-w-[1280px]">
-          <motion.div {...fadeUp(0)} className="mb-16">
-            <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-              Inside the app
-            </div>
-            <h2
-              style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-              className="max-w-[620px] font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-            >
-              Eight workspaces, one pipeline.
-            </h2>
+      <section id="product" className="pl-section surface">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+            <div className="pl-label">Inside the app</div>
+            <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Eight workspaces, one pipeline.</h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+          <div className="pl-grid cols-4" style={{ gap: 22 }}>
             {PRODUCT_PAGES.map((p, i) => (
-              <motion.div
-                key={p.label}
-                {...fadeUp(i * 0.04)}
-                className="flex flex-col gap-3.5 rounded-xl p-6"
-                style={{ background: SURFACE_RAISED, border: `1px solid ${HAIRLINE}` }}
-              >
-                <p.icon size={16} className="text-white/50" />
-                <div className="text-[14px] font-semibold text-white">{p.label}</div>
-                <div className="text-[12.5px] leading-[1.65] text-white/45">{p.d}</div>
+              <motion.div key={p.label} {...fadeUp(i * 0.04)} className="pl-card raised" style={{ padding: 26, gap: 14 }}>
+                <p.icon size={17} color="rgba(255,255,255,0.5)" />
+                <div className="pl-card-title" style={{ fontSize: 14.5 }}>{p.label}</div>
+                <div className="pl-card-desc" style={{ fontSize: 12.5 }}>{p.d}</div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <motion.div {...fadeUp(0)} className="mb-16 max-w-[620px]">
-          <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-            Why Prism
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-          >
-            Different from a chat window pointed at your files.
-          </h2>
-        </motion.div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:gap-7">
-          {DIFFERENTIATORS.map((d, i) => (
-            <motion.div
-              key={d.t}
-              {...fadeUp(i * 0.06)}
-              className="flex gap-5 rounded-xl p-7"
-              style={{ background: SURFACE, border: `1px solid ${HAIRLINE}` }}
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md" style={{ background: "rgba(255,255,255,0.055)" }}>
-                <d.icon size={17} className="text-white/65" />
-              </div>
-              <div>
-                <div className="text-[15px] font-semibold text-white">{d.t}</div>
-                <div className="mt-2 text-[13.5px] leading-[1.65] text-white/50">{d.d}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      <section className={`${SECTION_X} ${SECTION_Y_SM}`} style={{ background: SURFACE }}>
-        <div className="mx-auto max-w-[1280px]">
-          <motion.div {...fadeUp(0)} className="mb-14 max-w-[620px]">
-            <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-              Built on
-            </div>
-            <h2
-              style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-              className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-            >
-              A real pipeline underneath the interface.
-            </h2>
+      <section className="pl-section">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+            <div className="pl-label">Why Prism</div>
+            <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Different from a chat window pointed at your files.</h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-            {STACK.map((s, i) => (
-              <motion.div
-                key={s.t}
-                {...fadeUp(i * 0.03)}
-                className="flex flex-col gap-3.5 rounded-xl p-6"
-                style={{ background: SURFACE_RAISED, border: `1px solid ${HAIRLINE}` }}
-              >
-                <s.icon size={16} className="text-white/45" />
-                <div className="font-mono text-[13px] font-semibold text-white">{s.t}</div>
-                <div className="text-[12px] leading-[1.6] text-white/40">{s.d}</div>
+          <div className="pl-grid cols-2">
+            {DIFFERENTIATORS.map((d, i) => (
+              <motion.div key={d.t} {...fadeUp(i * 0.06)} className="pl-card pl-diff-card">
+                <span className="pl-icon-badge plain" style={{ width: 44, height: 44 }}>
+                  <d.icon size={18} color="rgba(255,255,255,0.65)" />
+                </span>
+                <div>
+                  <div className="pl-card-title">{d.t}</div>
+                  <div className="pl-card-desc" style={{ marginTop: 8 }}>{d.d}</div>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className={`mx-auto max-w-[1280px] ${SECTION_X} ${SECTION_Y}`}>
-        <motion.div {...fadeUp(0)} className="mb-16 max-w-[620px]">
-          <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/40">
-            Who it&apos;s for
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="font-display text-[clamp(28px,3.4vw,40px)] leading-[1.15] tracking-[-0.03em] text-white"
-          >
-            Built for anyone who works from documents.
-          </h2>
-        </motion.div>
+      <section className="pl-section surface tight">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 48 }}>
+            <div className="pl-label">Built on</div>
+            <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A real pipeline underneath the interface.</h2>
+          </motion.div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:gap-7">
-          {USE_CASES.map((u, i) => (
-            <motion.div
-              key={u.t}
-              {...fadeUp(i * 0.06)}
-              className="flex flex-col gap-4 rounded-xl p-7"
-              style={{ background: SURFACE, border: `1px solid ${HAIRLINE}` }}
-            >
-              <div className="text-[15.5px] font-semibold text-white">{u.t}</div>
-              <div className="text-[13.5px] leading-[1.7] text-white/50">{u.d}</div>
-            </motion.div>
-          ))}
+          <div className="pl-grid cols-4" style={{ gap: 22 }}>
+            {STACK.map((s, i) => (
+              <motion.div key={s.t} {...fadeUp(i * 0.03)} className="pl-card raised" style={{ padding: 24, gap: 14 }}>
+                <s.icon size={16} color="rgba(255,255,255,0.45)" />
+                <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 13, fontWeight: 700, color: "#ffffff" }}>{s.t}</div>
+                <div className="pl-card-desc" style={{ fontSize: 12 }}>{s.d}</div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className={`${SECTION_X} ${SECTION_Y_SM}`} style={{ background: SURFACE }}>
-        <div className="mx-auto flex max-w-[1280px] flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-          <motion.div {...fadeUp(0)} className="flex items-start gap-5 sm:max-w-[540px]">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md" style={{ background: "rgba(255,255,255,0.055)" }}>
-              <Lock size={18} className="text-white/65" />
-            </div>
+      <section className="pl-section">
+        <div className="pl-section-inner">
+          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+            <div className="pl-label">Who it&apos;s for</div>
+            <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Built for anyone who works from documents.</h2>
+          </motion.div>
+
+          <div className="pl-grid cols-3">
+            {USE_CASES.map((u, i) => (
+              <motion.div key={u.t} {...fadeUp(i * 0.06)} className="pl-card">
+                <div className="pl-card-title">{u.t}</div>
+                <div className="pl-card-desc">{u.d}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pl-section surface tight">
+        <div className="pl-security-row">
+          <motion.div {...fadeUp(0)} className="pl-security-left">
+            <span className="pl-icon-badge plain" style={{ width: 46, height: 46 }}>
+              <Lock size={19} color="rgba(255,255,255,0.65)" />
+            </span>
             <div>
-              <div className="text-[16px] font-semibold text-white">Session-scoped by design</div>
-              <p className="mt-2 text-[13.5px] leading-[1.7] text-white/50">
+              <div className="pl-card-title">Session-scoped by design</div>
+              <p className="pl-card-desc" style={{ marginTop: 10 }}>
                 Every request carries a signed JWT session, and protected workspace routes stay
                 inaccessible until you&apos;re authenticated.
               </p>
             </div>
           </motion.div>
-          <motion.div {...fadeUp(0.06)} className="font-mono text-[11px] uppercase tracking-[0.1em] text-white/30">
+          <motion.div {...fadeUp(0.06)} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.3)" }}>
             Signed sessions · Protected routes
           </motion.div>
         </div>
       </section>
 
-      <section
-        id="workflow"
-        className={`flex justify-center ${SECTION_X} ${SECTION_Y} text-center`}
-      >
-        <motion.div {...fadeUp(0)} className="max-w-[760px]">
-          <span
-            className="mb-9 inline-flex items-center rounded-full px-3.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em]"
-            style={{ background: "rgba(125,128,246,0.13)", color: "#a3a6f8" }}
-          >
-            Ready when you are
-          </span>
-          <h2
-            style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }}
-            className="mb-7 font-display text-[clamp(32px,4.6vw,54px)] leading-[1.1] tracking-[-0.03em] text-white"
-          >
-            Research shouldn&apos;t be a <em className="not-italic" style={{ color: "#a3a6f8" }}>guessing game.</em>
+      <section id="workflow" className="pl-section pl-final">
+        <motion.div {...fadeUp(0)} className="pl-final-inner">
+          <span className="pl-eyebrow">Ready when you are</span>
+          <h2 className="pl-h2" style={{ marginTop: 0, marginBottom: 28, fontSize: "clamp(32px,4.6vw,54px)" }}>
+            Research shouldn&apos;t be a <em style={{ color: "#a3a6f8" }}>guessing game.</em>
           </h2>
-          <p className="mb-11 text-[15.5px] text-white/50">
+          <p className="pl-section-sub" style={{ marginTop: 0, marginBottom: 44 }}>
             Ingest your first document and see every answer traced back to its source.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/register" className={`${btnPrimary} gap-2 !px-7 !py-3.5 text-[15px]`}>
-              Create account <ArrowRight size={16} color="#08080a" />
+          <div className="pl-cta-row" style={{ justifyContent: "center", marginTop: 0 }}>
+            <Link href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }}>
+              Create account <ArrowRight size={17} color="#07070a" />
             </Link>
-            <Link href="/login" style={{ borderColor: HAIRLINE_STRONG }} className={`${btnSecondary} !px-7 !py-3.5 text-[15px]`}>
+            <Link href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }}>
               Sign in
             </Link>
           </div>
         </motion.div>
       </section>
 
-      <footer
-        className={`flex flex-wrap items-center justify-between gap-4 ${SECTION_X} py-9`}
-        style={{ borderTop: `1px solid ${HAIRLINE}` }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white">
-            <Zap size={12} color="#08080a" strokeWidth={2.5} />
-          </div>
-          <span className="font-display text-[15px] text-white/50">Prism</span>
+      <footer className="pl-footer">
+        <div className="pl-footer-brand">
+          <span className="pl-logo-mark" style={{ width: 26, height: 26, borderRadius: 7 }}>
+            <Zap size={12} color="#07070a" strokeWidth={2.5} />
+          </span>
+          <span style={{ fontFamily: DISPLAY_FONT, fontSize: 15, color: "rgba(255,255,255,0.5)" }}>Prism</span>
         </div>
-        <div className="flex flex-wrap gap-7">
+        <div className="pl-footer-links">
           {NAV_LINKS.map((l) => (
-            <a key={l.label} href={l.href} className="font-mono text-[12px] text-white/35 no-underline">
-              {l.label}
-            </a>
+            <a key={l.label} href={l.href}>{l.label}</a>
           ))}
         </div>
-        <span className="font-mono text-[11px] text-white/30">Research Intelligence Platform</span>
+        <span className="pl-footer-tag">Research Intelligence Platform</span>
       </footer>
     </div>
   );
