@@ -27,11 +27,21 @@ export function setCurrentUser(user: CurrentUser | null): void {
 }
 
 async function persistRefreshToken(refreshToken: string): Promise<void> {
-  await fetch("/api/auth/set-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/auth/set-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: "same-origin",
+    });
+  } catch {
+    throw new Error("Could not start your session. Check your connection and try again.");
+  }
+
+  if (!res.ok) {
+    throw new Error("Could not start your session. Please try again.");
+  }
 }
 
 async function parseErrorDetail(res: Response, fallback: string): Promise<string> {
@@ -75,7 +85,13 @@ export async function login(email: string, password: string): Promise<CurrentUse
   const data = await res.json();
   setAccessToken(data.access_token);
   setCurrentUser(data.user);
-  await persistRefreshToken(data.refresh_token);
+  try {
+    await persistRefreshToken(data.refresh_token);
+  } catch (err) {
+    setAccessToken(null);
+    setCurrentUser(null);
+    throw err;
+  }
   return data.user;
 }
 
@@ -98,7 +114,13 @@ export async function register(email: string, password: string): Promise<Current
   const data = await res.json();
   setAccessToken(data.access_token);
   setCurrentUser(data.user);
-  await persistRefreshToken(data.refresh_token);
+  try {
+    await persistRefreshToken(data.refresh_token);
+  } catch (err) {
+    setAccessToken(null);
+    setCurrentUser(null);
+    throw err;
+  }
   return data.user;
 }
 
