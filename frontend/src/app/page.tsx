@@ -133,10 +133,10 @@ export default function LandingPage() {
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
-          <Link href="/login" className={btnSecondary}>
+          <Link href="/login" style={{ color: '#111110' }} className={btnSecondary}>
             Sign in
           </Link>
-          <Link href="/register" className={`${btnPrimary} gap-1.5`}>
+          <Link href="/register" style={{ color: '#ffffff' }} className={`${btnPrimary} gap-1.5`}>
             Get started <ArrowRight size={14} color="#ffffff" />
           </Link>
         </div>
@@ -163,10 +163,10 @@ export default function LandingPage() {
             </a>
           ))}
           <div className="mt-1 flex gap-2.5">
-            <Link href="/login" className={`${btnSecondary} flex-1`}>
+            <Link href="/login" style={{ color: '#111110' }} className={`${btnSecondary} flex-1`}>
               Sign in
             </Link>
-            <Link href="/register" className={`${btnPrimary} flex-1`}>
+            <Link href="/register" style={{ color: '#ffffff' }} className={`${btnPrimary} flex-1`}>
               Get started
             </Link>
           </div>
@@ -188,7 +188,7 @@ export default function LandingPage() {
               Research intelligence platform
             </span>
 
-            <h1 className="max-w-[620px] font-display text-[clamp(38px,6vw,64px)] leading-[1.04] tracking-[-0.03em] text-neutral-950">
+            <h1 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="max-w-[620px] font-display text-[clamp(38px,6vw,64px)] leading-[1.04] tracking-[-0.03em] text-neutral-950">
               Read less.
               <br />
               Know <em className="text-brand-500 not-italic">more.</em>
@@ -200,10 +200,10 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/register" className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
+              <Link href="/register" style={{ color: '#ffffff' }} className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
                 Start Research <ArrowRight size={16} color="#ffffff" />
               </Link>
-              <Link href="/login" className={`${btnSecondary} gap-2 !px-6 !py-3 text-[15px]`}>
+              <Link href="/login" style={{ color: '#111110' }} className={`${btnSecondary} gap-2 !px-6 !py-3 text-[15px]`}>
                 Sign in <ArrowUpRight size={15} />
               </Link>
             </div>
@@ -293,7 +293,7 @@ export default function LandingPage() {
             <div className="mb-3.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-neutral-600">
               How it works
             </div>
-            <h2 className="max-w-[640px] font-display text-[clamp(28px,4.2vw,44px)] leading-[1.08] tracking-[-0.03em] text-neutral-950">
+            <h2 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="max-w-[640px] font-display text-[clamp(28px,4.2vw,44px)] leading-[1.08] tracking-[-0.03em] text-neutral-950">
               From raw source to verified insight.
             </h2>
           </div>
@@ -307,7 +307,7 @@ export default function LandingPage() {
               className="flex min-h-[210px] flex-col gap-3.5 rounded-lg border border-neutral-200 bg-neutral-0 p-6 shadow-xs"
             >
               <span className="font-mono text-[12px] text-neutral-400">{s.n}</span>
-              <h3 className="font-display text-[22px] tracking-[-0.01em] text-neutral-950">{s.t}</h3>
+              <h3 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="font-display text-[22px] tracking-[-0.01em] text-neutral-950">{s.t}</h3>
               <p className="text-[13px] leading-[1.65] text-neutral-700">{s.d}</p>
             </motion.div>
           ))}
@@ -319,7 +319,7 @@ export default function LandingPage() {
           <div className="mb-3.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-neutral-600">
             Capabilities
           </div>
-          <h2 className="max-w-[620px] font-display text-[clamp(26px,3.6vw,38px)] leading-[1.1] tracking-[-0.03em] text-neutral-950">
+          <h2 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="max-w-[620px] font-display text-[clamp(26px,3.6vw,38px)] leading-[1.1] tracking-[-0.03em] text-neutral-950">
             A complete research intelligence stack.
           </h2>
         </motion.div>
@@ -349,7 +349,7 @@ export default function LandingPage() {
             <div className="mb-3.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-neutral-600">
               Inside the app
             </div>
-            <h2 className="max-w-[620px] font-display text-[clamp(26px,3.6vw,38px)] leading-[1.1] tracking-[-0.03em] text-neutral-950">
+            <h2 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="max-w-[620px] font-display text-[clamp(26px,3.6vw,38px)] leading-[1.1] tracking-[-0.03em] text-neutral-950">
               Eight workspaces, one pipeline.
             </h2>
           </motion.div>
@@ -378,17 +378,17 @@ export default function LandingPage() {
           <span className="mb-7 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-brand-600">
             Ready when you are
           </span>
-          <h2 className="mb-5 font-display text-[clamp(30px,5vw,52px)] leading-[1.06] tracking-[-0.03em] text-neutral-950">
+          <h2 style={{ color: '#111110', fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)" }} className="mb-5 font-display text-[clamp(30px,5vw,52px)] leading-[1.06] tracking-[-0.03em] text-neutral-950">
             Research shouldn&apos;t be a <em className="text-brand-500 not-italic">guessing game.</em>
           </h2>
           <p className="mb-9 text-[15px] text-neutral-700">
             Ingest your first document and see every answer traced back to its source.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/register" className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
+            <Link href="/register" style={{ color: '#ffffff' }} className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
               Create account <ArrowRight size={16} color="#ffffff" />
             </Link>
-            <Link href="/login" className={`${btnSecondary} !px-6 !py-3 text-[15px]`}>
+            <Link href="/login" style={{ color: '#111110' }} className={`${btnSecondary} !px-6 !py-3 text-[15px]`}>
               Sign in
             </Link>
           </div>
