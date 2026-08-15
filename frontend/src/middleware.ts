@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthRoute, isProtectedPath } from "@/lib/routes";
-
-const REFRESH_COOKIE_NAME = "prism_refresh_token";
+import { REFRESH_COOKIE_NAME } from "@/lib/cookies";
 
 function isPrefetchRequest(request: NextRequest): boolean {
   return (
