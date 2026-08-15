@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useMotionTemplate, useSpring, useScroll, useTransform, useInView, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -195,6 +195,21 @@ const USE_CASES = [
   },
 ];
 
+const STAT_PANEL = [
+  { value: 3, suffix: "", label: "Retrieval methods fused per query", decimals: 0 },
+  { value: 8, suffix: "", label: "Workspaces in one pipeline", decimals: 0 },
+  { value: 4, suffix: "", label: "Pipeline stages, start to verified answer", decimals: 0 },
+];
+
+const MARQUEE_ITEMS = [
+  "Hybrid Retrieval",
+  "Reciprocal Rank Fusion",
+  "Cross-Encoder Reranking",
+  "Claim-Level Verification",
+  "Source Trace",
+  "Evaluation Harness",
+];
+
 function fadeUp(delay = 0) {
   return {
     initial: { opacity: 0, y: 22 },
@@ -206,8 +221,127 @@ function fadeUp(delay = 0) {
 
 const DISPLAY_FONT = "var(--font-display, 'DM Serif Display', Georgia, serif)";
 
+function MagneticButton({
+  href,
+  className,
+  style,
+  children,
+  disabled,
+}: {
+  href: string;
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const springX = useSpring(x, { stiffness: 220, damping: 18, mass: 0.3 });
+  const springY = useSpring(y, { stiffness: 220, damping: 18, mass: 0.3 });
+
+  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (disabled || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    x.set((e.clientX - rect.left - rect.width / 2) * 0.4);
+    y.set((e.clientY - rect.top - rect.height / 2) * 0.4);
+  }
+
+  function handleLeave() {
+    x.set(0);
+    y.set(0);
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      style={{ x: springX, y: springY, display: "inline-flex" }}
+    >
+      <Link href={href} className={className} style={style}>
+        {children}
+      </Link>
+    </motion.div>
+  );
+}
+
+function CountUp({ value, decimals = 0 }: { value: number; decimals?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!isInView) return;
+    let raf = 0;
+    let start = 0;
+    const duration = 1100;
+
+    function step(ts: number) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(eased * value);
+      if (progress < 1) raf = requestAnimationFrame(step);
+      else setDisplay(value);
+    }
+
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [isInView, value]);
+
+  return <span ref={ref}>{display.toFixed(decimals)}</span>;
+}
+
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+
+  const { scrollYProgress } = useScroll();
+  const progressScaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 40, restDelta: 0.001 });
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const glowX = useMotionValue(50);
+  const glowY = useMotionValue(20);
+  const glowXSpring = useSpring(glowX, { stiffness: 60, damping: 20 });
+  const glowYSpring = useSpring(glowY, { stiffness: 60, damping: 20 });
+  const glowBackground = useMotionTemplate`radial-gradient(620px circle at ${glowXSpring}% ${glowYSpring}%, rgba(91,94,244,0.22), transparent 62%)`;
+
+  function handleHeroMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (prefersReducedMotion || !heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    glowX.set(((e.clientX - rect.left) / rect.width) * 100);
+    glowY.set(((e.clientY - rect.top) / rect.height) * 100);
+  }
+
+  const mockRef = useRef<HTMLDivElement>(null);
+  const tiltX = useMotionValue(0.5);
+  const tiltY = useMotionValue(0.5);
+  const tiltXSpring = useSpring(tiltX, { stiffness: 150, damping: 20 });
+  const tiltYSpring = useSpring(tiltY, { stiffness: 150, damping: 20 });
+  const rotateX = useTransform(tiltYSpring, [0, 1], [7, -7]);
+  const rotateY = useTransform(tiltXSpring, [0, 1], [-7, 7]);
+
+  function handleMockMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (prefersReducedMotion || !mockRef.current) return;
+    const rect = mockRef.current.getBoundingClientRect();
+    tiltX.set((e.clientX - rect.left) / rect.width);
+    tiltY.set((e.clientY - rect.top) / rect.height);
+  }
+
+  function handleMockLeave() {
+    tiltX.set(0.5);
+    tiltY.set(0.5);
+  }
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 24);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="pl-root">
@@ -226,6 +360,8 @@ export default function LandingPage() {
           .pl-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 
+        .pl-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #a3a6f8, #ffffff); transform-origin: 0% 50%; z-index: 80; }
+
         .pl-header {
           position: sticky;
           top: 0;
@@ -238,18 +374,23 @@ export default function LandingPage() {
           background: rgba(7,7,10,0.86);
           backdrop-filter: blur(14px);
           border-bottom: 1px solid rgba(255,255,255,0.08);
+          transition: height 0.35s cubic-bezier(0.22,1,0.36,1), border-color 0.35s ease, box-shadow 0.35s ease;
         }
+        .pl-header.scrolled { height: 68px; border-color: rgba(255,255,255,0.14); box-shadow: 0 18px 40px -24px rgba(0,0,0,0.7); }
         @media (min-width: 768px) { .pl-header { padding: 0 48px; } }
         @media (min-width: 1200px) { .pl-header { padding: 0 80px; } }
 
         .pl-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-        .pl-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pl-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.4s cubic-bezier(0.22,1,0.36,1); }
+        .pl-logo:hover .pl-logo-mark { transform: rotate(-14deg) scale(1.06); }
         .pl-logo-text { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: 21px; letter-spacing: -0.02em; color: #ffffff; }
 
         .pl-nav { display: none; align-items: center; gap: 40px; }
         @media (min-width: 900px) { .pl-nav { display: flex; } }
-        .pl-nav a { font-family: var(--font-mono, monospace); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; }
+        .pl-nav a { position: relative; font-family: var(--font-mono, monospace); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; padding-bottom: 4px; }
+        .pl-nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: #ffffff; transition: right 0.3s cubic-bezier(0.22,1,0.36,1); }
         .pl-nav a:hover { color: #ffffff; }
+        .pl-nav a:hover::after { right: 0; }
 
         .pl-header-actions { display: none; align-items: center; gap: 14px; }
         @media (min-width: 900px) { .pl-header-actions { display: flex; } }
@@ -258,16 +399,16 @@ export default function LandingPage() {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           padding: 13px 26px; border-radius: 9px; background: #ffffff; color: #07070a;
           font-size: 14px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
-          transition: opacity 0.2s ease, transform 0.2s ease;
+          transition: opacity 0.2s ease, box-shadow 0.3s ease;
         }
-        .pl-btn-primary:hover { opacity: 0.86; transform: translateY(-1px); }
+        .pl-btn-primary:hover { opacity: 0.88; box-shadow: 0 14px 30px -10px rgba(255,255,255,0.35); }
         .pl-btn-secondary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           padding: 12px 25px; border-radius: 9px; background: transparent; color: #ffffff;
           font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.18);
-          transition: border-color 0.2s ease, transform 0.2s ease;
+          transition: border-color 0.2s ease, background 0.3s ease;
         }
-        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.5); transform: translateY(-1px); }
+        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); }
 
         .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #ffffff; cursor: pointer; }
         @media (min-width: 900px) { .pl-menu-btn { display: none; } }
@@ -281,9 +422,10 @@ export default function LandingPage() {
         .pl-hero { position: relative; overflow: hidden; padding: 88px 24px 96px; }
         @media (min-width: 768px) { .pl-hero { padding: 100px 48px 120px; } }
         @media (min-width: 1200px) { .pl-hero { padding: 140px 80px 150px; } }
-        .pl-hero-glow { position: absolute; inset: 0 0 auto 0; height: 760px; pointer-events: none;
-          background: radial-gradient(ellipse 50% 45% at 50% 0%, rgba(91,94,244,0.16), transparent 70%),
-                      radial-gradient(ellipse 35% 30% at 92% 6%, rgba(212,98,42,0.08), transparent 60%); }
+        .pl-hero-glow { position: absolute; inset: 0; pointer-events: none; }
+        .pl-hero-glow-base { position: absolute; inset: 0 0 auto 0; height: 760px; pointer-events: none;
+          background: radial-gradient(ellipse 50% 45% at 50% 0%, rgba(91,94,244,0.12), transparent 70%),
+                      radial-gradient(ellipse 35% 30% at 92% 6%, rgba(212,98,42,0.07), transparent 60%); }
         .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 72px; }
         @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 96px; } }
 
@@ -296,14 +438,17 @@ export default function LandingPage() {
 
         .pl-cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 44px; }
 
-        .pl-trust-strip { margin-top: 80px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px 24px; max-width: 580px; }
+        .pl-trust-strip { margin-top: 80px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
         @media (min-width: 560px) { .pl-trust-strip { grid-template-columns: repeat(4, 1fr); } }
-        .pl-trust-item { padding-left: 0; }
-        .pl-trust-item.bordered { border-left: 1px solid rgba(255,255,255,0.09); padding-left: 20px; }
-        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 600; line-height: 1.4; color: #ffffff; }
-        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+        .pl-trust-item { padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07); transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease; }
+        .pl-trust-item:hover { background: #ffffff; transform: translateY(-3px); border-color: #ffffff; }
+        .pl-trust-item:hover .pl-trust-value { color: #07070a; }
+        .pl-trust-item:hover .pl-trust-label { color: rgba(7,7,10,0.5); }
+        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 700; line-height: 1.4; color: #ffffff; transition: color 0.3s ease; }
+        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); transition: color 0.3s ease; }
 
-        .pl-mock { border-radius: 16px; overflow: hidden; background: #0e0e12; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -26px rgba(0,0,0,0.75); }
+        .pl-mock-wrap { perspective: 1400px; }
+        .pl-mock { border-radius: 16px; overflow: hidden; background: #0e0e12; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -26px rgba(0,0,0,0.75); transform-style: preserve-3d; }
         .pl-mock-top { display: flex; align-items: center; gap: 8px; padding: 16px 22px; background: #131317; border-bottom: 1px solid rgba(255,255,255,0.09); }
         .pl-mock-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.16); }
         .pl-mock-url { margin-left: 10px; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.5); }
@@ -318,8 +463,14 @@ export default function LandingPage() {
         .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 16px; font-weight: 700; }
         .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .pl-bars { display: flex; align-items: flex-end; gap: 7px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); height: 46px; }
-        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg,#a3a6f8,#5b5ef4); opacity: 0.9; }
+        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg,#a3a6f8,#5b5ef4); opacity: 0.9; transform-origin: bottom; }
         .pl-bars-caption { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
+
+        .pl-marquee { overflow: hidden; background: #0a0a0d; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 20px 0; }
+        .pl-marquee-track { display: flex; width: max-content; gap: 56px; animation: pl-marquee-scroll 30s linear infinite; }
+        .pl-marquee-item { display: flex; align-items: center; gap: 14px; font-family: var(--font-mono, monospace); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); white-space: nowrap; }
+        .pl-marquee-dot { width: 4px; height: 4px; border-radius: 999px; background: #a3a6f8; }
+        @keyframes pl-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
         .pl-section { padding: 96px 24px; }
         @media (min-width: 768px) { .pl-section { padding: 116px 48px; } }
@@ -344,14 +495,17 @@ export default function LandingPage() {
         @media (min-width: 640px) { .pl-grid.cols-4 { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1050px) { .pl-grid.cols-4 { grid-template-columns: repeat(4, 1fr); } }
 
-        .pl-card { background: #0e0e12; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 34px; display: flex; flex-direction: column; gap: 18px; }
+        .pl-card { background: #0e0e12; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 34px; display: flex; flex-direction: column; gap: 18px; transition: border-color 0.3s ease, transform 0.3s ease, background 0.3s ease; }
+        .pl-card:hover { border-color: rgba(255,255,255,0.22); transform: translateY(-4px); }
         .pl-card.raised { background: #131317; }
+        .pl-card.raised:hover { background: #17171c; }
         .pl-card-num { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.28); }
         .pl-card-title { font-size: 16.5px; font-weight: 700; color: #ffffff; }
         .pl-card-title.serif { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: 24px; letter-spacing: -0.01em; }
         .pl-card-desc { font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
 
-        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(125,128,246,0.13); flex-shrink: 0; }
+        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(125,128,246,0.13); flex-shrink: 0; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .pl-card:hover .pl-icon-badge { transform: scale(1.08) rotate(-4deg); }
         .pl-icon-badge.plain { background: rgba(255,255,255,0.055); }
 
         .pl-feature-span-2 { grid-column: span 1; }
@@ -365,13 +519,23 @@ export default function LandingPage() {
         .pl-flow { max-width: 660px; margin: 0 auto; }
         .pl-flow-step { display: flex; gap: 26px; }
         .pl-flow-rail { display: flex; flex-direction: column; align-items: center; }
-        .pl-flow-num { width: 42px; height: 42px; border-radius: 999px; background: #131317; border: 1px solid rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: #ffffff; flex-shrink: 0; }
+        .pl-flow-num { width: 42px; height: 42px; border-radius: 999px; background: #131317; border: 1px solid rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: #ffffff; flex-shrink: 0; transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+        .pl-flow-step:hover .pl-flow-num { background: #ffffff; border-color: #ffffff; color: #07070a; }
         .pl-flow-line { width: 1px; flex: 1; background: rgba(255,255,255,0.09); min-height: 52px; }
         .pl-flow-body { flex: 1; padding-bottom: 48px; }
         .pl-flow-title { padding-top: 8px; font-size: 16.5px; font-weight: 700; color: #ffffff; }
         .pl-flow-desc { margin-top: 10px; font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
 
         .pl-diff-card { display: flex; gap: 22px; }
+
+        .pl-stats-section { display: flex; justify-content: center; }
+        .pl-stats-panel { width: 100%; max-width: 1100px; background: #ffffff; border-radius: 28px; padding: 56px 40px; display: grid; grid-template-columns: 1fr; gap: 40px; box-shadow: 0 70px 140px -50px rgba(0,0,0,0.75); }
+        @media (min-width: 700px) { .pl-stats-panel { grid-template-columns: repeat(3, 1fr); padding: 64px 56px; } }
+        .pl-stat { text-align: center; }
+        .pl-stat-value { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: clamp(42px, 5vw, 64px); color: #07070a; letter-spacing: -0.02em; }
+        .pl-stat-label { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(7,7,10,0.48); max-width: 220px; margin-left: auto; margin-right: auto; }
+        .pl-stat-divider { display: none; }
+        @media (min-width: 700px) { .pl-stat:not(:last-child) { border-right: 1px solid rgba(7,7,10,0.09); } }
 
         .pl-security-row { display: flex; flex-direction: column; gap: 28px; max-width: 1320px; margin: 0 auto; }
         @media (min-width: 700px) { .pl-security-row { flex-direction: row; align-items: center; justify-content: space-between; } }
@@ -385,11 +549,14 @@ export default function LandingPage() {
         @media (min-width: 1200px) { .pl-footer { padding: 40px 80px; } }
         .pl-footer-brand { display: flex; align-items: center; gap: 10px; }
         .pl-footer-links { display: flex; flex-wrap: wrap; gap: 30px; }
-        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.36); text-decoration: none; }
+        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.36); text-decoration: none; transition: color 0.2s ease; }
+        .pl-footer-links a:hover { color: rgba(255,255,255,0.75); }
         .pl-footer-tag { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.3); }
       `}</style>
 
-      <header className="pl-header">
+      <motion.div className="pl-progress" style={{ scaleX: progressScaleX }} />
+
+      <header className={`pl-header ${scrolled ? "scrolled" : ""}`}>
         <Link href="/" className="pl-logo">
           <span className="pl-logo-mark">
             <Zap size={16} color="#07070a" strokeWidth={2.5} />
@@ -405,9 +572,9 @@ export default function LandingPage() {
 
         <div className="pl-header-actions">
           <Link href="/login" className="pl-btn-secondary">Sign in</Link>
-          <Link href="/register" className="pl-btn-primary">
+          <MagneticButton href="/register" className="pl-btn-primary" disabled={!!prefersReducedMotion}>
             Get started <ArrowRight size={14} color="#07070a" />
-          </Link>
+          </MagneticButton>
         </div>
 
         <button onClick={() => setMenuOpen((v) => !v)} aria-label="Toggle menu" className="pl-menu-btn">
@@ -427,8 +594,11 @@ export default function LandingPage() {
         </div>
       )}
 
-      <section className="pl-hero">
-        <div className="pl-hero-glow" />
+      <section className="pl-hero" ref={heroRef} onMouseMove={handleHeroMove}>
+        <div className="pl-hero-glow">
+          <div className="pl-hero-glow-base" />
+          <motion.div style={{ position: "absolute", inset: 0, background: glowBackground }} />
+        </div>
         <div className="pl-hero-grid">
           <motion.div {...fadeUp(0)}>
             <span className="pl-eyebrow">Research intelligence platform</span>
@@ -445,17 +615,17 @@ export default function LandingPage() {
             </p>
 
             <div className="pl-cta-row">
-              <Link href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }}>
+              <MagneticButton href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
                 Start Research <ArrowRight size={17} color="#07070a" />
-              </Link>
-              <Link href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }}>
+              </MagneticButton>
+              <MagneticButton href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
                 Sign in <ArrowUpRight size={16} />
-              </Link>
+              </MagneticButton>
             </div>
 
             <div className="pl-trust-strip">
-              {TRUST_STRIP.map((s, i) => (
-                <div key={s.label} className={`pl-trust-item ${i > 0 ? "bordered" : ""}`}>
+              {TRUST_STRIP.map((s) => (
+                <div key={s.label} className="pl-trust-item">
                   <div className="pl-trust-value">{s.value}</div>
                   <div className="pl-trust-label">{s.label}</div>
                 </div>
@@ -463,8 +633,14 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          <motion.div {...fadeUp(0.1)}>
-            <div className="pl-mock">
+          <motion.div {...fadeUp(0.1)} className="pl-mock-wrap">
+            <motion.div
+              ref={mockRef}
+              onMouseMove={handleMockMove}
+              onMouseLeave={handleMockLeave}
+              className="pl-mock"
+              style={{ rotateX, rotateY }}
+            >
               <div className="pl-mock-top">
                 <span className="pl-mock-dot" />
                 <span className="pl-mock-dot" />
@@ -503,15 +679,34 @@ export default function LandingPage() {
 
                 <div className="pl-bars">
                   {[38, 62, 46, 80, 58, 70, 90].map((h, i) => (
-                    <div key={i} className="pl-bar" style={{ height: `${h * 0.46}px` }} />
+                    <motion.div
+                      key={i}
+                      className="pl-bar"
+                      initial={{ scaleY: 0 }}
+                      whileInView={{ scaleY: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.5 + i * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ height: `${h * 0.46}px` }}
+                    />
                   ))}
                 </div>
                 <div className="pl-bars-caption">Generation volume, last 7 days</div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
       </section>
+
+      <div className="pl-marquee">
+        <div className="pl-marquee-track">
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+            <span key={i} className="pl-marquee-item">
+              <span className="pl-marquee-dot" />
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <section id="problem" className="pl-section">
         <div className="pl-section-inner">
@@ -685,6 +880,20 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="pl-section surface tight pl-stats-section">
+        <motion.div {...fadeUp(0)} className="pl-stats-panel">
+          {STAT_PANEL.map((s) => (
+            <div key={s.label} className="pl-stat">
+              <div className="pl-stat-value">
+                <CountUp value={s.value} decimals={s.decimals} />
+                {s.suffix}
+              </div>
+              <div className="pl-stat-label">{s.label}</div>
+            </div>
+          ))}
+        </motion.div>
+      </section>
+
       <section className="pl-section surface tight">
         <div className="pl-section-inner">
           <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 48 }}>
@@ -752,9 +961,9 @@ export default function LandingPage() {
             Ingest your first document and see every answer traced back to its source.
           </p>
           <div className="pl-cta-row" style={{ justifyContent: "center", marginTop: 0 }}>
-            <Link href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }}>
+            <MagneticButton href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
               Create account <ArrowRight size={17} color="#07070a" />
-            </Link>
+            </MagneticButton>
             <Link href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }}>
               Sign in
             </Link>
