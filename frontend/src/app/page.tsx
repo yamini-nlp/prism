@@ -119,11 +119,7 @@ export default function LandingPage() {
 
         <nav className="hidden items-center gap-9 md:flex">
           {NAV_LINKS.map((l) => (
-            
-              key={l.label}
-              href={l.href}
-              className="font-mono text-[12px] uppercase tracking-[0.08em] text-neutral-500 no-underline transition-colors hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white"
-            >
+            <a key={l.label} href={l.href} className="font-mono text-[12px] uppercase tracking-[0.08em] text-neutral-500 no-underline transition-colors hover:text-neutral-950 dark:text-neutral-400 dark:hover:text-white">
               {l.label}
             </a>
           ))}
@@ -150,12 +146,7 @@ export default function LandingPage() {
       {menuOpen && (
         <div className="fixed inset-x-0 top-16 z-40 flex flex-col gap-4 border-b border-neutral-200 bg-neutral-50 px-5 pb-7 pt-5 dark:border-white/10 dark:bg-neutral-950 sm:px-8 md:hidden">
           {NAV_LINKS.map((l) => (
-            
-              key={l.label}
-              href={l.href}
-              onClick={() => setMenuOpen(false)}
-              className="text-[15px] text-neutral-950 no-underline dark:text-white"
-            >
+            <a key={l.label} href={l.href} onClick={() => setMenuOpen(false)} className="text-[15px] text-neutral-950 no-underline dark:text-white">
               {l.label}
             </a>
           ))}
