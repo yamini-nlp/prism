@@ -96,9 +96,11 @@ function fadeUp(delay = 0) {
 }
 
 const btnPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-white px-5 py-2.5 text-[14px] font-medium text-neutral-950 no-underline transition-opacity hover:opacity-90";
+  "inline-flex items-center justify-center rounded-lg bg-white px-5 py-2.5 text-[14px] font-medium no-underline transition-opacity hover:opacity-90";
+const btnPrimaryStyle = { color: "#0a0a0a" };
 const btnSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/[0.03] px-5 py-2.5 text-[14px] font-medium text-white no-underline transition-colors hover:bg-white/[0.08]";
+  "inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/[0.03] px-5 py-2.5 text-[14px] font-medium no-underline transition-colors hover:bg-white/[0.08]";
+const btnSecondaryStyle = { color: "#ffffff" };
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -133,10 +135,10 @@ export default function LandingPage() {
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
-          <Link href="/login" className={btnSecondary}>
+          <Link href="/login" style={btnSecondaryStyle} className={btnSecondary}>
             Sign in
           </Link>
-          <Link href="/register" className={`${btnPrimary} gap-1.5`}>
+          <Link href="/register" style={btnPrimaryStyle} className={`${btnPrimary} gap-1.5`}>
             Get started <ArrowRight size={14} />
           </Link>
         </div>
@@ -163,10 +165,10 @@ export default function LandingPage() {
             </a>
           ))}
           <div className="mt-1 flex gap-2.5">
-            <Link href="/login" className={`${btnSecondary} flex-1`}>
+            <Link href="/login" style={btnSecondaryStyle} className={`${btnSecondary} flex-1`}>
               Sign in
             </Link>
-            <Link href="/register" className={`${btnPrimary} flex-1`}>
+            <Link href="/register" style={btnPrimaryStyle} className={`${btnPrimary} flex-1`}>
               Get started
             </Link>
           </div>
@@ -197,10 +199,10 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/register" className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
+              <Link href="/register" style={btnPrimaryStyle} className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
                 Start Research <ArrowRight size={16} />
               </Link>
-              <Link href="/login" className={`${btnSecondary} gap-2 !px-6 !py-3 text-[15px]`}>
+              <Link href="/login" style={btnSecondaryStyle} className={`${btnSecondary} gap-2 !px-6 !py-3 text-[15px]`}>
                 Sign in <ArrowUpRight size={15} />
               </Link>
             </div>
@@ -382,10 +384,10 @@ export default function LandingPage() {
             Ingest your first document and see every answer traced back to its source.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/register" className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
+            <Link href="/register" style={btnPrimaryStyle} className={`${btnPrimary} gap-2 !px-6 !py-3 text-[15px]`}>
               Create account <ArrowRight size={16} />
             </Link>
-            <Link href="/login" className={`${btnSecondary} !px-6 !py-3 text-[15px]`}>
+            <Link href="/login" style={btnSecondaryStyle} className={`${btnSecondary} !px-6 !py-3 text-[15px]`}>
               Sign in
             </Link>
           </div>
