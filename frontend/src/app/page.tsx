@@ -1,13 +1,15 @@
 "use client";
 
-import { motion, useMotionValue, useSpring, useScroll, useTransform, useInView, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
   BarChart3,
   BookOpen,
+  Braces,
   Database,
   FileSearch,
   GitBranch,
@@ -23,42 +25,47 @@ import {
   SplitSquareVertical,
   Upload,
   X,
-  Zap,
 } from "lucide-react";
 
-const ACCENT = "#E3B23C";
-const ACCENT_SOFT = "rgba(227,178,60,0.16)";
+const INK = "#111110";
+const INK_RAISED = "#17171a";
+const PAPER = "#f7f6f3";
+const PAPER_CARD = "#ffffff";
+const INDIGO = "#5b5ef4";
+const INDIGO_DEEP = "#4547c4";
+const INDIGO_SOFT = "rgba(91,94,244,0.14)";
+const ORANGE_DEEP = "#b5491f";
+const ORANGE_SOFT = "rgba(212,98,42,0.14)";
 
 const NAV_LINKS = [
   { label: "Problem", href: "#problem" },
   { label: "Pipeline", href: "#pipeline" },
-  { label: "Capabilities", href: "#capabilities" },
   { label: "Architecture", href: "#architecture" },
-  { label: "Inside the app", href: "#product" },
+  { label: "Inside Prism", href: "#product" },
 ];
 
 const TRUST_STRIP = [
-  { label: "Retrieval", value: "Hybrid dense + BM25" },
-  { label: "Generation", value: "Llama 3.3 70B on Groq" },
-  { label: "Verification", value: "Claim-level, per sentence" },
-  { label: "Transparency", value: "Full source trace" },
+  { label: "Retrieval", value: "Dense + BM25, fused" },
+  { label: "Generation", value: "Llama 3.3 70B · Groq" },
+  { label: "Verification", value: "Per-claim, per sentence" },
+  { label: "Pipeline stages", value: "4, start to verified answer" },
 ];
 
 const PROBLEMS = [
   {
     n: "01",
     t: "Sources pile up, understanding doesn't",
-    d: "Papers, reports, and long documents accumulate faster than anyone can actually read them, and the useful parts are buried in the middle of pages nobody reopens.",
+    d: "Papers and long documents accumulate faster than anyone can read them, and the part that matters is usually buried on a page nobody reopens.",
   },
   {
     n: "02",
     t: "Generic chat answers aren't accountable",
-    d: "Ordinary AI chat produces fluent answers with no link back to a source, so every claim has to be manually re-verified before anyone can trust it.",
+    d: "An ordinary AI chat produces a fluent answer with no link back to a source, so every claim has to be manually re-checked before it can be trusted.",
   },
   {
     n: "03",
     t: "Keyword search misses the point",
-    d: "Plain keyword search returns pages that contain the words but not the meaning, forcing manual skimming to find the passage that actually answers the question.",
+    d: "Plain keyword search returns pages that contain the words but not the meaning, which means skimming by hand to find the passage that actually answers the question.",
   },
   {
     n: "04",
@@ -71,25 +78,25 @@ const STAGES = [
   {
     n: "01",
     t: "Ingest",
-    d: "Upload a PDF, DOCX, DOC, or TXT file, fetch a URL, or paste raw text. Content is checked against its file signature, chunked, and embedded with all-MiniLM-L6-v2 in a background job you can track stage by stage.",
+    d: "Upload a PDF, DOCX, DOC, or TXT file, fetch a URL, or paste raw text. Content is verified against its file signature, chunked, and embedded with all-MiniLM-L6-v2 in a background job tracked stage by stage.",
     icon: Upload,
   },
   {
     n: "02",
     t: "Retrieve",
-    d: "A query runs against dense vector search and BM25 keyword search in parallel. Results are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker for the final top-k chunks.",
+    d: "A query runs against dense vector search and BM25 keyword search in parallel. Results are merged with reciprocal rank fusion, then reordered by a cross-encoder for the final top-k chunks.",
     icon: Search,
   },
   {
     n: "03",
     t: "Generate",
-    d: "Llama 3.3 70B on Groq answers strictly from the retrieved chunks. Every stated fact carries an inline source marker, e.g. [1][2], tied back to the exact chunk it came from.",
+    d: "Llama 3.3 70B on Groq answers strictly from the retrieved chunks. Every stated fact carries an inline source marker, such as [1][2], tied back to the exact chunk it came from.",
     icon: Sparkles,
   },
   {
     n: "04",
     t: "Verify",
-    d: "The answer is split into individual claims and matched against the retrieved context by token overlap. Each claim is labeled supported, uncertain, or unsupported with a confidence score.",
+    d: "The answer is split into individual claims and matched against the retrieved context by token overlap, then labeled supported, uncertain, or unsupported with a confidence score.",
     icon: ShieldCheck,
   },
 ];
@@ -102,19 +109,19 @@ const FEATURES = [
     big: true,
   },
   {
-    t: "Structured summarization",
-    d: "TLDR, key concepts, methodology, results, and limitations returned as one structured summary instead of a wall of text.",
-    icon: Layers,
-  },
-  {
     t: "Hybrid retrieval",
-    d: "Dense embeddings and BM25 keyword search fused with reciprocal rank fusion, then reordered by a cross-encoder reranker.",
+    d: "Dense embeddings and BM25 keyword search are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker before an answer is ever generated.",
     icon: SplitSquareVertical,
   },
   {
     t: "Claim-level verification",
-    d: "Every sentence in an answer is scored and labeled supported, uncertain, or unsupported against its retrieved evidence.",
+    d: "Every sentence in an answer is scored against its retrieved evidence and labeled supported, uncertain, or unsupported.",
     icon: ShieldCheck,
+  },
+  {
+    t: "Structured summarization",
+    d: "TLDR, key concepts, methodology, results, and limitations returned as one structured brief instead of a wall of text.",
+    icon: Layers,
   },
   {
     t: "Retrieval transparency",
@@ -123,7 +130,7 @@ const FEATURES = [
   },
   {
     t: "Evaluation harness",
-    d: "Run recall, groundedness, and MRR metrics against your own workspace whenever you need a system-level accuracy check.",
+    d: "Run recall@5, mean reciprocal rank, and groundedness metrics against your own workspace whenever you need a system-level check.",
     icon: BarChart3,
     big: true,
   },
@@ -131,21 +138,21 @@ const FEATURES = [
 
 const ARCHITECTURE_FLOW = [
   { t: "User query", d: "A question enters the workspace in plain language." },
-  { t: "Dense + BM25 retrieval", d: "Vector similarity and keyword search run in parallel over the workspace's ingested chunks." },
-  { t: "Reciprocal rank fusion", d: "The two ranked result sets are merged into a single fused ranking." },
+  { t: "Dense + BM25 retrieval", d: "Vector similarity search and keyword search run in parallel over the workspace's ingested chunks." },
+  { t: "Reciprocal rank fusion", d: "The two ranked result sets are merged into a single fused ranking, not just concatenated." },
   { t: "Cross-encoder reranking", d: "A cross-encoder scores the fused candidates directly against the query for the final top-k." },
   { t: "Grounded generation", d: "Llama 3.3 70B on Groq answers strictly from the retrieved chunks, with inline citation markers." },
-  { t: "Claim verification", d: "Each sentence is split out and checked against the retrieved context, then labeled with a confidence score." },
+  { t: "Claim verification", d: "Each sentence is split out and matched against the retrieved context, then labeled with a confidence score." },
 ];
 
 const PRODUCT_PAGES = [
-  { label: "Dashboard", icon: LayoutDashboard, d: "Live metrics across documents, generations, and verifications, plus latency and pass-rate charts." },
+  { label: "Dashboard", icon: LayoutDashboard, d: "Live metrics across documents, generations, and verifications, with latency and pass-rate charts." },
   { label: "Ingest", icon: Upload, d: "Add sources by upload, URL, or pasted text, with background jobs tracked through each stage." },
   { label: "Library", icon: BookOpen, d: "Every ingested document, searchable by title and sortable by size and chunk count." },
   { label: "Workspace", icon: MessageSquare, d: "Query your research in plain language and get answers grounded in your documents." },
   { label: "Source Trace", icon: GitBranch, d: "See the retrieved chunks, their sources, and similarity scores behind any answer." },
   { label: "Verification", icon: ShieldCheck, d: "Review each claim in an answer, labeled supported, uncertain, or unsupported." },
-  { label: "Evaluation", icon: BarChart3, d: "Run the evaluation harness for recall, groundedness, and MRR across your workspace." },
+  { label: "Evaluation", icon: BarChart3, d: "Run the evaluation harness for recall, MRR, and groundedness across your workspace." },
   { label: "Settings", icon: Settings, d: "Manage your account, profile, and password from one place." },
 ];
 
@@ -162,7 +169,7 @@ const DIFFERENTIATORS = [
   },
   {
     t: "Verification built in, not bolted on",
-    d: "Claim-level scoring runs as part of the pipeline itself, labeling each sentence supported, uncertain, or unsupported before you read it.",
+    d: "Claim-level scoring runs as part of the pipeline itself, labeling each sentence before you ever read it.",
     icon: ShieldCheck,
   },
   {
@@ -175,10 +182,10 @@ const DIFFERENTIATORS = [
 const STACK = [
   { t: "Next.js", d: "Frontend application and routing", icon: Layers },
   { t: "FastAPI", d: "Backend API and job orchestration", icon: Database },
-  { t: "PostgreSQL", d: "Storage for documents, chunks, results", icon: Database },
+  { t: "PostgreSQL + pgvector", d: "Storage for documents, chunks, embeddings", icon: Database },
   { t: "all-MiniLM-L6-v2", d: "Sentence embeddings for dense retrieval", icon: SplitSquareVertical },
   { t: "BM25", d: "Lexical retrieval, fused with dense search", icon: Search },
-  { t: "Cross-encoder", d: "Final relevance reordering of candidates", icon: SplitSquareVertical },
+  { t: "Cross-encoder", d: "Final relevance reordering of candidates", icon: Braces },
   { t: "Llama 3.3 70B", d: "Grounded generation via Groq", icon: Sparkles },
   { t: "JWT sessions", d: "Signed, session-scoped authentication", icon: Lock },
 ];
@@ -198,126 +205,52 @@ const USE_CASES = [
   },
 ];
 
-const STAT_PANEL = [
-  { value: 3, suffix: "", label: "Retrieval methods fused per query", decimals: 0 },
-  { value: 8, suffix: "", label: "Workspaces in one pipeline", decimals: 0 },
-  { value: 4, suffix: "", label: "Pipeline stages, start to verified answer", decimals: 0 },
-];
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+};
 
-function fadeUp(delay = 0) {
-  return {
-    initial: { opacity: 0, y: 22 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true, margin: "-80px" },
-    transition: { delay, duration: 0.6, ease: [0.22, 1, 0.36, 1] as const },
-  };
-}
-
-const DISPLAY_FONT = "var(--font-display, 'DM Serif Display', Georgia, serif)";
-
-function MagneticButton({
-  href,
+function Reveal({
+  children,
+  delay = 0,
   className,
   style,
-  children,
-  disabled,
 }: {
-  href: string;
+  children: ReactNode;
+  delay?: number;
   className?: string;
   style?: React.CSSProperties;
-  children: React.ReactNode;
-  disabled?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 220, damping: 18, mass: 0.3 });
-  const springY = useSpring(y, { stiffness: 220, damping: 18, mass: 0.3 });
-
-  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (disabled || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    x.set((e.clientX - rect.left - rect.width / 2) * 0.4);
-    y.set((e.clientY - rect.top - rect.height / 2) * 0.4);
+  const reduced = useReducedMotion();
+  if (reduced) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
   }
-
-  function handleLeave() {
-    x.set(0);
-    y.set(0);
-  }
-
   return (
     <motion.div
-      ref={ref}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      style={{ x: springX, y: springY, display: "inline-flex" }}
+      className={className}
+      style={style}
+      variants={fadeUp}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-72px" }}
+      transition={{ delay }}
     >
-      <Link href={href} className={className} style={style}>
-        {children}
-      </Link>
+      {children}
     </motion.div>
   );
-}
-
-function CountUp({ value, decimals = 0 }: { value: number; decimals?: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    if (!isInView) return;
-    let raf = 0;
-    let start = 0;
-    const duration = 1100;
-
-    function step(ts: number) {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(eased * value);
-      if (progress < 1) raf = requestAnimationFrame(step);
-      else setDisplay(value);
-    }
-
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [isInView, value]);
-
-  return <span ref={ref}>{display.toFixed(decimals)}</span>;
 }
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
-
-  const { scrollYProgress } = useScroll();
-  const progressScaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 40, restDelta: 0.001 });
-
-  const mockRef = useRef<HTMLDivElement>(null);
-  const tiltX = useMotionValue(0.5);
-  const tiltY = useMotionValue(0.5);
-  const tiltXSpring = useSpring(tiltX, { stiffness: 150, damping: 20 });
-  const tiltYSpring = useSpring(tiltY, { stiffness: 150, damping: 20 });
-  const rotateX = useTransform(tiltYSpring, [0, 1], [7, -7]);
-  const rotateY = useTransform(tiltXSpring, [0, 1], [-7, 7]);
-
-  function handleMockMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (prefersReducedMotion || !mockRef.current) return;
-    const rect = mockRef.current.getBoundingClientRect();
-    tiltX.set((e.clientX - rect.left) / rect.width);
-    tiltY.set((e.clientY - rect.top) / rect.height);
-  }
-
-  function handleMockLeave() {
-    tiltX.set(0.5);
-    tiltY.set(0.5);
-  }
 
   useEffect(() => {
     function onScroll() {
-      setScrolled(window.scrollY > 24);
+      setScrolled(window.scrollY > 20);
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -327,7 +260,7 @@ export default function LandingPage() {
     <div className="pl-root">
       <style>{`
         .pl-root {
-          background: #07070a;
+          background: ${INK};
           color: #ffffff;
           min-height: 100vh;
           width: 100%;
@@ -340,124 +273,116 @@ export default function LandingPage() {
           .pl-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 
-        .pl-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: ${ACCENT}; transform-origin: 0% 50%; z-index: 80; }
-
         .pl-header {
-          position: sticky;
-          top: 0;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          height: 84px;
-          padding: 0 24px;
-          background: rgba(7,7,10,0.86);
+          position: sticky; top: 0; z-index: 50;
+          display: flex; align-items: center; justify-content: space-between;
+          height: 76px; padding: 0 24px;
+          background: rgba(17,17,16,0.82);
           backdrop-filter: blur(14px);
           border-bottom: 1px solid rgba(255,255,255,0.08);
-          transition: height 0.35s cubic-bezier(0.22,1,0.36,1), border-color 0.35s ease, box-shadow 0.35s ease;
+          transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        .pl-header.scrolled { height: 68px; border-color: rgba(255,255,255,0.14); box-shadow: 0 18px 40px -24px rgba(0,0,0,0.7); }
+        .pl-header.scrolled { border-color: rgba(255,255,255,0.14); box-shadow: 0 18px 40px -28px rgba(0,0,0,0.8); }
         @media (min-width: 768px) { .pl-header { padding: 0 48px; } }
         @media (min-width: 1200px) { .pl-header { padding: 0 80px; } }
 
-        .pl-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-        .pl-logo-mark { width: 34px; height: 34px; border-radius: 9px; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.4s cubic-bezier(0.22,1,0.36,1); }
-        .pl-logo:hover .pl-logo-mark { transform: rotate(-14deg) scale(1.06); }
-        .pl-logo-text { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: 21px; letter-spacing: -0.02em; color: #ffffff; }
+        .pl-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+        .pl-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, ${INDIGO}, ${INDIGO_DEEP}); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 20px; letter-spacing: -0.02em; color: #ffffff; }
 
-        .pl-nav { display: none; align-items: center; gap: 40px; }
+        .pl-nav { display: none; align-items: center; gap: 36px; }
         @media (min-width: 900px) { .pl-nav { display: flex; } }
-        .pl-nav a { position: relative; font-family: var(--font-mono, monospace); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; padding-bottom: 4px; }
-        .pl-nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: ${ACCENT}; transition: right 0.3s cubic-bezier(0.22,1,0.36,1); }
+        .pl-nav a { font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.52); text-decoration: none; transition: color 0.2s ease; }
         .pl-nav a:hover { color: #ffffff; }
-        .pl-nav a:hover::after { right: 0; }
 
-        .pl-header-actions { display: none; align-items: center; gap: 14px; }
+        .pl-header-actions { display: none; align-items: center; gap: 12px; }
         @media (min-width: 900px) { .pl-header-actions { display: flex; } }
 
         .pl-btn-primary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 13px 26px; border-radius: 9px; background: #ffffff; color: #07070a;
-          font-size: 14px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
-          transition: opacity 0.2s ease, box-shadow 0.3s ease;
+          padding: 12px 24px; border-radius: 11px; background: #ffffff; color: ${INK};
+          font-size: 13.5px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
+          transition: opacity 0.18s ease, transform 0.18s ease;
         }
-        .pl-btn-primary:hover { opacity: 0.88; box-shadow: 0 14px 30px -10px rgba(255,255,255,0.3); }
+        .pl-btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+        .pl-btn-primary.on-light { background: ${INK}; color: #ffffff; }
+
         .pl-btn-secondary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 12px 25px; border-radius: 9px; background: transparent; color: #ffffff;
-          font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.18);
-          transition: border-color 0.2s ease, background 0.3s ease;
+          padding: 11px 23px; border-radius: 11px; background: transparent; color: #ffffff;
+          font-size: 13.5px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.18);
+          transition: border-color 0.18s ease, background 0.18s ease;
         }
-        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); }
+        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.04); }
+        .pl-btn-secondary.on-light { color: ${INK}; border-color: rgba(17,17,16,0.18); }
+        .pl-btn-secondary.on-light:hover { border-color: rgba(17,17,16,0.5); background: rgba(17,17,16,0.04); }
 
-        .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #ffffff; cursor: pointer; }
+        .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #ffffff; cursor: pointer; }
         @media (min-width: 900px) { .pl-menu-btn { display: none; } }
 
-        .pl-mobile-menu { position: fixed; inset: 84px 0 auto 0; z-index: 40; background: #07070a; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 28px 24px 36px; display: flex; flex-direction: column; gap: 22px; }
+        .pl-mobile-menu { position: fixed; inset: 76px 0 auto 0; z-index: 40; background: ${INK}; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 26px 24px 32px; display: flex; flex-direction: column; gap: 20px; }
         @media (min-width: 900px) { .pl-mobile-menu { display: none; } }
-        .pl-mobile-menu a { color: #ffffff; font-size: 16px; text-decoration: none; }
-        .pl-mobile-actions { display: flex; gap: 12px; margin-top: 8px; }
+        .pl-mobile-menu a { color: #ffffff; font-size: 15px; text-decoration: none; }
+        .pl-mobile-actions { display: flex; gap: 12px; margin-top: 6px; }
         .pl-mobile-actions > * { flex: 1; }
 
-        .pl-hero { position: relative; overflow: hidden; padding: 52px 24px 72px; }
-        @media (min-width: 768px) { .pl-hero { padding: 60px 48px 92px; } }
-        @media (min-width: 1200px) { .pl-hero { padding: 84px 80px 120px; } }
-        .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 72px; }
-        @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 96px; } }
+        .pl-hero { position: relative; padding: 56px 24px 80px; }
+        @media (min-width: 768px) { .pl-hero { padding: 64px 48px 100px; } }
+        @media (min-width: 1200px) { .pl-hero { padding: 84px 80px 128px; } }
+        .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 64px; }
+        @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 88px; } }
 
-        .pl-hero-brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase; color: ${ACCENT}; margin-bottom: 18px; }
-        .pl-hero-brand-mark { width: 7px; height: 7px; border-radius: 999px; background: ${ACCENT}; }
+        .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: ${INDIGO}; margin-bottom: 20px; }
+        .pl-eyebrow-dot { width: 6px; height: 6px; border-radius: 999px; background: ${INDIGO}; }
 
-        .pl-h1 { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: clamp(40px, 6vw, 68px); line-height: 1.05; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
-        .pl-h1 em { font-style: normal; color: ${ACCENT}; }
+        .pl-h1 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(38px, 5.6vw, 64px); line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
+        .pl-h1 em { font-style: normal; color: ${INDIGO}; background: linear-gradient(135deg, #a3a6f8, ${INDIGO}); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
-        .pl-lead { margin-top: 28px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.56); }
+        .pl-lead { margin-top: 26px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.58); }
 
-        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px; }
+        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 38px; }
 
-        .pl-trust-strip { margin-top: 64px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
+        .pl-trust-strip { margin-top: 60px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
         @media (min-width: 560px) { .pl-trust-strip { grid-template-columns: repeat(4, 1fr); } }
-        .pl-trust-item { padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.07); transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease; }
-        .pl-trust-item:hover { background: #ffffff; transform: translateY(-3px); border-color: #ffffff; }
-        .pl-trust-item:hover .pl-trust-value { color: #07070a; }
-        .pl-trust-item:hover .pl-trust-label { color: rgba(7,7,10,0.5); }
-        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 700; line-height: 1.4; color: #ffffff; transition: color 0.3s ease; }
-        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); transition: color 0.3s ease; }
+        .pl-trust-item { padding: 14px 15px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; line-height: 1.4; color: #ffffff; }
+        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
 
-        .pl-mock-wrap { perspective: 1400px; }
-        .pl-mock { border-radius: 16px; overflow: hidden; background: #0e0e12; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -26px rgba(0,0,0,0.75); transform-style: preserve-3d; }
-        .pl-mock-top { display: flex; align-items: center; gap: 8px; padding: 16px 22px; background: #131317; border-bottom: 1px solid rgba(255,255,255,0.09); }
-        .pl-mock-dot { width: 10px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.16); }
-        .pl-mock-url { margin-left: 10px; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.5); }
-        .pl-mock-body { display: flex; flex-direction: column; gap: 20px; padding: 26px; }
-        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 16px 16px 4px 16px; background: #ffffff; color: #07070a; padding: 12px 18px; font-size: 13.5px; }
-        .pl-mock-ai { max-width: 92%; border-radius: 16px 16px 16px 4px; border: 1px solid rgba(255,255,255,0.09); background: #131317; color: rgba(255,255,255,0.8); padding: 15px 18px; font-size: 13.5px; line-height: 1.7; }
-        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${ACCENT}; }
-        .pl-chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
-        .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.09); font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.55); }
-        .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); }
-        .pl-verify-cell { border-radius: 10px; padding: 12px 14px; }
-        .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 16px; font-weight: 700; }
-        .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        .pl-bars { display: flex; align-items: flex-end; gap: 7px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.09); height: 46px; }
-        .pl-bar { flex: 1; border-radius: 4px 4px 0 0; background: ${ACCENT}; opacity: 0.92; transform-origin: bottom; }
-        .pl-bars-caption { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
+        .pl-mock { border-radius: 18px; overflow: hidden; background: ${INK_RAISED}; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -30px rgba(0,0,0,0.75); }
+        .pl-mock-top { display: flex; align-items: center; gap: 8px; padding: 15px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .pl-mock-dot { width: 9px; height: 9px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+        .pl-mock-url { margin-left: 8px; padding: 5px 13px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.5); }
+        .pl-mock-body { display: flex; flex-direction: column; gap: 18px; padding: 24px; }
+        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 14px 14px 3px 14px; background: ${INDIGO}; color: #ffffff; padding: 11px 16px; font-size: 13px; }
+        .pl-mock-ai { max-width: 94%; border-radius: 14px 14px 14px 3px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.025); color: rgba(255,255,255,0.82); padding: 15px 17px; font-size: 13px; line-height: 1.7; }
+        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${INDIGO}; opacity: 0.95; }
+        .pl-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.55); }
+        .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .pl-verify-cell { border-radius: 10px; padding: 11px 13px; }
+        .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 15px; font-weight: 700; }
+        .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pl-method-row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+        .pl-method-tag { font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.42); padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); }
 
-        .pl-section { padding: 96px 24px; }
-        @media (min-width: 768px) { .pl-section { padding: 116px 48px; } }
-        @media (min-width: 1200px) { .pl-section { padding: 150px 80px; } }
-        .pl-section.tight { padding-top: 76px; padding-bottom: 76px; }
-        @media (min-width: 768px) { .pl-section.tight { padding-top: 92px; padding-bottom: 92px; } }
-        .pl-section.surface { background: #0c0c0f; }
+        .pl-section { padding: 88px 24px; }
+        @media (min-width: 768px) { .pl-section { padding: 108px 48px; } }
+        @media (min-width: 1200px) { .pl-section { padding: 140px 80px; } }
+        .pl-section.tight { padding-top: 72px; padding-bottom: 72px; }
+        @media (min-width: 768px) { .pl-section.tight { padding-top: 84px; padding-bottom: 84px; } }
+        .pl-section.paper { background: ${PAPER}; color: ${INK}; }
         .pl-section-inner { max-width: 1320px; margin: 0 auto; }
 
-        .pl-section-head { max-width: 660px; margin-bottom: 76px; }
-        .pl-label { font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); margin-bottom: 20px; }
-        .pl-h2 { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: clamp(30px, 4vw, 48px); line-height: 1.12; letter-spacing: -0.03em; color: #ffffff; margin: 0; }
-        .pl-h2.small { font-size: clamp(28px, 3.2vw, 40px); }
-        .pl-section-sub { margin-top: 24px; font-size: 16px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+        .pl-section-head { max-width: 660px; margin-bottom: 72px; }
+        .pl-label { font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); margin-bottom: 18px; }
+        .paper .pl-label { color: rgba(17,17,16,0.45); }
+        .pl-h2 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(29px, 3.8vw, 46px); line-height: 1.12; letter-spacing: -0.03em; color: #ffffff; margin: 0; }
+        .paper .pl-h2 { color: ${INK}; }
+        .pl-h2.small { font-size: clamp(27px, 3vw, 38px); }
+        .pl-section-sub { margin-top: 22px; font-size: 15.5px; line-height: 1.75; color: rgba(255,255,255,0.52); }
+        .paper .pl-section-sub { color: rgba(17,17,16,0.58); }
 
-        .pl-grid { display: grid; gap: 28px; }
+        .pl-grid { display: grid; gap: 24px; }
         .pl-grid.cols-2 { grid-template-columns: 1fr; }
         @media (min-width: 700px) { .pl-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
         .pl-grid.cols-3 { grid-template-columns: 1fr; }
@@ -466,71 +391,68 @@ export default function LandingPage() {
         @media (min-width: 640px) { .pl-grid.cols-4 { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1050px) { .pl-grid.cols-4 { grid-template-columns: repeat(4, 1fr); } }
 
-        .pl-card { background: #0e0e12; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 34px; display: flex; flex-direction: column; gap: 18px; transition: border-color 0.3s ease, transform 0.3s ease, background 0.3s ease; }
-        .pl-card:hover { border-color: rgba(255,255,255,0.22); transform: translateY(-4px); }
-        .pl-card.raised { background: #131317; }
-        .pl-card.raised:hover { background: #17171c; }
-        .pl-card-num { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.28); }
-        .pl-card-title { font-size: 16.5px; font-weight: 700; color: #ffffff; }
-        .pl-card-title.serif { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-weight: 400; font-size: 24px; letter-spacing: -0.01em; }
-        .pl-card-desc { font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+        .pl-card { background: ${INK_RAISED}; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.25s ease, transform 0.25s ease; }
+        .pl-card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-3px); }
+        .paper .pl-card { background: ${PAPER_CARD}; border-color: rgba(17,17,16,0.09); }
+        .paper .pl-card:hover { border-color: rgba(17,17,16,0.22); }
+        .pl-card-num { font-family: var(--font-mono, monospace); font-size: 11.5px; color: rgba(255,255,255,0.28); }
+        .paper .pl-card-num { color: rgba(17,17,16,0.32); }
+        .pl-card-title { font-size: 16px; font-weight: 700; color: #ffffff; }
+        .paper .pl-card-title { color: ${INK}; }
+        .pl-card-title.serif { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: 23px; letter-spacing: -0.01em; }
+        .pl-card-desc { font-size: 13.5px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+        .paper .pl-card-desc { color: rgba(17,17,16,0.58); }
 
-        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${ACCENT_SOFT}; flex-shrink: 0; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
-        .pl-card:hover .pl-icon-badge { transform: scale(1.08) rotate(-4deg); }
-        .pl-icon-badge.plain { background: rgba(255,255,255,0.055); }
+        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${INDIGO_SOFT}; flex-shrink: 0; }
+        .pl-icon-badge.plain { background: rgba(255,255,255,0.06); }
+        .paper .pl-icon-badge.plain { background: rgba(17,17,16,0.06); }
+        .pl-icon-badge.orange { background: ${ORANGE_SOFT}; }
 
         .pl-feature-span-2 { grid-column: span 1; }
         @media (min-width: 700px) { .pl-feature-span-2.big { grid-column: span 2; } }
 
-        .pl-two-col { display: grid; grid-template-columns: 1fr; gap: 60px; }
-        @media (min-width: 900px) { .pl-two-col { grid-template-columns: 0.8fr 1.2fr; gap: 100px; align-items: start; } }
-        .pl-editorial p { font-size: 17px; line-height: 1.9; color: rgba(255,255,255,0.62); margin: 0 0 30px; }
+        .pl-two-col { display: grid; grid-template-columns: 1fr; gap: 56px; }
+        @media (min-width: 900px) { .pl-two-col { grid-template-columns: 0.8fr 1.2fr; gap: 96px; align-items: start; } }
+        .pl-editorial p { font-size: 17px; line-height: 1.9; color: rgba(255,255,255,0.64); margin: 0 0 28px; }
+        .paper .pl-editorial p { color: rgba(17,17,16,0.68); }
         .pl-editorial p:last-child { margin-bottom: 0; }
+        .pl-editorial strong { color: #ffffff; font-weight: 700; }
+        .paper .pl-editorial strong { color: ${INK}; }
 
         .pl-flow { max-width: 660px; margin: 0 auto; }
-        .pl-flow-step { display: flex; gap: 26px; }
+        .pl-flow-step { display: flex; gap: 24px; }
         .pl-flow-rail { display: flex; flex-direction: column; align-items: center; }
-        .pl-flow-num { width: 42px; height: 42px; border-radius: 999px; background: #131317; border: 1px solid rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: #ffffff; flex-shrink: 0; transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
-        .pl-flow-step:hover .pl-flow-num { background: ${ACCENT}; border-color: ${ACCENT}; color: #07070a; }
-        .pl-flow-line { width: 1px; flex: 1; background: rgba(255,255,255,0.09); min-height: 52px; }
-        .pl-flow-body { flex: 1; padding-bottom: 48px; }
-        .pl-flow-title { padding-top: 8px; font-size: 16.5px; font-weight: 700; color: #ffffff; }
-        .pl-flow-desc { margin-top: 10px; font-size: 14px; line-height: 1.75; color: rgba(255,255,255,0.5); }
+        .pl-flow-num { width: 40px; height: 40px; border-radius: 999px; background: rgba(17,17,16,0.04); border: 1px solid rgba(17,17,16,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 700; color: ${INK}; flex-shrink: 0; }
+        .pl-flow-line { width: 1px; flex: 1; background: rgba(17,17,16,0.12); min-height: 48px; }
+        .pl-flow-body { flex: 1; padding-bottom: 44px; }
+        .pl-flow-title { padding-top: 6px; font-size: 16px; font-weight: 700; color: ${INK}; }
+        .pl-flow-desc { margin-top: 9px; font-size: 13.5px; line-height: 1.75; color: rgba(17,17,16,0.58); }
 
-        .pl-diff-card { display: flex; gap: 22px; }
+        .pl-diff-card { display: flex; gap: 20px; }
 
-        .pl-stats-section { display: flex; justify-content: center; }
-        .pl-stats-panel { width: 100%; max-width: 1100px; background: #ffffff; border-radius: 28px; padding: 56px 40px; display: grid; grid-template-columns: 1fr; gap: 40px; box-shadow: 0 70px 140px -50px rgba(0,0,0,0.75); }
-        @media (min-width: 700px) { .pl-stats-panel { grid-template-columns: repeat(3, 1fr); padding: 64px 56px; } }
-        .pl-stat { text-align: center; }
-        .pl-stat-value { font-family: ${JSON.stringify(DISPLAY_FONT).slice(0)}; font-size: clamp(42px, 5vw, 64px); color: #07070a; letter-spacing: -0.02em; }
-        .pl-stat-label { margin-top: 12px; font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(7,7,10,0.48); max-width: 220px; margin-left: auto; margin-right: auto; }
-        @media (min-width: 700px) { .pl-stat:not(:last-child) { border-right: 1px solid rgba(7,7,10,0.09); } }
-
-        .pl-security-row { display: flex; flex-direction: column; gap: 28px; max-width: 1320px; margin: 0 auto; }
+        .pl-security-row { display: flex; flex-direction: column; gap: 26px; max-width: 1320px; margin: 0 auto; }
         @media (min-width: 700px) { .pl-security-row { flex-direction: row; align-items: center; justify-content: space-between; } }
-        .pl-security-left { display: flex; align-items: flex-start; gap: 20px; max-width: 540px; }
+        .pl-security-left { display: flex; align-items: flex-start; gap: 18px; max-width: 540px; }
 
-        .pl-final { display: flex; justify-content: center; text-align: center; }
-        .pl-final-inner { max-width: 760px; }
-        .pl-eyebrow { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${ACCENT_SOFT}; color: ${ACCENT}; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 32px; }
+        .pl-final { display: flex; justify-content: center; text-align: center; position: relative; overflow: hidden; }
+        .pl-final-glow { position: absolute; top: 50%; left: 50%; width: 900px; height: 500px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(91,94,244,0.16), transparent 70%); pointer-events: none; }
+        .pl-final-inner { max-width: 760px; position: relative; }
+        .pl-eyebrow-pill { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${INDIGO_SOFT}; color: #a3a6f8; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 30px; }
 
-        .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 40px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
-        @media (min-width: 768px) { .pl-footer { padding: 40px 48px; } }
-        @media (min-width: 1200px) { .pl-footer { padding: 40px 80px; } }
+        .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: 36px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
+        @media (min-width: 768px) { .pl-footer { padding: 36px 48px; } }
+        @media (min-width: 1200px) { .pl-footer { padding: 36px 80px; } }
         .pl-footer-brand { display: flex; align-items: center; gap: 10px; }
-        .pl-footer-links { display: flex; flex-wrap: wrap; gap: 30px; }
-        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 12px; color: rgba(255,255,255,0.36); text-decoration: none; transition: color 0.2s ease; }
-        .pl-footer-links a:hover { color: rgba(255,255,255,0.75); }
+        .pl-footer-links { display: flex; flex-wrap: wrap; gap: 28px; }
+        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 11.5px; color: rgba(255,255,255,0.38); text-decoration: none; transition: color 0.2s ease; }
+        .pl-footer-links a:hover { color: rgba(255,255,255,0.8); }
         .pl-footer-tag { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.3); }
       `}</style>
-
-      <motion.div className="pl-progress" style={{ scaleX: progressScaleX }} />
 
       <header className={`pl-header ${scrolled ? "scrolled" : ""}`}>
         <Link href="/" className="pl-logo">
           <span className="pl-logo-mark">
-            <Zap size={16} color="#07070a" strokeWidth={2.5} />
+            <Sparkles size={15} color="#ffffff" strokeWidth={2.25} />
           </span>
           <span className="pl-logo-text">Prism</span>
         </Link>
@@ -543,13 +465,13 @@ export default function LandingPage() {
 
         <div className="pl-header-actions">
           <Link href="/login" className="pl-btn-secondary">Sign in</Link>
-          <MagneticButton href="/register" className="pl-btn-primary" disabled={!!prefersReducedMotion}>
-            Get started <ArrowRight size={14} color="#07070a" />
-          </MagneticButton>
+          <Link href="/register" className="pl-btn-primary">
+            Get started <ArrowRight size={14} />
+          </Link>
         </div>
 
-        <button onClick={() => setMenuOpen((v) => !v)} aria-label="Toggle menu" className="pl-menu-btn">
-          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+        <button onClick={() => setMenuOpen((v) => !v)} aria-label="Toggle menu" aria-expanded={menuOpen} className="pl-menu-btn">
+          {menuOpen ? <X size={17} /> : <Menu size={17} />}
         </button>
       </header>
 
@@ -567,10 +489,10 @@ export default function LandingPage() {
 
       <section className="pl-hero">
         <div className="pl-hero-grid">
-          <motion.div {...fadeUp(0)}>
-            <div className="pl-hero-brand">
-              <span className="pl-hero-brand-mark" />
-              Prism
+          <Reveal>
+            <div className="pl-eyebrow-row">
+              <span className="pl-eyebrow-dot" />
+              Research intelligence platform
             </div>
 
             <h1 className="pl-h1">
@@ -585,12 +507,12 @@ export default function LandingPage() {
             </p>
 
             <div className="pl-cta-row">
-              <MagneticButton href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
-                Start Research <ArrowRight size={17} color="#07070a" />
-              </MagneticButton>
-              <MagneticButton href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
-                Sign in <ArrowUpRight size={16} />
-              </MagneticButton>
+              <Link href="/register" className="pl-btn-primary" style={{ padding: "14px 28px", fontSize: 14.5 }}>
+                Start Research <ArrowRight size={16} />
+              </Link>
+              <Link href="/login" className="pl-btn-secondary" style={{ padding: "13px 27px", fontSize: 14.5 }}>
+                Sign in <ArrowUpRight size={15} />
+              </Link>
             </div>
 
             <div className="pl-trust-strip">
@@ -601,16 +523,10 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </Reveal>
 
-          <motion.div {...fadeUp(0.1)} className="pl-mock-wrap">
-            <motion.div
-              ref={mockRef}
-              onMouseMove={handleMockMove}
-              onMouseLeave={handleMockLeave}
-              className="pl-mock"
-              style={{ rotateX, rotateY }}
-            >
+          <Reveal delay={0.1}>
+            <div className="pl-mock">
               <div className="pl-mock-top">
                 <span className="pl-mock-dot" />
                 <span className="pl-mock-dot" />
@@ -633,11 +549,11 @@ export default function LandingPage() {
                 </div>
 
                 <div className="pl-verify-row">
-                  <div className="pl-verify-cell" style={{ background: "rgba(61,153,112,0.13)" }}>
+                  <div className="pl-verify-cell" style={{ background: "rgba(61,153,112,0.14)" }}>
                     <div className="pl-verify-pct" style={{ color: "#69d3a8" }}>82%</div>
                     <div className="pl-verify-label" style={{ color: "rgba(105,211,168,0.8)" }}>Supported</div>
                   </div>
-                  <div className="pl-verify-cell" style={{ background: "rgba(212,98,42,0.13)" }}>
+                  <div className="pl-verify-cell" style={{ background: "rgba(212,98,42,0.14)" }}>
                     <div className="pl-verify-pct" style={{ color: "#eea173" }}>12%</div>
                     <div className="pl-verify-label" style={{ color: "rgba(238,161,115,0.8)" }}>Uncertain</div>
                   </div>
@@ -647,44 +563,36 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="pl-bars">
-                  {[38, 62, 46, 80, 58, 70, 90].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      className="pl-bar"
-                      initial={{ scaleY: 0 }}
-                      whileInView={{ scaleY: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: 0.5 + i * 0.06, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                      style={{ height: `${h * 0.46}px` }}
-                    />
-                  ))}
+                <div className="pl-method-row">
+                  <span className="pl-method-tag">Dense search</span>
+                  <span className="pl-method-tag">BM25</span>
+                  <span className="pl-method-tag">RRF fusion</span>
+                  <span className="pl-method-tag">Cross-encoder rerank</span>
                 </div>
-                <div className="pl-bars-caption">Generation volume, last 7 days</div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      <section id="problem" className="pl-section">
+      <section id="problem" className="pl-section paper">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head">
+          <Reveal className="pl-section-head">
             <div className="pl-label">The problem</div>
             <h2 className="pl-h2">Research is slow because trust is expensive.</h2>
             <p className="pl-section-sub">
               Reading everything takes too long. Trusting a fluent AI answer without a source takes a
               different kind of too long, once you count the time spent checking it.
             </p>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-grid cols-2">
             {PROBLEMS.map((p, i) => (
-              <motion.div key={p.n} {...fadeUp(i * 0.06)} className="pl-card">
+              <Reveal key={p.n} delay={i * 0.05} className="pl-card">
                 <span className="pl-card-num">{p.n}</span>
                 <div className="pl-card-title">{p.t}</div>
                 <div className="pl-card-desc">{p.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -693,96 +601,96 @@ export default function LandingPage() {
       <section className="pl-section">
         <div className="pl-section-inner">
           <div className="pl-two-col">
-            <motion.div {...fadeUp(0)}>
+            <Reveal>
               <div className="pl-label">What is Prism?</div>
               <h2 className="pl-h2 small">A research assistant that shows its work.</h2>
-            </motion.div>
+            </Reveal>
 
-            <motion.div {...fadeUp(0.08)} className="pl-editorial">
+            <Reveal delay={0.08} className="pl-editorial">
               <p>
                 Prism is a retrieval-augmented research platform. You ingest documents, ask questions in
-                plain language, and get answers generated strictly from what you uploaded, not from the
+                plain language, and get answers generated strictly from what you uploaded — not from the
                 model&apos;s general knowledge.
               </p>
               <p>
-                Every answer carries inline citations back to the exact chunk it was drawn from, and every
-                sentence in that answer is independently checked against the retrieved evidence and labeled
-                supported, uncertain, or unsupported.
+                Every answer carries <strong>inline citations</strong> back to the exact chunk it was drawn
+                from, and every sentence in that answer is independently checked against the retrieved
+                evidence and labeled supported, uncertain, or unsupported.
               </p>
               <p>
                 It exists for anyone who works from documents and needs the answer and the receipt in the
                 same place: researchers, students, and knowledge workers moving through papers, reports,
                 and long-form material.
               </p>
-            </motion.div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      <section id="capabilities" className="pl-section">
+      <section id="capabilities" className="pl-section paper">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
             <div className="pl-label">Capabilities</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A complete research intelligence stack.</h2>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-grid cols-3">
             {FEATURES.map((f, i) => (
-              <motion.div
+              <Reveal
                 key={f.t}
-                {...fadeUp(i * 0.05)}
+                delay={i * 0.04}
                 className={`pl-card pl-feature-span-2 ${f.big ? "big" : ""}`}
-                style={{ minHeight: 190 }}
+                style={{ minHeight: 184 }}
               >
                 <span className="pl-icon-badge">
-                  <f.icon size={17} color={ACCENT} />
+                  <f.icon size={17} color={INDIGO_DEEP} />
                 </span>
                 <div className="pl-card-title">{f.t}</div>
                 <div className="pl-card-desc">{f.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="pipeline" className="pl-section surface">
+      <section id="pipeline" className="pl-section">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head">
+          <Reveal className="pl-section-head">
             <div className="pl-label">How it works</div>
             <h2 className="pl-h2">From raw source to verified insight.</h2>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-grid cols-4">
             {STAGES.map((s, i) => (
-              <motion.div key={s.n} {...fadeUp(i * 0.07)} className="pl-card raised" style={{ minHeight: 250 }}>
+              <Reveal key={s.n} delay={i * 0.05} className="pl-card" style={{ minHeight: 240 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span className="pl-card-num">{s.n}</span>
                   <span className="pl-icon-badge plain">
-                    <s.icon size={15} color="rgba(255,255,255,0.65)" />
+                    <s.icon size={15} color="rgba(255,255,255,0.68)" />
                   </span>
                 </div>
                 <div className="pl-card-title serif">{s.t}</div>
                 <div className="pl-card-desc">{s.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="architecture" className="pl-section">
+      <section id="architecture" className="pl-section paper">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ maxWidth: 700 }}>
+          <Reveal className="pl-section-head" style={{ maxWidth: 700 }}>
             <div className="pl-label">Retrieval architecture</div>
             <h2 className="pl-h2 small">Engineered retrieval, not a wrapper around an LLM.</h2>
             <p className="pl-section-sub">
               Every answer passes through a fixed pipeline of retrieval and verification stages before it
               reaches the interface. Nothing here is a single prompt to a model.
             </p>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-flow">
             {ARCHITECTURE_FLOW.map((step, i) => (
-              <motion.div key={step.t} {...fadeUp(i * 0.05)} className="pl-flow-step">
+              <Reveal key={step.t} delay={i * 0.04} className="pl-flow-step">
                 <div className="pl-flow-rail">
                   <div className="pl-flow-num">{i + 1}</div>
                   {i < ARCHITECTURE_FLOW.length - 1 && <div className="pl-flow-line" />}
@@ -791,110 +699,96 @@ export default function LandingPage() {
                   <div className="pl-flow-title">{step.t}</div>
                   <div className="pl-flow-desc">{step.d}</div>
                 </div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="product" className="pl-section surface">
+      <section id="product" className="pl-section">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
             <div className="pl-label">Inside the app</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Eight workspaces, one pipeline.</h2>
-          </motion.div>
+          </Reveal>
 
-          <div className="pl-grid cols-4" style={{ gap: 22 }}>
+          <div className="pl-grid cols-4" style={{ gap: 20 }}>
             {PRODUCT_PAGES.map((p, i) => (
-              <motion.div key={p.label} {...fadeUp(i * 0.04)} className="pl-card raised" style={{ padding: 26, gap: 14 }}>
-                <p.icon size={17} color="rgba(255,255,255,0.5)" />
-                <div className="pl-card-title" style={{ fontSize: 14.5 }}>{p.label}</div>
+              <Reveal key={p.label} delay={i * 0.03} className="pl-card" style={{ padding: 24, gap: 13 }}>
+                <p.icon size={17} color="rgba(255,255,255,0.55)" />
+                <div className="pl-card-title" style={{ fontSize: 14 }}>{p.label}</div>
                 <div className="pl-card-desc" style={{ fontSize: 12.5 }}>{p.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pl-section">
+      <section className="pl-section paper">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
             <div className="pl-label">Why Prism</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Different from a chat window pointed at your files.</h2>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-grid cols-2">
             {DIFFERENTIATORS.map((d, i) => (
-              <motion.div key={d.t} {...fadeUp(i * 0.06)} className="pl-card pl-diff-card">
-                <span className="pl-icon-badge plain" style={{ width: 44, height: 44 }}>
-                  <d.icon size={18} color="rgba(255,255,255,0.65)" />
+              <Reveal key={d.t} delay={i * 0.05} className="pl-card pl-diff-card">
+                <span className="pl-icon-badge orange" style={{ width: 44, height: 44 }}>
+                  <d.icon size={18} color={ORANGE_DEEP} />
                 </span>
                 <div>
                   <div className="pl-card-title">{d.t}</div>
                   <div className="pl-card-desc" style={{ marginTop: 8 }}>{d.d}</div>
                 </div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pl-section surface tight pl-stats-section">
-        <motion.div {...fadeUp(0)} className="pl-stats-panel">
-          {STAT_PANEL.map((s) => (
-            <div key={s.label} className="pl-stat">
-              <div className="pl-stat-value">
-                <CountUp value={s.value} decimals={s.decimals} />
-                {s.suffix}
-              </div>
-              <div className="pl-stat-label">{s.label}</div>
-            </div>
-          ))}
-        </motion.div>
-      </section>
-
-      <section className="pl-section surface tight">
+      <section className="pl-section tight">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 48 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 44 }}>
             <div className="pl-label">Built on</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A real pipeline underneath the interface.</h2>
-          </motion.div>
+          </Reveal>
 
-          <div className="pl-grid cols-4" style={{ gap: 22 }}>
+          <div className="pl-grid cols-4" style={{ gap: 20 }}>
             {STACK.map((s, i) => (
-              <motion.div key={s.t} {...fadeUp(i * 0.03)} className="pl-card raised" style={{ padding: 24, gap: 14 }}>
-                <s.icon size={16} color="rgba(255,255,255,0.45)" />
-                <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 13, fontWeight: 700, color: "#ffffff" }}>{s.t}</div>
+              <Reveal key={s.t} delay={i * 0.02} className="pl-card" style={{ padding: 22, gap: 13 }}>
+                <s.icon size={16} color="rgba(255,255,255,0.48)" />
+                <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 12.5, fontWeight: 700, color: "#ffffff" }}>{s.t}</div>
                 <div className="pl-card-desc" style={{ fontSize: 12 }}>{s.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pl-section">
+      <section className="pl-section paper">
         <div className="pl-section-inner">
-          <motion.div {...fadeUp(0)} className="pl-section-head" style={{ marginBottom: 56 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
             <div className="pl-label">Who it&apos;s for</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Built for anyone who works from documents.</h2>
-          </motion.div>
+          </Reveal>
 
           <div className="pl-grid cols-3">
             {USE_CASES.map((u, i) => (
-              <motion.div key={u.t} {...fadeUp(i * 0.06)} className="pl-card">
+              <Reveal key={u.t} delay={i * 0.05} className="pl-card">
                 <div className="pl-card-title">{u.t}</div>
                 <div className="pl-card-desc">{u.d}</div>
-              </motion.div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pl-section surface tight">
+      <section className="pl-section tight">
         <div className="pl-security-row">
-          <motion.div {...fadeUp(0)} className="pl-security-left">
+          <Reveal className="pl-security-left">
             <span className="pl-icon-badge plain" style={{ width: 46, height: 46 }}>
-              <Lock size={19} color="rgba(255,255,255,0.65)" />
+              <Lock size={19} color="rgba(255,255,255,0.68)" />
             </span>
             <div>
               <div className="pl-card-title">Session-scoped by design</div>
@@ -903,44 +797,46 @@ export default function LandingPage() {
                 inaccessible until you&apos;re authenticated.
               </p>
             </div>
-          </motion.div>
-          <motion.div {...fadeUp(0.06)} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.3)" }}>
+          </Reveal>
+          <Reveal delay={0.06} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.32)" }}>
             Signed sessions · Protected routes
-          </motion.div>
+          </Reveal>
         </div>
       </section>
 
       <section id="workflow" className="pl-section pl-final">
-        <motion.div {...fadeUp(0)} className="pl-final-inner">
-          <span className="pl-eyebrow">Ready when you are</span>
-          <h2 className="pl-h2" style={{ marginTop: 0, marginBottom: 28, fontSize: "clamp(32px,4.6vw,54px)" }}>
-            Research shouldn&apos;t be a <em style={{ color: ACCENT }}>guessing game.</em>
+        <div className="pl-final-glow" />
+        <Reveal className="pl-final-inner">
+          <span className="pl-eyebrow-pill">Ready when you are</span>
+          <h2 className="pl-h2" style={{ marginTop: 0, marginBottom: 26, fontSize: "clamp(30px,4.2vw,50px)" }}>
+            Research shouldn&apos;t be a <em style={{ fontStyle: "normal", color: INDIGO }}>guessing game.</em>
           </h2>
-          <p className="pl-section-sub" style={{ marginTop: 0, marginBottom: 44 }}>
+          <p className="pl-section-sub" style={{ marginTop: 0, marginBottom: 40 }}>
             Ingest your first document and see every answer traced back to its source.
           </p>
           <div className="pl-cta-row" style={{ justifyContent: "center", marginTop: 0 }}>
-            <MagneticButton href="/register" className="pl-btn-primary" style={{ padding: "15px 30px", fontSize: 15 }} disabled={!!prefersReducedMotion}>
-              Create account <ArrowRight size={17} color="#07070a" />
-            </MagneticButton>
-            <Link href="/login" className="pl-btn-secondary" style={{ padding: "14px 29px", fontSize: 15 }}>
+            <Link href="/register" className="pl-btn-primary" style={{ padding: "14px 28px", fontSize: 14.5 }}>
+              Create account <ArrowRight size={16} />
+            </Link>
+            <Link href="/login" className="pl-btn-secondary" style={{ padding: "13px 27px", fontSize: 14.5 }}>
               Sign in
             </Link>
           </div>
-        </motion.div>
+        </Reveal>
       </section>
 
       <footer className="pl-footer">
         <div className="pl-footer-brand">
           <span className="pl-logo-mark" style={{ width: 26, height: 26, borderRadius: 7 }}>
-            <Zap size={12} color="#07070a" strokeWidth={2.5} />
+            <Sparkles size={12} color="#ffffff" strokeWidth={2.25} />
           </span>
-          <span style={{ fontFamily: DISPLAY_FONT, fontSize: 15, color: "rgba(255,255,255,0.5)" }}>Prism</span>
+          <span style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)", fontSize: 14.5, color: "rgba(255,255,255,0.5)" }}>Prism</span>
         </div>
         <div className="pl-footer-links">
           {NAV_LINKS.map((l) => (
             <a key={l.label} href={l.href}>{l.label}</a>
           ))}
+          <a href="https://github.com/yamini-nlp/prism" target="_blank" rel="noreferrer">GitHub</a>
         </div>
         <span className="pl-footer-tag">Research Intelligence Platform</span>
       </footer>
