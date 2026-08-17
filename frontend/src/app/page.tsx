@@ -288,7 +288,7 @@ export default function LandingPage() {
 
         .pl-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
         .pl-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, ${INDIGO}, ${INDIGO_DEEP}); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 20px; letter-spacing: -0.02em; color: #ffffff; }
+        .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 20px; letter-spacing: 0.02em; color: #ffffff; }
 
         .pl-nav { display: none; align-items: center; gap: 36px; }
         @media (min-width: 900px) { .pl-nav { display: flex; } }
@@ -331,6 +331,8 @@ export default function LandingPage() {
         @media (min-width: 1200px) { .pl-hero { padding: 84px 80px 128px; } }
         .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 64px; }
         @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 88px; } }
+
+        .pl-hero-kicker { font-family: var(--font-sans, 'Syne', system-ui, sans-serif); font-size: 13px; font-weight: 800; letter-spacing: 0.32em; text-transform: uppercase; color: #ffffff; margin-bottom: 16px; }
 
         .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: ${INDIGO}; margin-bottom: 20px; }
         .pl-eyebrow-dot { width: 6px; height: 6px; border-radius: 999px; background: ${INDIGO}; }
@@ -454,7 +456,7 @@ export default function LandingPage() {
           <span className="pl-logo-mark">
             <Sparkles size={15} color="#ffffff" strokeWidth={2.25} />
           </span>
-          <span className="pl-logo-text">Prism</span>
+          <span className="pl-logo-text">PRISM</span>
         </Link>
 
         <nav className="pl-nav">
@@ -830,7 +832,7 @@ export default function LandingPage() {
           <span className="pl-logo-mark" style={{ width: 26, height: 26, borderRadius: 7 }}>
             <Sparkles size={12} color="#ffffff" strokeWidth={2.25} />
           </span>
-          <span style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)", fontSize: 14.5, color: "rgba(255,255,255,0.5)" }}>Prism</span>
+          <span style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)", fontSize: 14.5, letterSpacing: "0.02em", color: "rgba(255,255,255,0.5)" }}>PRISM</span>
         </div>
         <div className="pl-footer-links">
           {NAV_LINKS.map((l) => (
