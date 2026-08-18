@@ -10,6 +10,7 @@ import { Eye, EyeOff, Loader2, Zap } from "lucide-react";
 import { login } from "@/lib/auth";
 import { toast } from "@/lib/toast";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
+import { sanitizeRedirectPath } from "@/lib/routes";
 
 const SERIF = "var(--font-display, 'DM Serif Display', Georgia, serif)";
 const SANS = "var(--font-sans, 'Syne', system-ui, sans-serif)";
@@ -57,8 +58,7 @@ function LoginForm() {
     try {
       await login(values.email.trim(), values.password);
       toast.success("Signed in", "Welcome back to Prism.");
-      const from = searchParams.get("from");
-      window.location.href = from && from.startsWith("/") ? from : "/dashboard";
+      window.location.href = sanitizeRedirectPath(searchParams.get("from"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed.";
       toast.error("Could not sign in", message);
