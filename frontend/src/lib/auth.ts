@@ -6,9 +6,30 @@ export interface CurrentUser {
   created_at: string;
 }
 
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
 let accessToken: string | null = null;
 let currentUser: CurrentUser | null = null;
+let authStatus: AuthStatus = "loading";
 let refreshInFlight: Promise<string | null> | null = null;
+
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+function notify(): void {
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeAuth(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getAuthStatus(): AuthStatus {
+  return authStatus;
+}
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -24,6 +45,22 @@ export function getCurrentUser(): CurrentUser | null {
 
 export function setCurrentUser(user: CurrentUser | null): void {
   currentUser = user;
+}
+
+function applyAuthenticated(token: string, user: CurrentUser | null): void {
+  accessToken = token;
+  if (user) {
+    currentUser = user;
+  }
+  authStatus = "authenticated";
+  notify();
+}
+
+function applyUnauthenticated(): void {
+  accessToken = null;
+  currentUser = null;
+  authStatus = "unauthenticated";
+  notify();
 }
 
 async function persistRefreshToken(refreshToken: string): Promise<void> {
@@ -83,15 +120,13 @@ export async function login(email: string, password: string): Promise<CurrentUse
   }
 
   const data = await res.json();
-  setAccessToken(data.access_token);
-  setCurrentUser(data.user);
   try {
     await persistRefreshToken(data.refresh_token);
   } catch (err) {
-    setAccessToken(null);
-    setCurrentUser(null);
+    applyUnauthenticated();
     throw err;
   }
+  applyAuthenticated(data.access_token, data.user);
   return data.user;
 }
 
@@ -112,15 +147,13 @@ export async function register(email: string, password: string): Promise<Current
   }
 
   const data = await res.json();
-  setAccessToken(data.access_token);
-  setCurrentUser(data.user);
   try {
     await persistRefreshToken(data.refresh_token);
   } catch (err) {
-    setAccessToken(null);
-    setCurrentUser(null);
+    applyUnauthenticated();
     throw err;
   }
+  applyAuthenticated(data.access_token, data.user);
   return data.user;
 }
 
@@ -128,19 +161,14 @@ async function doRefresh(): Promise<string | null> {
   try {
     const res = await fetch("/api/auth/refresh", { method: "POST" });
     if (!res.ok) {
-      setAccessToken(null);
-      setCurrentUser(null);
+      applyUnauthenticated();
       return null;
     }
     const data = await res.json();
-    setAccessToken(data.access_token);
-    if (data.user) {
-      setCurrentUser(data.user);
-    }
+    applyAuthenticated(data.access_token, data.user ?? null);
     return data.access_token;
   } catch {
-    setAccessToken(null);
-    setCurrentUser(null);
+    applyUnauthenticated();
     return null;
   }
 }
@@ -160,11 +188,13 @@ export async function logout(): Promise<void> {
     await fetch("/api/auth/logout", { method: "POST" });
   } catch {
   }
-  setAccessToken(null);
-  setCurrentUser(null);
+  applyUnauthenticated();
 }
 
 export async function bootstrapSession(): Promise<CurrentUser | null> {
+  if (authStatus === "authenticated" && currentUser) {
+    return currentUser;
+  }
   const token = await refreshAccessToken();
   if (!token) {
     return null;
