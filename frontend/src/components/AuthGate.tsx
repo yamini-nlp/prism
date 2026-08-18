@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { bootstrapSession, getCurrentUser } from "@/lib/auth";
-import { isAuthRoute, isProtectedPath } from "@/lib/routes";
-
-type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+import { bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
+import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
 
 function LoadingScreen() {
   return (
@@ -42,35 +40,21 @@ function LoadingScreen() {
 }
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus>(() =>
-    getCurrentUser() ? "authenticated" : "loading"
-  );
+  const status = useSyncExternalStore(subscribeAuth, getAuthStatus, () => "loading" as const);
   const pathname = usePathname() || "/";
   const router = useRouter();
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (getCurrentUser()) {
-      setStatus("authenticated");
-      return;
+    if (status === "loading") {
+      bootstrapSession();
     }
-
-    bootstrapSession().then((user) => {
-      if (cancelled) return;
-      setStatus(user ? "authenticated" : "unauthenticated");
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     if (status === "loading") return;
 
     if (status === "unauthenticated" && isProtectedPath(pathname)) {
-      const params = new URLSearchParams({ from: pathname });
+      const params = new URLSearchParams({ from: sanitizeRedirectPath(pathname) });
       router.replace(`/login?${params.toString()}`);
       return;
     }
