@@ -20,3 +20,12 @@ export function isProtectedPath(pathname: string): boolean {
 export function isAuthRoute(pathname: string): boolean {
   return (AUTH_ROUTES as readonly string[]).includes(pathname);
 }
+
+export function sanitizeRedirectPath(path: string | null | undefined): string {
+  if (!path) return "/dashboard";
+  if (!path.startsWith("/")) return "/dashboard";
+  if (path.startsWith("//")) return "/dashboard";
+  if (path.includes("\\")) return "/dashboard";
+  if (/^\/[a-zA-Z][a-zA-Z0-9+.-]*:/.test(path)) return "/dashboard";
+  return path;
+}
