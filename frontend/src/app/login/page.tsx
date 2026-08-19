@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import type { CSSProperties } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,6 +40,7 @@ const fieldErrorStyle: CSSProperties = {
 };
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -58,7 +59,7 @@ function LoginForm() {
     try {
       await login(values.email.trim(), values.password);
       toast.success("Signed in", "Welcome back to Prism.");
-      window.location.href = sanitizeRedirectPath(searchParams.get("from"));
+      router.push(sanitizeRedirectPath(searchParams.get("from")));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed.";
       toast.error("Could not sign in", message);
