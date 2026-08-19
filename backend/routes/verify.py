@@ -20,6 +20,7 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
     supported = sum(1 for r in results if r["label"] == "supported")
     uncertain = sum(1 for r in results if r["label"] == "uncertain")
     total = len(results)
+    unsupported = total - supported - uncertain
     grounding_score = round(supported / total * 100, 1) if total > 0 else 0.0
 
     session_id = get_session_id(current_user)
@@ -31,7 +32,7 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
             claims=results,
             total_claims=total,
             supported_count=supported,
-            unsupported_count=total - supported,
+            unsupported_count=unsupported,
             grounding_score=grounding_score,
         ))
         await db.commit()
@@ -42,7 +43,7 @@ async def verify(body: schemas.VerifyRequest, current_user: User = Depends(get_c
         claims=[schemas.ClaimResult(**r) for r in results],
         total_claims=total,
         supported_count=supported,
-        unsupported_count=total - supported,
+        unsupported_count=unsupported,
         uncertain_count=uncertain,
         grounding_score=grounding_score,
     )
