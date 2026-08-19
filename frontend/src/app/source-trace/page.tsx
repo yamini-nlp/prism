@@ -16,8 +16,8 @@ import {
   ArrowRight,
   FileText,
 } from "lucide-react";
-
-const CONVERSATION_KEY = "prism_workspace_conversation";
+import { getCurrentUser } from "@/lib/auth";
+import { conversationStorageKey } from "@/lib/conversationStorage";
 
 type Citation = {
   id: string;
@@ -66,7 +66,7 @@ function truncate(text: string, max: number): string {
 }
 
 function readGenerations(): GenerationRecord[] {
-  const raw = window.localStorage.getItem(CONVERSATION_KEY);
+  const raw = window.localStorage.getItem(conversationStorageKey(getCurrentUser()?.id));
   if (!raw) return [];
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) return [];
