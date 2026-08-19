@@ -19,8 +19,8 @@ import {
   Info, Trash2, CheckCircle2, Sun, Moon,
 } from "lucide-react";
 
-const PROFILE_STORAGE_KEY = "prism_profile_display_name";
-const NOTIFICATIONS_STORAGE_KEY = "prism_notification_prefs";
+const PROFILE_STORAGE_PREFIX = "prism_profile_display_name";
+const NOTIFICATIONS_STORAGE_PREFIX = "prism_notification_prefs";
 
 interface NotificationPrefs {
   evaluationComplete: boolean;
@@ -34,19 +34,27 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   weeklySummary: false,
 };
 
-function loadDisplayName(): string {
-  if (typeof window === "undefined") return "";
+function profileStorageKey(userId: string): string {
+  return `${PROFILE_STORAGE_PREFIX}:${userId}`;
+}
+
+function notificationsStorageKey(userId: string): string {
+  return `${NOTIFICATIONS_STORAGE_PREFIX}:${userId}`;
+}
+
+function loadDisplayName(userId: string | null): string {
+  if (typeof window === "undefined" || !userId) return "";
   try {
-    return localStorage.getItem(PROFILE_STORAGE_KEY) || "";
+    return localStorage.getItem(profileStorageKey(userId)) || "";
   } catch {
     return "";
   }
 }
 
-function loadNotificationPrefs(): NotificationPrefs {
-  if (typeof window === "undefined") return DEFAULT_NOTIFICATION_PREFS;
+function loadNotificationPrefs(userId: string | null): NotificationPrefs {
+  if (typeof window === "undefined" || !userId) return DEFAULT_NOTIFICATION_PREFS;
   try {
-    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const raw = localStorage.getItem(notificationsStorageKey(userId));
     if (!raw) return DEFAULT_NOTIFICATION_PREFS;
     const parsed = JSON.parse(raw);
     return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
@@ -120,13 +128,15 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    profileForm.reset({ displayName: loadDisplayName() });
-  }, []);
+    if (!user) return;
+    profileForm.reset({ displayName: loadDisplayName(user.id) });
+  }, [user]);
 
   async function handleProfileSave(values: ProfileSettingsFormValues) {
+    if (!user) return;
     try {
       await new Promise((resolve) => setTimeout(resolve, 350));
-      localStorage.setItem(PROFILE_STORAGE_KEY, values.displayName.trim());
+      localStorage.setItem(profileStorageKey(user.id), values.displayName.trim());
       setProfileSavedAt(Date.now());
       toast.success("Profile saved", "Your display name has been updated in this browser.");
       profileForm.reset({ displayName: values.displayName.trim() });
@@ -158,18 +168,20 @@ export default function SettingsPage() {
   const [notificationsSavedAt, setNotificationsSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
-    setNotifications(loadNotificationPrefs());
-  }, []);
+    if (!user) return;
+    setNotifications(loadNotificationPrefs(user.id));
+  }, [user]);
 
   function toggleNotification(key: keyof NotificationPrefs) {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function handleNotificationsSave() {
+    if (!user) return;
     setNotificationsSaving(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      localStorage.setItem(notificationsStorageKey(user.id), JSON.stringify(notifications));
       setNotificationsSavedAt(Date.now());
       toast.success("Notification preferences saved");
     } catch (err) {
