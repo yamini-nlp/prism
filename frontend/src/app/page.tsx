@@ -15,7 +15,7 @@ import {
   Link2,
   FileType,
   CheckCircle2,
-  Github,
+  Code2,
   Star,
   Quote,
   Menu,
@@ -277,7 +277,7 @@ export default function LandingPage() {
               rel="noreferrer"
               className="btn-secondary px-7 py-3.5 text-[14.5px]"
             >
-              <Github size={15} />
+              <Code2 size={15} />
               View on GitHub
             </a>
           </motion.div>
@@ -584,7 +584,7 @@ export default function LandingPage() {
                 rel="noreferrer"
                 className="btn-secondary border-[rgba(255,255,255,0.2)] px-7 py-3.5 text-[14.5px] text-[var(--bg-surface)] hover:border-[var(--bg-surface)]"
               >
-                <Github size={15} />
+                <Code2 size={15} />
                 Explore the code
               </a>
             </div>
