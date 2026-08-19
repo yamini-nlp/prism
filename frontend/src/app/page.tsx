@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
@@ -27,14 +27,15 @@ import {
   X,
 } from "lucide-react";
 
-const INK = "#111110";
-const INK_RAISED = "#17171a";
-const PAPER = "#f7f6f3";
+const INK = "#0a0a09";
+const INK_RAISED = "#151513";
+const INK_LINE = "rgba(255,255,255,0.09)";
+const PAPER = "#f6f4ef";
 const PAPER_CARD = "#ffffff";
 const ACCENT = "#d4622a";
 const ACCENT_LIGHT = "#e88a52";
-const ACCENT_DEEP = "#b5491f";
-const ACCENT_SOFT = "rgba(212,98,42,0.14)";
+const ACCENT_DEEP = "#9c3d16";
+const ACCENT_SOFT = "rgba(212,98,42,0.13)";
 
 const NAV_LINKS = [
   { label: "Problem", href: "#problem" },
@@ -48,6 +49,14 @@ const TRUST_STRIP = [
   { label: "Generation", value: "Llama 3.3 70B · Groq" },
   { label: "Verification", value: "Per-claim, per sentence" },
   { label: "Pipeline stages", value: "4, start to verified answer" },
+];
+
+const RAG_FLOW = [
+  { t: "Query", icon: Search },
+  { t: "Retrieval", icon: FileSearch },
+  { t: "Context", icon: Layers },
+  { t: "Reasoning", icon: Sparkles },
+  { t: "Answer", icon: ShieldCheck },
 ];
 
 const PROBLEMS = [
@@ -105,33 +114,37 @@ const FEATURES = [
     t: "Multi-format ingestion",
     d: "PDF, DOCX, DOC, TXT, URLs, and pasted text all flow through the same chunking and embedding pipeline, tracked through a background job so nothing blocks the interface while it runs.",
     icon: Upload,
-    big: true,
+    size: "wide",
   },
   {
     t: "Hybrid retrieval",
     d: "Dense embeddings and BM25 keyword search are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker before an answer is ever generated.",
     icon: SplitSquareVertical,
+    size: "tall",
   },
   {
     t: "Claim-level verification",
     d: "Every sentence in an answer is scored against its retrieved evidence and labeled supported, uncertain, or unsupported.",
     icon: ShieldCheck,
+    size: "normal",
   },
   {
     t: "Structured summarization",
     d: "TLDR, key concepts, methodology, results, and limitations returned as one structured brief instead of a wall of text.",
     icon: Layers,
+    size: "normal",
   },
   {
     t: "Retrieval transparency",
     d: "Inspect the exact chunks, source documents, and similarity scores that produced every answer, not just the final text.",
     icon: FileSearch,
+    size: "normal",
   },
   {
     t: "Evaluation harness",
     d: "Run recall@5, mean reciprocal rank, and groundedness metrics against your own workspace whenever you need a system-level check.",
     icon: BarChart3,
-    big: true,
+    size: "wide",
   },
 ];
 
@@ -191,14 +204,17 @@ const STACK = [
 
 const USE_CASES = [
   {
+    letter: "A",
     t: "Researchers",
     d: "Move through papers and reports faster, with every summary and answer traceable back to the exact passage it came from.",
   },
   {
+    letter: "B",
     t: "Students",
     d: "Ask direct questions about assigned readings and get answers that cite the source material instead of a paraphrase to double-check.",
   },
   {
+    letter: "C",
     t: "Knowledge workers",
     d: "Turn a folder of internal documents into a queryable workspace, with claim-level verification standing in for a manual re-read.",
   },
@@ -207,6 +223,11 @@ const USE_CASES = [
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
+};
+
+const growLine: Variants = {
+  hidden: { scaleX: 0 },
+  show: { scaleX: 1, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] } },
 };
 
 function Reveal({
@@ -272,189 +293,261 @@ export default function LandingPage() {
           .pl-root * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 
+        .pl-noise {
+          position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.5;
+          background-image: radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px);
+          background-size: 26px 26px;
+        }
+
         .pl-header {
           position: sticky; top: 0; z-index: 50;
           display: flex; align-items: center; justify-content: space-between;
-          height: 76px; padding: 0 24px;
-          background: rgba(17,17,16,0.82);
-          backdrop-filter: blur(14px);
-          border-bottom: 1px solid rgba(255,255,255,0.08);
+          height: 72px; padding: 0 24px;
+          background: rgba(10,10,9,0.78);
+          backdrop-filter: blur(16px);
+          border-bottom: 1px solid ${INK_LINE};
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        .pl-header.scrolled { border-color: rgba(255,255,255,0.14); box-shadow: 0 18px 40px -28px rgba(0,0,0,0.8); }
+        .pl-header.scrolled { border-color: rgba(255,255,255,0.16); box-shadow: 0 18px 40px -28px rgba(0,0,0,0.9); }
         @media (min-width: 768px) { .pl-header { padding: 0 48px; } }
         @media (min-width: 1200px) { .pl-header { padding: 0 80px; } }
 
-        .pl-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
-        .pl-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP}); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 20px; letter-spacing: 0.02em; color: #ffffff; }
+        .pl-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .pl-logo-mark { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+        .pl-logo-mark::after { content: ""; position: absolute; inset: 4px; border: 1px solid ${ACCENT}; }
+        .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 18px; letter-spacing: 0.06em; color: #ffffff; }
 
-        .pl-nav { display: none; align-items: center; gap: 36px; }
+        .pl-nav { display: none; align-items: center; gap: 34px; }
         @media (min-width: 900px) { .pl-nav { display: flex; } }
-        .pl-nav a { font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.52); text-decoration: none; transition: color 0.2s ease; }
+        .pl-nav a { position: relative; font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s ease; padding-bottom: 3px; }
+        .pl-nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 0; height: 1px; background: ${ACCENT}; transition: right 0.25s ease; }
         .pl-nav a:hover { color: #ffffff; }
+        .pl-nav a:hover::after { right: 0; }
 
-        .pl-header-actions { display: none; align-items: center; gap: 12px; }
+        .pl-header-actions { display: none; align-items: center; gap: 10px; }
         @media (min-width: 900px) { .pl-header-actions { display: flex; } }
 
         .pl-btn-primary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 12px 24px; border-radius: 11px; background: #ffffff; color: ${INK};
-          font-size: 13.5px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
-          transition: opacity 0.18s ease, transform 0.18s ease;
+          padding: 12px 22px; background: #ffffff; color: ${INK};
+          font-size: 13px; font-weight: 700; text-decoration: none; border: 1px solid #ffffff; cursor: pointer;
+          transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
         }
-        .pl-btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-        .pl-btn-primary.on-light { background: ${INK}; color: #ffffff; }
+        .pl-btn-primary:hover { background: ${ACCENT}; border-color: ${ACCENT}; color: #ffffff; transform: translateY(-1px); }
 
         .pl-btn-secondary {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 11px 23px; border-radius: 11px; background: transparent; color: #ffffff;
-          font-size: 13.5px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.18);
+          padding: 11px 21px; background: transparent; color: #ffffff;
+          font-size: 13px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);
           transition: border-color 0.18s ease, background 0.18s ease;
         }
-        .pl-btn-secondary:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.04); }
-        .pl-btn-secondary.on-light { color: ${INK}; border-color: rgba(17,17,16,0.18); }
-        .pl-btn-secondary.on-light:hover { border-color: rgba(17,17,16,0.5); background: rgba(17,17,16,0.04); }
+        .pl-btn-secondary:hover { border-color: #ffffff; background: rgba(255,255,255,0.04); }
+        .pl-btn-secondary.on-light { color: ${INK}; border-color: rgba(10,10,9,0.2); }
+        .pl-btn-secondary.on-light:hover { border-color: ${INK}; background: rgba(10,10,9,0.05); }
 
-        .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #ffffff; cursor: pointer; }
+        .pl-menu-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #ffffff; cursor: pointer; }
         @media (min-width: 900px) { .pl-menu-btn { display: none; } }
 
-        .pl-mobile-menu { position: fixed; inset: 76px 0 auto 0; z-index: 40; background: ${INK}; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 26px 24px 32px; display: flex; flex-direction: column; gap: 20px; }
+        .pl-mobile-menu { position: fixed; inset: 72px 0 auto 0; z-index: 40; background: ${INK}; border-bottom: 1px solid ${INK_LINE}; padding: 24px 24px 30px; display: flex; flex-direction: column; gap: 18px; }
         @media (min-width: 900px) { .pl-mobile-menu { display: none; } }
         .pl-mobile-menu a { color: #ffffff; font-size: 15px; text-decoration: none; }
         .pl-mobile-actions { display: flex; gap: 12px; margin-top: 6px; }
         .pl-mobile-actions > * { flex: 1; }
 
-        .pl-hero { position: relative; padding: 56px 24px 80px; }
-        @media (min-width: 768px) { .pl-hero { padding: 64px 48px 100px; } }
-        @media (min-width: 1200px) { .pl-hero { padding: 84px 80px 128px; } }
-        .pl-hero-grid { position: relative; max-width: 1320px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 64px; }
-        @media (min-width: 1100px) { .pl-hero-grid { grid-template-columns: 1.05fr 0.95fr; align-items: center; gap: 88px; } }
+        .pl-hero { position: relative; padding: 60px 24px 0; overflow: hidden; }
+        @media (min-width: 768px) { .pl-hero { padding: 76px 48px 0; } }
+        @media (min-width: 1200px) { .pl-hero { padding: 96px 80px 0; } }
 
-        .pl-hero-kicker { font-family: var(--font-sans, 'Syne', system-ui, sans-serif); font-size: 13px; font-weight: 800; letter-spacing: 0.32em; text-transform: uppercase; color: #ffffff; margin-bottom: 16px; }
+        .pl-hero-layout { position: relative; z-index: 2; max-width: 1360px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 60px; }
+        @media (min-width: 1140px) { .pl-hero-layout { grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: start; } }
 
-        .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: ${ACCENT_LIGHT}; margin-bottom: 20px; }
-        .pl-eyebrow-dot { width: 6px; height: 6px; border-radius: 999px; background: ${ACCENT}; }
+        .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 11.5px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: ${ACCENT_LIGHT}; margin-bottom: 22px; }
+        .pl-eyebrow-dot { width: 6px; height: 6px; background: ${ACCENT}; }
 
-        .pl-h1 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(38px, 5.6vw, 64px); line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
-        .pl-h1 em { font-style: normal; color: ${ACCENT}; background: linear-gradient(135deg, ${ACCENT_LIGHT}, ${ACCENT}); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .pl-h1 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(46px, 7vw, 92px); line-height: 0.98; letter-spacing: -0.035em; color: #ffffff; margin: 0; }
+        .pl-h1 .outline { -webkit-text-stroke: 1.5px rgba(255,255,255,0.65); color: transparent; }
+        .pl-h1 em { font-style: normal; color: ${ACCENT}; }
 
-        .pl-lead { margin-top: 26px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.58); }
+        .pl-lead { margin-top: 30px; max-width: 430px; font-size: 16.5px; line-height: 1.75; color: rgba(255,255,255,0.55); border-left: 2px solid ${ACCENT}; padding-left: 20px; }
 
-        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 38px; }
+        .pl-cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 36px; }
 
-        .pl-trust-strip { margin-top: 60px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.09); display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; }
-        @media (min-width: 560px) { .pl-trust-strip { grid-template-columns: repeat(4, 1fr); } }
-        .pl-trust-item { padding: 14px 15px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
-        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; line-height: 1.4; color: #ffffff; }
-        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); }
+        .pl-hero-right { position: relative; min-height: 420px; }
+        @media (max-width: 1139px) { .pl-hero-right { min-height: 0; } }
 
-        .pl-mock { border-radius: 18px; overflow: hidden; background: ${INK_RAISED}; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 44px 90px -30px rgba(0,0,0,0.75); }
-        .pl-mock-top { display: flex; align-items: center; gap: 8px; padding: 15px 20px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .pl-mock-dot { width: 9px; height: 9px; border-radius: 999px; background: rgba(255,255,255,0.16); }
-        .pl-mock-url { margin-left: 8px; padding: 5px 13px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.5); }
-        .pl-mock-body { display: flex; flex-direction: column; gap: 18px; padding: 24px; }
-        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 14px 14px 3px 14px; background: #ffffff; color: ${INK}; padding: 11px 16px; font-size: 13px; font-weight: 600; }
-        .pl-mock-ai { max-width: 94%; border-radius: 14px 14px 14px 3px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.025); color: rgba(255,255,255,0.82); padding: 15px 17px; font-size: 13px; line-height: 1.7; }
-        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${ACCENT_LIGHT}; opacity: 0.95; }
-        .pl-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-        .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.55); }
-        .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
-        .pl-verify-cell { border-radius: 10px; padding: 11px 13px; }
+        .pl-float-card {
+          position: relative; background: ${INK_RAISED}; border: 1px solid ${INK_LINE};
+          box-shadow: 0 40px 90px -30px rgba(0,0,0,0.75);
+        }
+
+        .pl-panel-answer { padding: 22px; }
+        .pl-panel-top { display: flex; align-items: center; gap: 8px; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid ${INK_LINE}; }
+        .pl-panel-dot { width: 8px; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+        .pl-panel-url { margin-left: 6px; padding: 4px 12px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 9.5px; color: rgba(255,255,255,0.5); }
+
+        .pl-query-pill {
+          position: absolute; top: -18px; right: 6%; max-width: 250px; z-index: 3;
+          background: #ffffff; color: ${INK}; padding: 12px 16px; font-size: 12.5px; font-weight: 600;
+          transform: rotate(2deg);
+        }
+        @media (max-width: 1139px) { .pl-query-pill { position: static; transform: none; margin-bottom: -1px; max-width: none; } }
+
+        .pl-verify-pill {
+          position: absolute; bottom: -22px; left: -4%; z-index: 3; transform: rotate(-2deg);
+          display: flex; gap: 1px; background: ${INK_LINE};
+        }
+        @media (max-width: 1139px) { .pl-verify-pill { position: static; transform: none; margin-top: -1px; } }
+        .pl-verify-seg { background: ${INK_RAISED}; padding: 10px 14px; min-width: 78px; }
         .pl-verify-pct { font-family: var(--font-mono, monospace); font-size: 15px; font-weight: 700; }
-        .pl-verify-label { margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        .pl-method-row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
-        .pl-method-tag { font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.42); padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); }
+        .pl-verify-label { margin-top: 2px; font-family: var(--font-mono, monospace); font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); }
 
-        .pl-section { padding: 88px 24px; }
+        .pl-mock-ai { max-width: 96%; border: 1px solid ${INK_LINE}; background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.82); padding: 15px 17px; font-size: 13px; line-height: 1.7; }
+        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${ACCENT_LIGHT}; }
+        .pl-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid ${INK_LINE}; font-family: var(--font-mono, monospace); font-size: 9.5px; color: rgba(255,255,255,0.55); }
+        .pl-method-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; padding-top: 18px; border-top: 1px solid ${INK_LINE}; }
+        .pl-method-tag { font-family: var(--font-mono, monospace); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); padding: 5px 10px; border: 1px solid ${INK_LINE}; }
+
+        .pl-trust-rail { margin-top: 68px; padding-top: 26px; border-top: 1px solid ${INK_LINE}; display: flex; flex-wrap: wrap; gap: 0; }
+        .pl-trust-item { flex: 1 1 150px; padding-right: 24px; }
+        .pl-trust-value { font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; line-height: 1.4; color: #ffffff; }
+        .pl-trust-label { margin-top: 8px; font-family: var(--font-mono, monospace); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.38); }
+
+        .pl-ragflow { position: relative; z-index: 2; max-width: 1360px; margin: 96px auto 0; padding: 0 24px 90px; }
+        @media (min-width: 768px) { .pl-ragflow { padding: 0 48px 110px; } }
+        @media (min-width: 1200px) { .pl-ragflow { padding: 0 80px 130px; } }
+        .pl-ragflow-label { font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(255,255,255,0.4); margin-bottom: 26px; }
+        .pl-ragflow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
+        .pl-ragflow-node { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; width: 128px; }
+        .pl-ragflow-icon { width: 52px; height: 52px; border: 1px solid ${INK_LINE}; display: flex; align-items: center; justify-content: center; background: ${INK_RAISED}; transition: border-color 0.25s ease, transform 0.25s ease; }
+        .pl-ragflow-node:hover .pl-ragflow-icon { border-color: ${ACCENT}; transform: translateY(-3px); }
+        .pl-ragflow-t { font-family: var(--font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); }
+        .pl-ragflow-line { flex: 1; min-width: 24px; height: 1px; background: ${INK_LINE}; transform-origin: left; position: relative; top: -22px; }
+        @media (max-width: 720px) { .pl-ragflow-row { justify-content: center; } .pl-ragflow-line { display: none; } }
+
+        .pl-section { padding: 88px 24px; position: relative; z-index: 2; }
         @media (min-width: 768px) { .pl-section { padding: 108px 48px; } }
-        @media (min-width: 1200px) { .pl-section { padding: 140px 80px; } }
-        .pl-section.tight { padding-top: 72px; padding-bottom: 72px; }
-        @media (min-width: 768px) { .pl-section.tight { padding-top: 84px; padding-bottom: 84px; } }
+        @media (min-width: 1200px) { .pl-section { padding: 136px 80px; } }
+        .pl-section.tight { padding-top: 70px; padding-bottom: 70px; }
+        @media (min-width: 768px) { .pl-section.tight { padding-top: 82px; padding-bottom: 82px; } }
         .pl-section.paper { background: ${PAPER}; color: ${INK}; }
-        .pl-section-inner { max-width: 1320px; margin: 0 auto; }
+        .pl-section-inner { max-width: 1360px; margin: 0 auto; }
 
-        .pl-section-head { max-width: 660px; margin-bottom: 72px; }
-        .pl-label { font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(255,255,255,0.42); margin-bottom: 18px; }
-        .paper .pl-label { color: rgba(17,17,16,0.45); }
-        .pl-h2 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(29px, 3.8vw, 46px); line-height: 1.12; letter-spacing: -0.03em; color: #ffffff; margin: 0; }
+        .pl-section-head { max-width: 640px; margin-bottom: 68px; }
+        .pl-label { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+        .pl-label::before { content: ""; width: 14px; height: 1px; background: ${ACCENT}; }
+        .paper .pl-label { color: rgba(10,10,9,0.42); }
+        .pl-h2 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(30px, 4vw, 50px); line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; margin: 0; }
         .paper .pl-h2 { color: ${INK}; }
-        .pl-h2.small { font-size: clamp(27px, 3vw, 38px); }
+        .pl-h2.small { font-size: clamp(26px, 3vw, 36px); }
         .pl-section-sub { margin-top: 22px; font-size: 15.5px; line-height: 1.75; color: rgba(255,255,255,0.52); }
-        .paper .pl-section-sub { color: rgba(17,17,16,0.58); }
+        .paper .pl-section-sub { color: rgba(10,10,9,0.58); }
 
-        .pl-grid { display: grid; gap: 24px; }
-        .pl-grid.cols-2 { grid-template-columns: 1fr; }
-        @media (min-width: 700px) { .pl-grid.cols-2 { grid-template-columns: 1fr 1fr; } }
+        .pl-problem-list { display: flex; flex-direction: column; }
+        .pl-problem-row { display: grid; grid-template-columns: 70px 1fr; gap: 24px; padding: 34px 0; border-top: 1px solid rgba(10,10,9,0.12); }
+        .pl-problem-row:last-child { border-bottom: 1px solid rgba(10,10,9,0.12); }
+        @media (min-width: 720px) { .pl-problem-row { grid-template-columns: 100px 1fr 1fr; gap: 40px; } }
+        .pl-problem-n { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 44px; line-height: 1; color: rgba(10,10,9,0.16); }
+        .pl-problem-t { font-size: 19px; font-weight: 700; color: ${INK}; letter-spacing: -0.01em; }
+        .pl-problem-d { font-size: 14.5px; line-height: 1.75; color: rgba(10,10,9,0.6); margin-top: 6px; }
+        @media (min-width: 720px) { .pl-problem-t { margin-top: 6px; } .pl-problem-d { margin-top: 0; } }
+
+        .pl-grid { display: grid; gap: 20px; }
         .pl-grid.cols-3 { grid-template-columns: 1fr; }
         @media (min-width: 700px) { .pl-grid.cols-3 { grid-template-columns: repeat(3, 1fr); } }
         .pl-grid.cols-4 { grid-template-columns: 1fr; }
         @media (min-width: 640px) { .pl-grid.cols-4 { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1050px) { .pl-grid.cols-4 { grid-template-columns: repeat(4, 1fr); } }
 
-        .pl-card { background: ${INK_RAISED}; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.25s ease, transform 0.25s ease; }
-        .pl-card:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-3px); }
-        .paper .pl-card { background: ${PAPER_CARD}; border-color: rgba(17,17,16,0.09); }
-        .paper .pl-card:hover { border-color: rgba(17,17,16,0.22); }
-        .pl-card-num { font-family: var(--font-mono, monospace); font-size: 11.5px; color: rgba(255,255,255,0.28); }
-        .paper .pl-card-num { color: rgba(17,17,16,0.32); }
+        .pl-bento { display: grid; grid-template-columns: 1fr; gap: 18px; }
+        @media (min-width: 720px) { .pl-bento { grid-template-columns: repeat(4, 1fr); grid-auto-rows: 190px; } }
+        .pl-bento-card { grid-column: span 1; grid-row: span 1; }
+        @media (min-width: 720px) {
+          .pl-bento-card.wide { grid-column: span 2; }
+          .pl-bento-card.tall { grid-row: span 2; }
+        }
+
+        .pl-card { background: ${INK_RAISED}; border: 1px solid ${INK_LINE}; padding: 28px; display: flex; flex-direction: column; gap: 14px; transition: border-color 0.25s ease, transform 0.25s ease; height: 100%; }
+        .pl-card:hover { border-color: rgba(255,255,255,0.24); transform: translateY(-3px); }
+        .paper .pl-card { background: ${PAPER_CARD}; border-color: rgba(10,10,9,0.1); }
+        .paper .pl-card:hover { border-color: rgba(10,10,9,0.26); }
+        .pl-card-num { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.28); }
+        .paper .pl-card-num { color: rgba(10,10,9,0.3); }
         .pl-card-title { font-size: 16px; font-weight: 700; color: #ffffff; }
         .paper .pl-card-title { color: ${INK}; }
-        .pl-card-title.serif { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: 23px; letter-spacing: -0.01em; }
+        .pl-card-title.serif { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: 22px; letter-spacing: -0.01em; }
         .pl-card-desc { font-size: 13.5px; line-height: 1.75; color: rgba(255,255,255,0.5); }
-        .paper .pl-card-desc { color: rgba(17,17,16,0.58); }
+        .paper .pl-card-desc { color: rgba(10,10,9,0.58); }
 
-        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${ACCENT_SOFT}; flex-shrink: 0; }
+        .pl-icon-badge { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: ${ACCENT_SOFT}; flex-shrink: 0; }
         .pl-icon-badge.plain { background: rgba(255,255,255,0.06); }
-        .paper .pl-icon-badge.plain { background: rgba(17,17,16,0.06); }
-        .pl-icon-badge.orange { background: ${ACCENT_SOFT}; }
+        .paper .pl-icon-badge.plain { background: rgba(10,10,9,0.06); }
 
-        .pl-feature-span-2 { grid-column: span 1; }
-        @media (min-width: 700px) { .pl-feature-span-2.big { grid-column: span 2; } }
-
-        .pl-two-col { display: grid; grid-template-columns: 1fr; gap: 56px; }
-        @media (min-width: 900px) { .pl-two-col { grid-template-columns: 0.8fr 1.2fr; gap: 96px; align-items: start; } }
-        .pl-editorial p { font-size: 17px; line-height: 1.9; color: rgba(255,255,255,0.64); margin: 0 0 28px; }
-        .paper .pl-editorial p { color: rgba(17,17,16,0.68); }
+        .pl-two-col { display: grid; grid-template-columns: 1fr; gap: 50px; }
+        @media (min-width: 900px) { .pl-two-col { grid-template-columns: 0.7fr 1.3fr; gap: 90px; align-items: start; } }
+        .pl-pullquote { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(24px, 2.6vw, 32px); line-height: 1.35; letter-spacing: -0.01em; color: #ffffff; margin: 0 0 30px; }
+        .pl-pullquote em { font-style: normal; color: ${ACCENT_LIGHT}; }
+        .pl-editorial p { font-size: 16px; line-height: 1.9; color: rgba(255,255,255,0.62); margin: 0 0 24px; }
         .pl-editorial p:last-child { margin-bottom: 0; }
         .pl-editorial strong { color: #ffffff; font-weight: 700; }
-        .paper .pl-editorial strong { color: ${INK}; }
 
-        .pl-flow { max-width: 660px; margin: 0 auto; }
-        .pl-flow-step { display: flex; gap: 24px; }
+        .pl-stat-row { display: flex; flex-wrap: wrap; gap: 0; margin-top: 44px; border-top: 1px solid ${INK_LINE}; }
+        .pl-stat-item { flex: 1 1 160px; padding: 20px 20px 0 0; }
+        .pl-stat-value { font-family: var(--font-mono, monospace); font-size: 13px; font-weight: 700; color: ${ACCENT_LIGHT}; }
+        .pl-stat-label { margin-top: 6px; font-family: var(--font-mono, monospace); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); }
+
+        .pl-flow { max-width: 640px; }
+        .pl-flow-step { display: flex; gap: 22px; }
         .pl-flow-rail { display: flex; flex-direction: column; align-items: center; }
-        .pl-flow-num { width: 40px; height: 40px; border-radius: 999px; background: rgba(17,17,16,0.04); border: 1px solid rgba(17,17,16,0.16); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 700; color: ${INK}; flex-shrink: 0; }
-        .pl-flow-line { width: 1px; flex: 1; background: rgba(17,17,16,0.12); min-height: 48px; }
-        .pl-flow-body { flex: 1; padding-bottom: 44px; }
-        .pl-flow-title { padding-top: 6px; font-size: 16px; font-weight: 700; color: ${INK}; }
-        .pl-flow-desc { margin-top: 9px; font-size: 13.5px; line-height: 1.75; color: rgba(17,17,16,0.58); }
+        .pl-flow-num { width: 38px; height: 38px; background: rgba(10,10,9,0.04); border: 1px solid rgba(10,10,9,0.18); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; color: ${INK}; flex-shrink: 0; }
+        .pl-flow-line { width: 1px; flex: 1; background: rgba(10,10,9,0.14); min-height: 44px; }
+        .pl-flow-body { flex: 1; padding-bottom: 40px; }
+        .pl-flow-title { padding-top: 5px; font-size: 15.5px; font-weight: 700; color: ${INK}; }
+        .pl-flow-desc { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: rgba(10,10,9,0.58); }
 
-        .pl-diff-card { display: flex; gap: 20px; }
+        .pl-showcase-rail { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 12px; margin: 0 -24px; padding-left: 24px; padding-right: 24px; scroll-snap-type: x proximity; }
+        @media (min-width: 768px) { .pl-showcase-rail { margin: 0 -48px; padding-left: 48px; padding-right: 48px; } }
+        @media (min-width: 1200px) { .pl-showcase-rail { margin: 0 -80px; padding-left: 80px; padding-right: 80px; } }
+        .pl-showcase-rail::-webkit-scrollbar { height: 5px; }
+        .pl-showcase-rail::-webkit-scrollbar-thumb { background: ${INK_LINE}; }
+        .pl-showcase-card { scroll-snap-align: start; flex: 0 0 240px; background: ${INK_RAISED}; border: 1px solid ${INK_LINE}; padding: 22px; display: flex; flex-direction: column; gap: 12px; transition: border-color 0.25s ease; }
+        .pl-showcase-card:hover { border-color: ${ACCENT}; }
+        .pl-showcase-n { font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.3); }
 
-        .pl-security-row { display: flex; flex-direction: column; gap: 26px; max-width: 1320px; margin: 0 auto; }
+        .pl-diff-list { display: flex; flex-direction: column; }
+        .pl-diff-row { display: grid; grid-template-columns: 52px 1fr; gap: 22px; padding: 30px 0; border-top: 1px solid rgba(10,10,9,0.12); }
+        .pl-diff-row:last-child { border-bottom: 1px solid rgba(10,10,9,0.12); }
+        @media (min-width: 700px) { .pl-diff-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; } .pl-diff-row:nth-child(2n) { border-left: 1px solid rgba(10,10,9,0.12); padding-left: 24px; } }
+
+        .pl-usecase-grid { display: grid; grid-template-columns: 1fr; gap: 1px; background: rgba(10,10,9,0.12); }
+        @media (min-width: 700px) { .pl-usecase-grid { grid-template-columns: repeat(3, 1fr); } }
+        .pl-usecase-cell { background: ${PAPER}; padding: 36px 28px; }
+        .pl-usecase-letter { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 40px; color: rgba(10,10,9,0.18); line-height: 1; }
+
+        .pl-security-row { display: flex; flex-direction: column; gap: 26px; max-width: 1360px; margin: 0 auto; }
         @media (min-width: 700px) { .pl-security-row { flex-direction: row; align-items: center; justify-content: space-between; } }
         .pl-security-left { display: flex; align-items: flex-start; gap: 18px; max-width: 540px; }
 
         .pl-final { display: flex; justify-content: center; text-align: center; position: relative; overflow: hidden; }
-        .pl-final-glow { position: absolute; top: 50%; left: 50%; width: 900px; height: 500px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(212,98,42,0.14), transparent 70%); pointer-events: none; }
-        .pl-final-inner { max-width: 760px; position: relative; }
-        .pl-eyebrow-pill { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${ACCENT_SOFT}; color: ${ACCENT_LIGHT}; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 30px; }
+        .pl-final-glow { position: absolute; top: 50%; left: 50%; width: 900px; height: 500px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(212,98,42,0.13), transparent 70%); pointer-events: none; }
+        .pl-final-inner { max-width: 740px; position: relative; }
+        .pl-eyebrow-pill { display: inline-flex; align-items: center; padding: 8px 16px; background: ${ACCENT_SOFT}; color: ${ACCENT_LIGHT}; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 28px; border: 1px solid rgba(212,98,42,0.3); }
 
-        .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: 36px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
-        @media (min-width: 768px) { .pl-footer { padding: 36px 48px; } }
-        @media (min-width: 1200px) { .pl-footer { padding: 36px 80px; } }
+        .pl-footer { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: 34px 24px; border-top: 1px solid ${INK_LINE}; }
+        @media (min-width: 768px) { .pl-footer { padding: 34px 48px; } }
+        @media (min-width: 1200px) { .pl-footer { padding: 34px 80px; } }
         .pl-footer-brand { display: flex; align-items: center; gap: 10px; }
-        .pl-footer-links { display: flex; flex-wrap: wrap; gap: 28px; }
-        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 11.5px; color: rgba(255,255,255,0.38); text-decoration: none; transition: color 0.2s ease; }
-        .pl-footer-links a:hover { color: rgba(255,255,255,0.8); }
-        .pl-footer-tag { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.3); }
+        .pl-footer-links { display: flex; flex-wrap: wrap; gap: 26px; }
+        .pl-footer-links a { font-family: var(--font-mono, monospace); font-size: 11px; color: rgba(255,255,255,0.38); text-decoration: none; transition: color 0.2s ease; }
+        .pl-footer-links a:hover { color: rgba(255,255,255,0.85); }
+        .pl-footer-tag { font-family: var(--font-mono, monospace); font-size: 10.5px; color: rgba(255,255,255,0.3); }
       `}</style>
+
+      <div className="pl-noise" />
 
       <header className={`pl-header ${scrolled ? "scrolled" : ""}`}>
         <Link href="/" className="pl-logo">
-          <span className="pl-logo-mark">
-            <Sparkles size={15} color="#ffffff" strokeWidth={2.25} />
-          </span>
+          <span className="pl-logo-mark" />
           <span className="pl-logo-text">PRISM</span>
         </Link>
 
@@ -472,7 +565,7 @@ export default function LandingPage() {
         </div>
 
         <button onClick={() => setMenuOpen((v) => !v)} aria-label="Toggle menu" aria-expanded={menuOpen} className="pl-menu-btn">
-          {menuOpen ? <X size={17} /> : <Menu size={17} />}
+          {menuOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
       </header>
 
@@ -489,7 +582,7 @@ export default function LandingPage() {
       )}
 
       <section className="pl-hero">
-        <div className="pl-hero-grid">
+        <div className="pl-hero-layout">
           <Reveal>
             <div className="pl-eyebrow-row">
               <span className="pl-eyebrow-dot" />
@@ -497,7 +590,7 @@ export default function LandingPage() {
             </div>
 
             <h1 className="pl-h1">
-              Read less.
+              Read <span className="outline">less.</span>
               <br />
               Know <em>more.</em>
             </h1>
@@ -508,15 +601,15 @@ export default function LandingPage() {
             </p>
 
             <div className="pl-cta-row">
-              <Link href="/register" className="pl-btn-primary" style={{ padding: "14px 28px", fontSize: 14.5 }}>
+              <Link href="/register" className="pl-btn-primary" style={{ padding: "14px 26px", fontSize: 14 }}>
                 Start Research <ArrowRight size={16} />
               </Link>
-              <Link href="/login" className="pl-btn-secondary" style={{ padding: "13px 27px", fontSize: 14.5 }}>
+              <Link href="/login" className="pl-btn-secondary" style={{ padding: "13px 25px", fontSize: 14 }}>
                 Sign in <ArrowUpRight size={15} />
               </Link>
             </div>
 
-            <div className="pl-trust-strip">
+            <div className="pl-trust-rail">
               {TRUST_STRIP.map((s) => (
                 <div key={s.label} className="pl-trust-item">
                   <div className="pl-trust-value">{s.value}</div>
@@ -526,17 +619,17 @@ export default function LandingPage() {
             </div>
           </Reveal>
 
-          <Reveal delay={0.1}>
-            <div className="pl-mock">
-              <div className="pl-mock-top">
-                <span className="pl-mock-dot" />
-                <span className="pl-mock-dot" />
-                <span className="pl-mock-dot" />
-                <span className="pl-mock-url">prism.app/workspace</span>
-              </div>
+          <Reveal delay={0.12}>
+            <div className="pl-hero-right">
+              <div className="pl-query-pill">What did the ablation study find?</div>
 
-              <div className="pl-mock-body">
-                <div className="pl-mock-user">What did the ablation study find?</div>
+              <div className="pl-float-card pl-panel-answer">
+                <div className="pl-panel-top">
+                  <span className="pl-panel-dot" />
+                  <span className="pl-panel-dot" />
+                  <span className="pl-panel-dot" />
+                  <span className="pl-panel-url">prism.app/workspace</span>
+                </div>
 
                 <div className="pl-mock-ai">
                   Removing the reranking stage reduced retrieval precision by a measurable margin{" "}
@@ -549,21 +642,6 @@ export default function LandingPage() {
                   <span className="pl-chip">[2] retrieval_ablation.pdf · 0.87</span>
                 </div>
 
-                <div className="pl-verify-row">
-                  <div className="pl-verify-cell" style={{ background: "rgba(61,153,112,0.14)" }}>
-                    <div className="pl-verify-pct" style={{ color: "#69d3a8" }}>82%</div>
-                    <div className="pl-verify-label" style={{ color: "rgba(105,211,168,0.8)" }}>Supported</div>
-                  </div>
-                  <div className="pl-verify-cell" style={{ background: "rgba(212,98,42,0.14)" }}>
-                    <div className="pl-verify-pct" style={{ color: "#eea173" }}>12%</div>
-                    <div className="pl-verify-label" style={{ color: "rgba(238,161,115,0.8)" }}>Uncertain</div>
-                  </div>
-                  <div className="pl-verify-cell" style={{ background: "rgba(255,255,255,0.05)" }}>
-                    <div className="pl-verify-pct" style={{ color: "rgba(255,255,255,0.75)" }}>6%</div>
-                    <div className="pl-verify-label" style={{ color: "rgba(255,255,255,0.4)" }}>Unsupported</div>
-                  </div>
-                </div>
-
                 <div className="pl-method-row">
                   <span className="pl-method-tag">Dense search</span>
                   <span className="pl-method-tag">BM25</span>
@@ -571,8 +649,49 @@ export default function LandingPage() {
                   <span className="pl-method-tag">Cross-encoder rerank</span>
                 </div>
               </div>
+
+              <div className="pl-verify-pill">
+                <div className="pl-verify-seg">
+                  <div className="pl-verify-pct" style={{ color: "#69d3a8" }}>82%</div>
+                  <div className="pl-verify-label">Supported</div>
+                </div>
+                <div className="pl-verify-seg">
+                  <div className="pl-verify-pct" style={{ color: ACCENT_LIGHT }}>12%</div>
+                  <div className="pl-verify-label">Uncertain</div>
+                </div>
+                <div className="pl-verify-seg">
+                  <div className="pl-verify-pct" style={{ color: "rgba(255,255,255,0.75)" }}>6%</div>
+                  <div className="pl-verify-label">Unsupported</div>
+                </div>
+              </div>
             </div>
           </Reveal>
+        </div>
+
+        <div className="pl-ragflow">
+          <Reveal className="pl-ragflow-label">Query to answer, in five stages</Reveal>
+          <div className="pl-ragflow-row">
+            {RAG_FLOW.map((step, i) => (
+              <Fragment key={step.t}>
+                <Reveal delay={i * 0.06} className="pl-ragflow-node">
+                  <span className="pl-ragflow-icon">
+                    <step.icon size={19} color={ACCENT_LIGHT} />
+                  </span>
+                  <span className="pl-ragflow-t">{step.t}</span>
+                </Reveal>
+                {i < RAG_FLOW.length - 1 && (
+                  <motion.div
+                    className="pl-ragflow-line"
+                    variants={growLine}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.06 + 0.1 }}
+                  />
+                )}
+              </Fragment>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -587,12 +706,12 @@ export default function LandingPage() {
             </p>
           </Reveal>
 
-          <div className="pl-grid cols-2">
+          <div className="pl-problem-list">
             {PROBLEMS.map((p, i) => (
-              <Reveal key={p.n} delay={i * 0.05} className="pl-card">
-                <span className="pl-card-num">{p.n}</span>
-                <div className="pl-card-title">{p.t}</div>
-                <div className="pl-card-desc">{p.d}</div>
+              <Reveal key={p.n} delay={i * 0.04} className="pl-problem-row">
+                <span className="pl-problem-n">{p.n}</span>
+                <span className="pl-problem-t">{p.t}</span>
+                <span className="pl-problem-d">{p.d}</span>
               </Reveal>
             ))}
           </div>
@@ -604,25 +723,38 @@ export default function LandingPage() {
           <div className="pl-two-col">
             <Reveal>
               <div className="pl-label">What is Prism?</div>
-              <h2 className="pl-h2 small">A research assistant that shows its work.</h2>
+              <p className="pl-pullquote">
+                A research assistant that <em>shows its work</em>, not one that expects you to trust it.
+              </p>
             </Reveal>
 
-            <Reveal delay={0.08} className="pl-editorial">
-              <p>
-                Prism is a retrieval-augmented research platform. You ingest documents, ask questions in
-                plain language, and get answers generated strictly from what you uploaded — not from the
-                model&apos;s general knowledge.
-              </p>
-              <p>
-                Every answer carries <strong>inline citations</strong> back to the exact chunk it was drawn
-                from, and every sentence in that answer is independently checked against the retrieved
-                evidence and labeled supported, uncertain, or unsupported.
-              </p>
-              <p>
-                It exists for anyone who works from documents and needs the answer and the receipt in the
-                same place: researchers, students, and knowledge workers moving through papers, reports,
-                and long-form material.
-              </p>
+            <Reveal delay={0.08}>
+              <div className="pl-editorial">
+                <p>
+                  Prism is a retrieval-augmented research platform. You ingest documents, ask questions in
+                  plain language, and get answers generated strictly from what you uploaded — not from the
+                  model&apos;s general knowledge.
+                </p>
+                <p>
+                  Every answer carries <strong>inline citations</strong> back to the exact chunk it was drawn
+                  from, and every sentence in that answer is independently checked against the retrieved
+                  evidence and labeled supported, uncertain, or unsupported.
+                </p>
+                <p>
+                  It exists for anyone who works from documents and needs the answer and the receipt in the
+                  same place: researchers, students, and knowledge workers moving through papers, reports,
+                  and long-form material.
+                </p>
+              </div>
+
+              <div className="pl-stat-row">
+                {TRUST_STRIP.map((s) => (
+                  <div key={s.label} className="pl-stat-item">
+                    <div className="pl-stat-value">{s.value}</div>
+                    <div className="pl-stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
             </Reveal>
           </div>
         </div>
@@ -635,19 +767,20 @@ export default function LandingPage() {
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A complete research intelligence stack.</h2>
           </Reveal>
 
-          <div className="pl-grid cols-3">
+          <div className="pl-bento">
             {FEATURES.map((f, i) => (
               <Reveal
                 key={f.t}
                 delay={i * 0.04}
-                className={`pl-card pl-feature-span-2 ${f.big ? "big" : ""}`}
-                style={{ minHeight: 184 }}
+                className={`pl-bento-card ${f.size === "wide" ? "wide" : ""} ${f.size === "tall" ? "tall" : ""}`}
               >
-                <span className="pl-icon-badge">
-                  <f.icon size={17} color={ACCENT_DEEP} />
-                </span>
-                <div className="pl-card-title">{f.t}</div>
-                <div className="pl-card-desc">{f.d}</div>
+                <div className="pl-card" style={{ justifyContent: f.size === "wide" || f.size === "tall" ? "flex-end" : "flex-start" }}>
+                  <span className="pl-icon-badge">
+                    <f.icon size={16} color={ACCENT_DEEP} />
+                  </span>
+                  <div className="pl-card-title">{f.t}</div>
+                  <div className="pl-card-desc">{f.d}</div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -663,7 +796,7 @@ export default function LandingPage() {
 
           <div className="pl-grid cols-4">
             {STAGES.map((s, i) => (
-              <Reveal key={s.n} delay={i * 0.05} className="pl-card" style={{ minHeight: 240 }}>
+              <Reveal key={s.n} delay={i * 0.05} className="pl-card" style={{ minHeight: 236 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span className="pl-card-num">{s.n}</span>
                   <span className="pl-icon-badge plain">
@@ -680,49 +813,52 @@ export default function LandingPage() {
 
       <section id="architecture" className="pl-section paper">
         <div className="pl-section-inner">
-          <Reveal className="pl-section-head" style={{ maxWidth: 700 }}>
-            <div className="pl-label">Retrieval architecture</div>
-            <h2 className="pl-h2 small">Engineered retrieval, not a wrapper around an LLM.</h2>
-            <p className="pl-section-sub">
-              Every answer passes through a fixed pipeline of retrieval and verification stages before it
-              reaches the interface. Nothing here is a single prompt to a model.
-            </p>
-          </Reveal>
+          <div className="pl-two-col">
+            <Reveal className="pl-section-head" style={{ marginBottom: 0 }}>
+              <div className="pl-label">Retrieval architecture</div>
+              <h2 className="pl-h2 small">Engineered retrieval, not a wrapper around an LLM.</h2>
+              <p className="pl-section-sub">
+                Every answer passes through a fixed pipeline of retrieval and verification stages before it
+                reaches the interface. Nothing here is a single prompt to a model.
+              </p>
+            </Reveal>
 
-          <div className="pl-flow">
-            {ARCHITECTURE_FLOW.map((step, i) => (
-              <Reveal key={step.t} delay={i * 0.04} className="pl-flow-step">
-                <div className="pl-flow-rail">
-                  <div className="pl-flow-num">{i + 1}</div>
-                  {i < ARCHITECTURE_FLOW.length - 1 && <div className="pl-flow-line" />}
-                </div>
-                <div className="pl-flow-body">
-                  <div className="pl-flow-title">{step.t}</div>
-                  <div className="pl-flow-desc">{step.d}</div>
-                </div>
-              </Reveal>
-            ))}
+            <div className="pl-flow">
+              {ARCHITECTURE_FLOW.map((step, i) => (
+                <Reveal key={step.t} delay={i * 0.04} className="pl-flow-step">
+                  <div className="pl-flow-rail">
+                    <div className="pl-flow-num">{i + 1}</div>
+                    {i < ARCHITECTURE_FLOW.length - 1 && <div className="pl-flow-line" />}
+                  </div>
+                  <div className="pl-flow-body">
+                    <div className="pl-flow-title">{step.t}</div>
+                    <div className="pl-flow-desc">{step.d}</div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       <section id="product" className="pl-section">
         <div className="pl-section-inner">
-          <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
+          <Reveal className="pl-section-head" style={{ marginBottom: 46 }}>
             <div className="pl-label">Inside the app</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Eight workspaces, one pipeline.</h2>
           </Reveal>
-
-          <div className="pl-grid cols-4" style={{ gap: 20 }}>
-            {PRODUCT_PAGES.map((p, i) => (
-              <Reveal key={p.label} delay={i * 0.03} className="pl-card" style={{ padding: 24, gap: 13 }}>
-                <p.icon size={17} color="rgba(255,255,255,0.55)" />
-                <div className="pl-card-title" style={{ fontSize: 14 }}>{p.label}</div>
-                <div className="pl-card-desc" style={{ fontSize: 12.5 }}>{p.d}</div>
-              </Reveal>
-            ))}
-          </div>
         </div>
+
+        <Reveal delay={0.06} className="pl-showcase-rail">
+          {PRODUCT_PAGES.map((p, i) => (
+            <div key={p.label} className="pl-showcase-card">
+              <span className="pl-showcase-n">0{i + 1}</span>
+              <p.icon size={18} color="rgba(255,255,255,0.6)" />
+              <div className="pl-card-title" style={{ fontSize: 14.5 }}>{p.label}</div>
+              <div className="pl-card-desc" style={{ fontSize: 12.5 }}>{p.d}</div>
+            </div>
+          ))}
+        </Reveal>
       </section>
 
       <section className="pl-section paper">
@@ -732,11 +868,11 @@ export default function LandingPage() {
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Different from a chat window pointed at your files.</h2>
           </Reveal>
 
-          <div className="pl-grid cols-2">
+          <div className="pl-diff-list">
             {DIFFERENTIATORS.map((d, i) => (
-              <Reveal key={d.t} delay={i * 0.05} className="pl-card pl-diff-card">
-                <span className="pl-icon-badge orange" style={{ width: 44, height: 44 }}>
-                  <d.icon size={18} color={ACCENT_DEEP} />
+              <Reveal key={d.t} delay={i * 0.05} className="pl-diff-row">
+                <span className="pl-icon-badge" style={{ width: 46, height: 46 }}>
+                  <d.icon size={19} color={ACCENT_DEEP} />
                 </span>
                 <div>
                   <div className="pl-card-title">{d.t}</div>
@@ -755,9 +891,9 @@ export default function LandingPage() {
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>A real pipeline underneath the interface.</h2>
           </Reveal>
 
-          <div className="pl-grid cols-4" style={{ gap: 20 }}>
+          <div className="pl-grid cols-4" style={{ gap: 18 }}>
             {STACK.map((s, i) => (
-              <Reveal key={s.t} delay={i * 0.02} className="pl-card" style={{ padding: 22, gap: 13 }}>
+              <Reveal key={s.t} delay={i * 0.02} className="pl-card" style={{ padding: 22, gap: 12 }}>
                 <s.icon size={16} color="rgba(255,255,255,0.48)" />
                 <div style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 12.5, fontWeight: 700, color: "#ffffff" }}>{s.t}</div>
                 <div className="pl-card-desc" style={{ fontSize: 12 }}>{s.d}</div>
@@ -767,21 +903,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="pl-section paper">
-        <div className="pl-section-inner">
+      <section className="pl-section paper" style={{ paddingLeft: 0, paddingRight: 0 }}>
+        <div className="pl-section-inner" style={{ padding: "0 24px" }}>
           <Reveal className="pl-section-head" style={{ marginBottom: 52 }}>
             <div className="pl-label">Who it&apos;s for</div>
             <h2 className="pl-h2 small" style={{ maxWidth: 620 }}>Built for anyone who works from documents.</h2>
           </Reveal>
+        </div>
 
-          <div className="pl-grid cols-3">
-            {USE_CASES.map((u, i) => (
-              <Reveal key={u.t} delay={i * 0.05} className="pl-card">
-                <div className="pl-card-title">{u.t}</div>
-                <div className="pl-card-desc">{u.d}</div>
-              </Reveal>
-            ))}
-          </div>
+        <div className="pl-usecase-grid">
+          {USE_CASES.map((u, i) => (
+            <Reveal key={u.t} delay={i * 0.05} className="pl-usecase-cell">
+              <div className="pl-usecase-letter">{u.letter}</div>
+              <div className="pl-card-title" style={{ marginTop: 14 }}>{u.t}</div>
+              <div className="pl-card-desc" style={{ marginTop: 10 }}>{u.d}</div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
@@ -828,10 +965,8 @@ export default function LandingPage() {
 
       <footer className="pl-footer">
         <div className="pl-footer-brand">
-          <span className="pl-logo-mark" style={{ width: 26, height: 26, borderRadius: 7 }}>
-            <Sparkles size={12} color="#ffffff" strokeWidth={2.25} />
-          </span>
-          <span style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)", fontSize: 14.5, letterSpacing: "0.02em", color: "rgba(255,255,255,0.5)" }}>PRISM</span>
+          <span className="pl-logo-mark" style={{ width: 22, height: 22 }} />
+          <span style={{ fontFamily: "var(--font-display, 'DM Serif Display', Georgia, serif)", fontSize: 14, letterSpacing: "0.04em", color: "rgba(255,255,255,0.5)" }}>PRISM</span>
         </div>
         <div className="pl-footer-links">
           {NAV_LINKS.map((l) => (
