@@ -9,7 +9,7 @@ async def test_verify_success(client, auth_headers):
     assert response.status_code == 200
     data = response.json()
     assert "claims" in data
-    assert data["total_claims"] == data["supported_count"] + data["unsupported_count"]
+    assert data["total_claims"] == data["supported_count"] + data["uncertain_count"] + data["unsupported_count"]
 
 
 async def test_verify_empty_context_chunks(client, auth_headers):
