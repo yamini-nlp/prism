@@ -31,11 +31,10 @@ const INK = "#111110";
 const INK_RAISED = "#17171a";
 const PAPER = "#f7f6f3";
 const PAPER_CARD = "#ffffff";
-const INDIGO = "#5b5ef4";
-const INDIGO_DEEP = "#4547c4";
-const INDIGO_SOFT = "rgba(91,94,244,0.14)";
-const ORANGE_DEEP = "#b5491f";
-const ORANGE_SOFT = "rgba(212,98,42,0.14)";
+const ACCENT = "#d4622a";
+const ACCENT_LIGHT = "#e88a52";
+const ACCENT_DEEP = "#b5491f";
+const ACCENT_SOFT = "rgba(212,98,42,0.14)";
 
 const NAV_LINKS = [
   { label: "Problem", href: "#problem" },
@@ -287,7 +286,7 @@ export default function LandingPage() {
         @media (min-width: 1200px) { .pl-header { padding: 0 80px; } }
 
         .pl-logo { display: flex; align-items: center; gap: 11px; text-decoration: none; }
-        .pl-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, ${INDIGO}, ${INDIGO_DEEP}); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pl-logo-mark { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP}); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .pl-logo-text { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-size: 20px; letter-spacing: 0.02em; color: #ffffff; }
 
         .pl-nav { display: none; align-items: center; gap: 36px; }
@@ -334,11 +333,11 @@ export default function LandingPage() {
 
         .pl-hero-kicker { font-family: var(--font-sans, 'Syne', system-ui, sans-serif); font-size: 13px; font-weight: 800; letter-spacing: 0.32em; text-transform: uppercase; color: #ffffff; margin-bottom: 16px; }
 
-        .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: ${INDIGO}; margin-bottom: 20px; }
-        .pl-eyebrow-dot { width: 6px; height: 6px; border-radius: 999px; background: ${INDIGO}; }
+        .pl-eyebrow-row { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: ${ACCENT_LIGHT}; margin-bottom: 20px; }
+        .pl-eyebrow-dot { width: 6px; height: 6px; border-radius: 999px; background: ${ACCENT}; }
 
         .pl-h1 { font-family: var(--font-display, 'DM Serif Display', Georgia, serif); font-weight: 400; font-size: clamp(38px, 5.6vw, 64px); line-height: 1.08; letter-spacing: -0.03em; color: #ffffff; max-width: 600px; margin: 0; }
-        .pl-h1 em { font-style: normal; color: ${INDIGO}; background: linear-gradient(135deg, #a3a6f8, ${INDIGO}); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .pl-h1 em { font-style: normal; color: ${ACCENT}; background: linear-gradient(135deg, ${ACCENT_LIGHT}, ${ACCENT}); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
         .pl-lead { margin-top: 26px; max-width: 470px; font-size: 17px; line-height: 1.75; color: rgba(255,255,255,0.58); }
 
@@ -355,9 +354,9 @@ export default function LandingPage() {
         .pl-mock-dot { width: 9px; height: 9px; border-radius: 999px; background: rgba(255,255,255,0.16); }
         .pl-mock-url { margin-left: 8px; padding: 5px 13px; border-radius: 999px; background: rgba(255,255,255,0.05); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.5); }
         .pl-mock-body { display: flex; flex-direction: column; gap: 18px; padding: 24px; }
-        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 14px 14px 3px 14px; background: ${INDIGO}; color: #ffffff; padding: 11px 16px; font-size: 13px; }
+        .pl-mock-user { margin-left: auto; max-width: 78%; border-radius: 14px 14px 3px 14px; background: #ffffff; color: ${INK}; padding: 11px 16px; font-size: 13px; font-weight: 600; }
         .pl-mock-ai { max-width: 94%; border-radius: 14px 14px 14px 3px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.025); color: rgba(255,255,255,0.82); padding: 15px 17px; font-size: 13px; line-height: 1.7; }
-        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${INDIGO}; opacity: 0.95; }
+        .pl-mock-ai .mark { font-family: var(--font-mono, monospace); font-weight: 700; color: ${ACCENT_LIGHT}; opacity: 0.95; }
         .pl-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
         .pl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-family: var(--font-mono, monospace); font-size: 10px; color: rgba(255,255,255,0.55); }
         .pl-verify-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); }
@@ -405,10 +404,10 @@ export default function LandingPage() {
         .pl-card-desc { font-size: 13.5px; line-height: 1.75; color: rgba(255,255,255,0.5); }
         .paper .pl-card-desc { color: rgba(17,17,16,0.58); }
 
-        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${INDIGO_SOFT}; flex-shrink: 0; }
+        .pl-icon-badge { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ${ACCENT_SOFT}; flex-shrink: 0; }
         .pl-icon-badge.plain { background: rgba(255,255,255,0.06); }
         .paper .pl-icon-badge.plain { background: rgba(17,17,16,0.06); }
-        .pl-icon-badge.orange { background: ${ORANGE_SOFT}; }
+        .pl-icon-badge.orange { background: ${ACCENT_SOFT}; }
 
         .pl-feature-span-2 { grid-column: span 1; }
         @media (min-width: 700px) { .pl-feature-span-2.big { grid-column: span 2; } }
@@ -437,9 +436,9 @@ export default function LandingPage() {
         .pl-security-left { display: flex; align-items: flex-start; gap: 18px; max-width: 540px; }
 
         .pl-final { display: flex; justify-content: center; text-align: center; position: relative; overflow: hidden; }
-        .pl-final-glow { position: absolute; top: 50%; left: 50%; width: 900px; height: 500px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(91,94,244,0.16), transparent 70%); pointer-events: none; }
+        .pl-final-glow { position: absolute; top: 50%; left: 50%; width: 900px; height: 500px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(212,98,42,0.14), transparent 70%); pointer-events: none; }
         .pl-final-inner { max-width: 760px; position: relative; }
-        .pl-eyebrow-pill { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${INDIGO_SOFT}; color: #a3a6f8; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 30px; }
+        .pl-eyebrow-pill { display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px; background: ${ACCENT_SOFT}; color: ${ACCENT_LIGHT}; font-family: var(--font-mono, monospace); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 30px; }
 
         .pl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; padding: 36px 24px; border-top: 1px solid rgba(255,255,255,0.08); }
         @media (min-width: 768px) { .pl-footer { padding: 36px 48px; } }
@@ -645,7 +644,7 @@ export default function LandingPage() {
                 style={{ minHeight: 184 }}
               >
                 <span className="pl-icon-badge">
-                  <f.icon size={17} color={INDIGO_DEEP} />
+                  <f.icon size={17} color={ACCENT_DEEP} />
                 </span>
                 <div className="pl-card-title">{f.t}</div>
                 <div className="pl-card-desc">{f.d}</div>
@@ -737,7 +736,7 @@ export default function LandingPage() {
             {DIFFERENTIATORS.map((d, i) => (
               <Reveal key={d.t} delay={i * 0.05} className="pl-card pl-diff-card">
                 <span className="pl-icon-badge orange" style={{ width: 44, height: 44 }}>
-                  <d.icon size={18} color={ORANGE_DEEP} />
+                  <d.icon size={18} color={ACCENT_DEEP} />
                 </span>
                 <div>
                   <div className="pl-card-title">{d.t}</div>
@@ -811,7 +810,7 @@ export default function LandingPage() {
         <Reveal className="pl-final-inner">
           <span className="pl-eyebrow-pill">Ready when you are</span>
           <h2 className="pl-h2" style={{ marginTop: 0, marginBottom: 26, fontSize: "clamp(30px,4.2vw,50px)" }}>
-            Research shouldn&apos;t be a <em style={{ fontStyle: "normal", color: INDIGO }}>guessing game.</em>
+            Research shouldn&apos;t be a <em style={{ fontStyle: "normal", color: ACCENT }}>guessing game.</em>
           </h2>
           <p className="pl-section-sub" style={{ marginTop: 0, marginBottom: 40 }}>
             Ingest your first document and see every answer traced back to its source.
