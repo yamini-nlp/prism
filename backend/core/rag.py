@@ -3,7 +3,7 @@ from typing import cast, Iterable
 from core.embedder import hybrid_search
 from core.verifier import split_into_claims, verify_claims
 from core.db import AsyncSessionLocal, ensure_session
-from core.models import Generation
+from core.models import Generation, Verification
 from core.config import settings
 from groq import Groq
 from groq.types.chat import ChatCompletionMessageParam
@@ -127,9 +127,15 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         grounding = verify_claims(claims, chunk_texts)
         hallucination_flags = [g["claim"] for g in grounding if g["label"] == "unsupported"]
 
+        supported_count = sum(1 for g in grounding if g["label"] == "supported")
+        uncertain_count = sum(1 for g in grounding if g["label"] == "uncertain")
+        total_claims = len(grounding)
+        unsupported_count = total_claims - supported_count - uncertain_count
+        grounding_score = round(supported_count / total_claims * 100, 1) if total_claims > 0 else 0.0
+
         try:
             await ensure_session(db, session_id)
-            db.add(Generation(
+            generation = Generation(
                 session_id=session_id,
                 query=query,
                 answer=answer,
@@ -137,6 +143,18 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
                 confidence_score=confidence,
                 citations=citations,
                 hallucination_flags=hallucination_flags,
+            )
+            db.add(generation)
+            await db.flush()
+            db.add(Verification(
+                generation_id=generation.id,
+                session_id=session_id,
+                answer=answer,
+                claims=grounding,
+                total_claims=total_claims,
+                supported_count=supported_count,
+                unsupported_count=unsupported_count,
+                grounding_score=grounding_score,
             ))
             await db.commit()
         except Exception:
