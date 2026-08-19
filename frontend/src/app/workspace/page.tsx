@@ -6,6 +6,8 @@ import { S, C } from "@/lib/styles";
 import { useGenerate } from "@/lib/queries/generations";
 import { useDocuments } from "@/lib/queries/documents";
 import CitationPopover, { type Citation } from "@/components/CitationPopover";
+import { getCurrentUser } from "@/lib/auth";
+import { conversationStorageKey, queryLogStorageKey } from "@/lib/conversationStorage";
 import {
   Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
   Settings, RefreshCw, MessageSquarePlus, Inbox, RotateCcw,
@@ -13,8 +15,6 @@ import {
 import Link from "next/link";
 
 const STORAGE_KEY = "prism_settings";
-const LOG_KEY = "prism_query_log";
-const CONVERSATION_KEY = "prism_workspace_conversation";
 
 type GroundingClaim = { claim: string; label: "supported" | "unsupported"; confidence: number; supporting_chunk: string | null };
 type Message = {
@@ -41,9 +41,10 @@ function getSettings() {
 function logQuery(confidence: number, latency: number) {
   if (typeof window === "undefined") return;
   try {
-    const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+    const key = queryLogStorageKey(getCurrentUser()?.id);
+    const log = JSON.parse(localStorage.getItem(key) || "[]");
     log.push({ confidence, latency, ts: Date.now() });
-    localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-200)));
+    localStorage.setItem(key, JSON.stringify(log.slice(-200)));
   } catch {
   }
 }
@@ -51,7 +52,8 @@ function logQuery(confidence: number, latency: number) {
 function loadConversation(): Message[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = JSON.parse(localStorage.getItem(CONVERSATION_KEY) || "[]");
+    const key = conversationStorageKey(getCurrentUser()?.id);
+    const raw = JSON.parse(localStorage.getItem(key) || "[]");
     if (!Array.isArray(raw)) return [];
     return raw.map((m: Message) => ({ ...m, streaming: false }));
   } catch { return []; }
@@ -60,7 +62,8 @@ function loadConversation(): Message[] {
 function saveConversation(messages: Message[]) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(CONVERSATION_KEY, JSON.stringify(messages));
+    const key = conversationStorageKey(getCurrentUser()?.id);
+    localStorage.setItem(key, JSON.stringify(messages));
   } catch {
   }
 }
