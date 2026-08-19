@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -310,41 +310,58 @@ export default function IngestPage() {
     [addFiles]
   );
 
+  const itemsRef = useRef(items);
   useEffect(() => {
-    const processing = items.filter((it) => it.status === "processing" && it.jobId);
-    if (processing.length === 0) return;
+    itemsRef.current = items;
+  }, [items]);
+
+  const processingKey = useMemo(
+    () =>
+      items
+        .filter((it) => it.status === "processing" && it.jobId)
+        .map((it) => `${it.id}:${it.jobId}`)
+        .join(","),
+    [items]
+  );
+
+  useEffect(() => {
+    if (!processingKey) return;
+    const processingIds = processingKey.split(",").filter(Boolean).map((pair) => pair.split(":")[0]);
 
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    processing.forEach((item) => {
+    processingIds.forEach((id) => {
+      const item = itemsRef.current.find((it) => it.id === id);
+      if (!item || !item.jobId) return;
+
       async function poll() {
         try {
-          const data: JobStatus = await fetchJobStatus(item.jobId as string);
+          const data: JobStatus = await fetchJobStatus(item!.jobId as string);
           if (cancelled) return;
           if (data.status === "complete") {
-            updateItem(item.id, { status: "done", stage: "ready" });
+            updateItem(item!.id, { status: "done", stage: "ready" });
             const result = data.result || {};
             const srcText = result.preview || "";
             if (srcText) {
               summaryMutation.mutate(
-                { text: srcText, source: result.source || item.label },
-                { onSuccess: (res) => updateItem(item.id, { summary: res.summary }) }
+                { text: srcText, source: result.source || item!.label },
+                { onSuccess: (res) => updateItem(item!.id, { summary: res.summary }) }
               );
             }
             queryClient.invalidateQueries({ queryKey: documentsQueryKey });
           } else if (data.status === "failed") {
-            updateItem(item.id, { status: "error", stage: "error", error: data.error || "Ingestion failed." });
+            updateItem(item!.id, { status: "error", stage: "error", error: data.error || "Ingestion failed." });
           } else if (data.status === "cancelled") {
-            updateItem(item.id, { status: "cancelled", stage: "cancelled" });
+            updateItem(item!.id, { status: "cancelled", stage: "cancelled" });
           } else {
-            updateItem(item.id, { stage: (data.stage as Stage) || "parsing" });
+            updateItem(item!.id, { stage: (data.stage as Stage) || "parsing" });
             const timer = setTimeout(poll, POLL_INTERVAL_MS);
             timers.push(timer);
           }
         } catch (err) {
           if (cancelled) return;
-          updateItem(item.id, { status: "error", stage: "error", error: err instanceof Error ? err.message : "Job status check failed." });
+          updateItem(item!.id, { status: "error", stage: "error", error: err instanceof Error ? err.message : "Job status check failed." });
         }
       }
       poll();
@@ -354,7 +371,7 @@ export default function IngestPage() {
       cancelled = true;
       timers.forEach(clearTimeout);
     };
-  }, [items, updateItem, summaryMutation, queryClient]);
+  }, [processingKey, updateItem, summaryMutation, queryClient]);
 
   useEffect(() => {
     items.forEach((item) => {
