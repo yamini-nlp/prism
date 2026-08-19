@@ -62,3 +62,23 @@ async def test_generate_cache_hit_on_repeat_query(client, auth_headers, monkeypa
     assert second.status_code == 200
     assert len(misses) >= 1
     assert len(hits) >= 1
+
+
+async def test_generate_persists_verification_for_analytics(client, auth_headers):
+    ingest_body = {
+        "text": "Qubits can exist in a superposition of both zero and one simultaneously, unlike classical bits.",
+        "source": "qubits.txt",
+    }
+    ingest_response = await client.post("/api/v1/ingest/text", headers=auth_headers, json=ingest_body)
+    job_id = ingest_response.json()["job_id"]
+    await client.get(f"/api/v1/jobs/{job_id}", headers=auth_headers)
+
+    body = {"query": "What is a qubit?", "top_k": 5}
+    response = await client.post("/api/v1/generate/", headers=auth_headers, json=body)
+    assert response.status_code == 200
+
+    summary_response = await client.get("/api/v1/analytics/summary", headers=auth_headers)
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    assert summary["verifications"]["total"] >= 1
+    assert summary["verifications"]["average_grounding_score"] is not None
