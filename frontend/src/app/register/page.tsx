@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CSSProperties } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +39,7 @@ const fieldErrorStyle: CSSProperties = {
 };
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -61,7 +63,7 @@ export default function RegisterPage() {
     try {
       await registerUser(values.email.trim(), values.password);
       toast.success("Account created", "Welcome to Prism.");
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed.";
       toast.error("Could not create account", message);
