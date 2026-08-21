@@ -62,7 +62,7 @@ export default function Sidebar() {
         collapsed ? "lg:w-[76px]" : "lg:w-72"
       }`}
     >
-      <div className={`flex h-20 flex-shrink-0 items-center border-b border-[var(--border)] ${collapsed ? "justify-center px-0" : "px-7"}`}>
+      <div className={`flex h-20 flex-shrink-0 items-center border-b border-[var(--border)] ${collapsed ? "justify-center px-0" : "px-8"}`}>
         <Link
           href="/"
           prefetch={false}
@@ -78,9 +78,9 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className={`flex flex-1 flex-col overflow-y-auto ${collapsed ? "px-3 py-8" : "px-5 py-8"}`}>
+      <div className={`flex flex-1 flex-col overflow-y-auto ${collapsed ? "px-3 py-8" : "px-6 py-8"}`}>
         {!collapsed && (
-          <div className="mb-4 px-3.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          <div className="mb-4 px-4 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Navigation
           </div>
         )}
@@ -105,7 +105,7 @@ export default function Sidebar() {
                   aria-current={active ? "page" : undefined}
                   title={collapsed ? label : undefined}
                   className={`relative z-10 flex h-12 items-center gap-3.5 rounded-xl text-[14px] font-medium leading-none no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
-                    collapsed ? "justify-center px-0" : "px-4"
+                    collapsed ? "justify-center px-0" : "px-5"
                   } ${
                     active
                       ? "text-[var(--accent)]"
@@ -129,9 +129,9 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div className={`flex flex-shrink-0 flex-col gap-3 border-t border-[var(--border)] ${collapsed ? "px-3 py-5" : "px-5 py-5"}`}>
+      <div className={`flex flex-shrink-0 flex-col gap-3 border-t border-[var(--border)] ${collapsed ? "px-3 py-5" : "px-6 py-5"}`}>
         {user && !collapsed && (
-          <div className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl px-4 py-2.5">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[12.5px] font-semibold text-[var(--text-secondary)]">
                 {user.email.charAt(0).toUpperCase()}
