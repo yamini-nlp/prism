@@ -29,7 +29,6 @@ import {
   X,
 } from "lucide-react";
 
-// Color Palette Constants
 const INK = "#0a0a09";
 const INK_RAISED = "#121211";
 const PAPER = "#f8f7f4";
