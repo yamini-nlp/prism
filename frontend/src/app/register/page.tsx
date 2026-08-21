@@ -92,18 +92,6 @@ export default function RegisterPage() {
         input:focus { border-color: rgba(255,255,255,0.5) !important; background: rgba(255,255,255,0.06) !important; }
       `}</style>
 
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          maskImage: "radial-gradient(ellipse 60% 50% at 50% 30%, black 10%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-
       <Link
         href="/"
         style={{
