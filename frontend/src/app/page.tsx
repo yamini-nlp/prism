@@ -49,7 +49,6 @@ const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#pipeline" },
   { label: "Use cases", href: "#use-cases" },
-  { label: "Pricing", href: "#pricing" },
 ];
 
 const TRUST_STRIP = [
@@ -67,12 +66,12 @@ const PROBLEMS = [
 ];
 
 const FEATURES = [
-  { t: "Multi-format ingestion", d: "PDF, DOCX, DOC, TXT, URLs, and pasted text all flow through the same chunking and embedding pipeline, tracked through a background job.", icon: Upload, span: "wide", c: GOLD },
-  { t: "Hybrid retrieval", d: "Dense embeddings and BM25 keyword search are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker.", icon: SplitSquareVertical, span: "tall", c: ROSE },
-  { t: "Claim-level verification", d: "Every sentence in an answer is scored against its retrieved evidence and labeled supported, uncertain, or unsupported.", icon: ShieldCheck, span: "normal", c: TEAL },
-  { t: "Structured summarization", d: "TLDR, key concepts, methodology, results, and limitations returned as one brief instead of a wall of text.", icon: Layers, span: "normal", c: BLUE },
-  { t: "Retrieval transparency", d: "Inspect the exact chunks, source documents, and similarity scores behind every answer, not just the final text.", icon: FileSearch, span: "wide", c: TEAL },
-  { t: "Evaluation harness", d: "Run recall@5, mean reciprocal rank, and groundedness metrics against your own workspace whenever you need a check.", icon: BarChart3, span: "normal", c: ROSE },
+  { t: "Multi-format ingestion", d: "PDF, DOCX, DOC, TXT, URLs, and pasted text all flow through the same chunking and embedding pipeline, tracked through a background job.", icon: Upload, c: GOLD },
+  { t: "Hybrid retrieval", d: "Dense embeddings and BM25 keyword search are fused with reciprocal rank fusion, then reordered by a cross-encoder reranker.", icon: SplitSquareVertical, c: ROSE },
+  { t: "Claim-level verification", d: "Every sentence in an answer is scored against its retrieved evidence and labeled supported, uncertain, or unsupported.", icon: ShieldCheck, c: TEAL },
+  { t: "Structured summarization", d: "TLDR, key concepts, methodology, results, and limitations returned as one brief instead of a wall of text.", icon: Layers, c: BLUE },
+  { t: "Retrieval transparency", d: "Inspect the exact chunks, source documents, and similarity scores behind every answer, not just the final text.", icon: FileSearch, c: TEAL },
+  { t: "Evaluation harness", d: "Run recall@5, mean reciprocal rank, and groundedness metrics against your own workspace whenever you need a check.", icon: BarChart3, c: ROSE },
 ];
 
 const PIPELINE = [
@@ -133,11 +132,6 @@ const SECURITY_POINTS = [
   "No third-party tracking of ingested document content",
 ];
 
-const PRICING = [
-  { t: "Self-hosted", price: "$0", d: "Run Prism yourself. Bring your own Groq API key and Postgres instance.", features: ["Full ingestion pipeline", "Hybrid retrieval + reranking", "Claim-level verification", "Structured summarization", "Evaluation harness"], cta: "Get started on GitHub", highlighted: false },
-  { t: "Workspace", price: "Free", d: "The hosted workspace, for individual research use.", features: ["Everything in Self-hosted", "Managed Postgres + pgvector", "Background job dashboard", "Source Trace UI", "No infrastructure to maintain"], cta: "Try Prism free", highlighted: true },
-];
-
 const FAQ = [
   { q: "What file formats does Prism support?", a: "PDF, DOCX, DOC, and TXT uploads, URLs, and pasted raw text, all through the same ingestion pipeline." },
   { q: "How does Prism prevent hallucinated answers?", a: "Every sentence in a generated answer is split out and matched against the retrieved evidence, then labeled supported, uncertain, or unsupported with a confidence score." },
@@ -159,6 +153,21 @@ function Reveal({ children, delay = 0, className, style }: { children: ReactNode
     <motion.div className={className} style={style} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-72px" }} transition={{ delay }}>
       {children}
     </motion.div>
+  );
+}
+
+function ToneDots({ tone }: { tone: "dark" | "light" }) {
+  return (
+    <span className="pz-tone-dots">
+      <span className="pz-tone-dot" style={{ background: tone === "dark" ? PAPER : INK }} />
+      <span
+        className="pz-tone-dot"
+        style={{
+          background: tone === "dark" ? INK_RAISED_2 : "rgba(10,10,13,0.32)",
+          border: tone === "dark" ? `1px solid ${LINE_ON_INK}` : "none",
+        }}
+      />
+    </span>
   );
 }
 
@@ -272,7 +281,7 @@ export default function LandingPage() {
         .pz-eyebrow { display:inline-flex; align-items:center; gap:10px; font-family: var(--font-mono, monospace); font-size:11.5px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin-bottom:22px; }
         .pz-eyebrow-rule { width:26px; height:2px; background:${SPECTRUM_GRADIENT}; border-radius:2px; }
 
-        .pz-brand { font-family: var(--font-display,'DM Serif Display',Georgia,serif); font-weight:400; font-size:clamp(64px,9.2vw,124px); line-height:0.92; letter-spacing:-0.03em; color:#fff; margin:0 0 22px; }
+        .pz-brand { font-family: var(--font-display,'DM Serif Display',Georgia,serif); font-weight:400; font-size:clamp(64px,9.2vw,124px); line-height:0.92; letter-spacing:-0.01em; color:#fff; margin:0 0 22px; text-transform:uppercase; }
         .pz-h1 { font-family: var(--font-display,'DM Serif Display',Georgia,serif); font-weight:400; font-size:clamp(24px,2.6vw,32px); line-height:1.28; letter-spacing:-0.01em; color:rgba(255,255,255,0.9); max-width:520px; margin:0; }
         .pz-h1 .spec { background:${SPECTRUM_GRADIENT}; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
         .pz-lead { margin-top:24px; max-width:480px; font-size:16.5px; line-height:1.75; color:rgba(255,255,255,0.5); }
@@ -280,6 +289,14 @@ export default function LandingPage() {
         .pz-hero-note { margin-top:20px; font-family: var(--font-mono, monospace); font-size:11px; color:rgba(255,255,255,0.34); }
 
         .pz-hero-visual { position:relative; display:flex; align-items:center; justify-content:center; min-height:280px; }
+        .pz-visual-frame { position:relative; width:100%; max-width:480px; aspect-ratio:1/1; border-radius:28px; background:linear-gradient(160deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012)); border:1px solid ${LINE_ON_INK}; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:36px; }
+        .pz-visual-glow { position:absolute; inset:-20%; background: radial-gradient(circle at 28% 26%, rgba(232,197,71,0.18), transparent 55%), radial-gradient(circle at 76% 72%, rgba(90,143,239,0.18), transparent 55%); filter:blur(42px); pointer-events:none; }
+        .pz-visual-corner { position:absolute; width:20px; height:20px; border-color:rgba(255,255,255,0.28); pointer-events:none; }
+        .pz-visual-corner.tl { top:16px; left:16px; border-top:1.5px solid; border-left:1.5px solid; border-radius:6px 0 0 0; }
+        .pz-visual-corner.br { bottom:16px; right:16px; border-bottom:1.5px solid; border-right:1.5px solid; border-radius:0 0 6px 0; }
+        .pz-visual-content { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; z-index:1; }
+        .pz-visual-content img, .pz-visual-content svg { width:100%; height:100%; object-fit:contain; }
+        .pz-visual-caption { position:absolute; left:18px; bottom:18px; font-family: var(--font-mono, monospace); font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.32); z-index:1; }
 
         .pz-trust-strip { margin:64px auto 0; padding-top:28px; border-top:1px solid ${LINE_ON_INK}; display:grid; grid-template-columns:repeat(2,1fr); gap:1px; max-width:1360px; background:${LINE_ON_INK}; }
         @media (min-width:640px){ .pz-trust-strip{ grid-template-columns:repeat(4,1fr); } }
@@ -300,21 +317,19 @@ export default function LandingPage() {
         .pz-label { display:inline-flex; align-items:center; gap:10px; font-family: var(--font-mono, monospace); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.16em; color:rgba(255,255,255,0.42); margin-bottom:18px; }
         .paper .pz-label { color:rgba(10,10,13,0.45); }
         .pz-label-rule { width:22px; height:2px; background:${SPECTRUM_GRADIENT}; border-radius:2px; }
+        .pz-tone-dots { display:inline-flex; align-items:center; gap:5px; }
+        .pz-tone-dot { width:7px; height:7px; border-radius:999px; flex-shrink:0; }
         .pz-h2 { font-family: var(--font-display,'DM Serif Display',Georgia,serif); font-weight:400; font-size:clamp(30px,3.6vw,44px); line-height:1.1; letter-spacing:-0.02em; color:#fff; margin:0; }
         .paper .pz-h2 { color:${INK}; }
         .pz-h2.small { font-size:clamp(26px,2.8vw,36px); }
         .pz-section-sub { margin-top:20px; font-size:15px; line-height:1.75; color:rgba(255,255,255,0.5); }
         .paper .pz-section-sub { color:rgba(10,10,13,0.58); }
 
-        .pz-bento { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+        .pz-bento { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
         @media (max-width:900px){ .pz-bento{ grid-template-columns:repeat(2,1fr); } }
         @media (max-width:560px){ .pz-bento{ grid-template-columns:1fr; } }
-        .pz-bento .wide { grid-column:span 2; }
-        .pz-bento .tall { grid-row:span 2; }
-        @media (max-width:900px){ .pz-bento .wide, .pz-bento .tall { grid-column:span 2; grid-row:auto; } }
-        @media (max-width:560px){ .pz-bento .wide, .pz-bento .tall { grid-column:span 1; } }
 
-        .pz-tile { position:relative; border-radius:18px; padding:28px; background:${INK_RAISED_2}; border:1px solid ${LINE_ON_INK}; display:flex; flex-direction:column; gap:14px; overflow:hidden; transition:transform .3s ease, border-color .3s ease; }
+        .pz-tile { position:relative; border-radius:18px; padding:28px; background:${INK_RAISED_2}; border:1px solid ${LINE_ON_INK}; display:flex; flex-direction:column; gap:14px; overflow:hidden; transition:transform .3s ease, border-color .3s ease; height:100%; min-height:230px; }
         .pz-tile:hover { transform:translateY(-4px); }
         .pz-tile-glow { position:absolute; top:-40%; right:-30%; width:60%; height:180%; opacity:0.12; filter:blur(30px); pointer-events:none; border-radius:50%; }
         .pz-tile-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; }
@@ -359,7 +374,7 @@ export default function LandingPage() {
         .pz-pipe-desc { font-size:13.5px; line-height:1.72; color:rgba(10,10,13,0.58); }
 
         .pz-stack-row { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:1020px; margin:0 auto; }
-        .pz-stack-pill { display:flex; align-items:center; gap:10px; padding:12px 18px; border-radius:999px; background:rgba(255,255,255,0.04); border:1px solid ${LINE_ON_INK}; }
+        .pz-stack-pill { display:flex; align-items:center; gap:10px; padding:12px 18px; border-radius:999px; background:${INK}; border:1px solid ${LINE_ON_INK}; }
         .pz-stack-pill-t { font-size:12.5px; font-weight:700; color:#fff; }
         .pz-stack-pill-d { font-family: var(--font-mono, monospace); font-size:9.5px; color:rgba(255,255,255,0.4); }
 
@@ -379,22 +394,7 @@ export default function LandingPage() {
         .pz-security-list { list-style:none; margin-top:26px; display:flex; flex-direction:column; gap:15px; }
         .pz-security-list li { display:flex; align-items:flex-start; gap:12px; font-size:13.5px; line-height:1.6; color:rgba(255,255,255,0.6); }
         .pz-security-check { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
-        .pz-security-note { flex:1; max-width:380px; padding:24px; border-radius:16px; background:rgba(255,255,255,0.03); border:1px solid ${LINE_ON_INK}; font-size:13px; line-height:1.75; color:rgba(255,255,255,0.5); }
-
-        .pz-pricing-grid { display:grid; gap:22px; max-width:800px; margin:0 auto; grid-template-columns:1fr; }
-        @media (min-width:700px){ .pz-pricing-grid{ grid-template-columns:1fr 1fr; } }
-        .pz-price-card { border-radius:20px; padding:34px; background:${PAPER_CARD}; border:1px solid ${LINE_ON_PAPER}; display:flex; flex-direction:column; }
-        .pz-price-card.hl { background:${INK}; border:none; position:relative; }
-        .pz-price-card.hl::before { content:""; position:absolute; inset:0; border-radius:20px; padding:1.5px; background:${SPECTRUM_GRADIENT}; -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
-        .pz-price-card.hl .pz-price-title, .pz-price-card.hl .pz-price-amount { color:#fff; }
-        .pz-price-card.hl .pz-price-desc { color:rgba(255,255,255,0.55); }
-        .pz-price-card.hl .pz-price-feature { color:rgba(255,255,255,0.72); }
-        .pz-price-title { font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:rgba(10,10,13,0.5); }
-        .pz-price-amount { font-family: var(--font-display,'DM Serif Display',Georgia,serif); font-size:42px; color:${INK}; margin:14px 0 8px; }
-        .pz-price-desc { font-size:13.5px; line-height:1.6; color:rgba(10,10,13,0.55); margin-bottom:22px; }
-        .pz-price-features { list-style:none; display:flex; flex-direction:column; gap:11px; margin-bottom:26px; flex:1; }
-        .pz-price-feature { display:flex; align-items:center; gap:10px; font-size:13.5px; color:rgba(10,10,13,0.68); }
-        .pz-price-check { width:18px; height:18px; border-radius:5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .pz-security-note { flex:1; max-width:380px; padding:24px; border-radius:16px; background:${PAPER}; color:${INK}; border:1px solid ${LINE_ON_INK}; font-size:13px; line-height:1.75; }
 
         .pz-faq-list { max-width:740px; margin:0 auto; }
         .pz-faq-item { border-bottom:1px solid ${LINE_ON_INK}; }
@@ -453,7 +453,7 @@ export default function LandingPage() {
         <div className="pz-hero-grid">
           <div>
             <Reveal><div className="pz-eyebrow"><span className="pz-eyebrow-rule" />Research intelligence platform</div></Reveal>
-            <Reveal delay={0.05}><h1 className="pz-brand">Prism</h1></Reveal>
+            <Reveal delay={0.05}><h1 className="pz-brand">PRISM</h1></Reveal>
             <Reveal delay={0.1}>
               <p className="pz-h1">Every document, <span className="spec">refracted into a verified answer.</span></p>
             </Reveal>
@@ -468,7 +468,17 @@ export default function LandingPage() {
               <div className="pz-hero-note">No credit card required · Free Groq API tier available</div>
             </Reveal>
           </div>
-          <Reveal delay={0.2} className="pz-hero-visual"><SpectrumPrism /></Reveal>
+          <Reveal delay={0.2} className="pz-hero-visual">
+            <div className="pz-visual-frame">
+              <div className="pz-visual-glow" />
+              <span className="pz-visual-corner tl" />
+              <span className="pz-visual-corner br" />
+              <div className="pz-visual-content">
+                <SpectrumPrism />
+              </div>
+              <span className="pz-visual-caption">Retrieval → generation → verification</span>
+            </div>
+          </Reveal>
         </div>
         <Reveal delay={0.3}>
           <div className="pz-trust-strip">
@@ -484,7 +494,7 @@ export default function LandingPage() {
 
       <section id="problem" className="pz-section tight">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label"><span className="pz-label-rule" />The problem</div><h2 className="pz-h2 small">Research workflows weren&apos;t built for how much you actually read</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label"><span className="pz-label-rule" />The problem<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Research workflows weren&apos;t built for how much you actually read</h2></div></Reveal>
           <div className="pz-grid cols-2">
             {PROBLEMS.map((p, i) => (
               <Reveal key={p.t} delay={i * 0.05}>
@@ -499,7 +509,7 @@ export default function LandingPage() {
         <div className="pz-section-inner">
           <Reveal>
             <div className="pz-section-head center" style={{ marginBottom: 0 }}>
-              <div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />The solution</div>
+              <div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />The solution<ToneDots tone="dark" /></div>
               <h2 className="pz-h2 small">An auditable pipeline, not a black box</h2>
               <p className="pz-section-sub">Prism exposes the entire retrieval-to-generation pipeline — fused hybrid search, reranked chunks, inline citations, and per-claim verification — so every answer can be traced back to the exact passage it came from.</p>
             </div>
@@ -509,11 +519,11 @@ export default function LandingPage() {
 
       <section id="features" className="pz-section">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Key features</div><h2 className="pz-h2">Everything needed to trust an AI answer</h2></div></Reveal>
+          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Key features<ToneDots tone="dark" /></div><h2 className="pz-h2">Everything needed to trust an AI answer</h2></div></Reveal>
           <div className="pz-bento">
             {FEATURES.map((f, i) => (
-              <Reveal key={f.t} delay={i * 0.04} className={f.span === "wide" ? "wide" : f.span === "tall" ? "tall" : ""}>
-                <div className="pz-tile" style={{ height: "100%" }}>
+              <Reveal key={f.t} delay={i * 0.04}>
+                <div className="pz-tile">
                   <div className="pz-tile-glow" style={{ background: f.c }} />
                   <span className="pz-tile-icon" style={{ background: `${f.c}22` }}><f.icon size={17} color={f.c} /></span>
                   <div className="pz-tile-title">{f.t}</div>
@@ -527,7 +537,7 @@ export default function LandingPage() {
 
       <section className="pz-section raised">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Inside Prism</div><h2 className="pz-h2 small">One workspace, every stage of the pipeline</h2><p className="pz-section-sub">Eight pages, all connected — ingest a document and follow it through retrieval, generation, and verification.</p></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Inside Prism<ToneDots tone="dark" /></div><h2 className="pz-h2 small">One workspace, every stage of the pipeline</h2><p className="pz-section-sub">Eight pages, all connected — ingest a document and follow it through retrieval, generation, and verification.</p></div></Reveal>
           <Reveal>
             <div className="pz-showcase">
               <div className="pz-showcase-tabs">{PRODUCT_PAGES.slice(0, 5).map((p, i) => <div key={p.label} className={`pz-showcase-tab ${i === 3 ? "active" : ""}`}><p.icon size={13} /> {p.label}</div>)}</div>
@@ -547,7 +557,7 @@ export default function LandingPage() {
 
       <section id="pipeline" className="pz-section paper">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />How it works</div><h2 className="pz-h2 small">From document to verified answer, four stages</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />How it works<ToneDots tone="light" /></div><h2 className="pz-h2 small">From document to verified answer, four stages</h2></div></Reveal>
           <div className="pz-pipe">
             <div className="pz-pipe-line" />
             <div className="pz-pipe-track">
@@ -565,7 +575,7 @@ export default function LandingPage() {
 
       <section id="use-cases" className="pz-section">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Use cases</div><h2 className="pz-h2">Built for the way research actually happens</h2></div></Reveal>
+          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Use cases<ToneDots tone="dark" /></div><h2 className="pz-h2">Built for the way research actually happens</h2></div></Reveal>
           <div className="pz-grid cols-4">
             {USE_CASES.map((u, i) => (
               <Reveal key={u.t} delay={i * 0.04}>
@@ -581,7 +591,7 @@ export default function LandingPage() {
 
       <section className="pz-section raised">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Outcomes</div><h2 className="pz-h2 small">What you actually get</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Outcomes<ToneDots tone="dark" /></div><h2 className="pz-h2 small">What you actually get</h2></div></Reveal>
           <div className="pz-grid cols-4">
             {BENEFITS.map((b, i) => (
               <Reveal key={b.t} delay={i * 0.04}>
@@ -598,15 +608,15 @@ export default function LandingPage() {
 
       <section id="architecture" className="pz-section paper">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Stack &amp; integrations</div><h2 className="pz-h2 small">Composed from proven, swappable pieces</h2><p className="pz-section-sub">Every layer of the pipeline is a distinct, independently replaceable component.</p></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Stack &amp; integrations<ToneDots tone="light" /></div><h2 className="pz-h2 small">Composed from proven, swappable pieces</h2><p className="pz-section-sub">Every layer of the pipeline is a distinct, independently replaceable component.</p></div></Reveal>
           <Reveal>
             <div className="pz-stack-row">
               {STACK.map((s) => (
                 <div key={s.t} className="pz-stack-pill">
-                  <s.icon size={15} color={INK} />
+                  <s.icon size={15} color="#fff" />
                   <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span className="pz-stack-pill-t" style={{ color: INK }}>{s.t}</span>
-                    <span className="pz-stack-pill-d" style={{ color: "rgba(10,10,13,0.45)" }}>{s.d}</span>
+                    <span className="pz-stack-pill-t">{s.t}</span>
+                    <span className="pz-stack-pill-d">{s.d}</span>
                   </div>
                 </div>
               ))}
@@ -617,7 +627,7 @@ export default function LandingPage() {
 
       <section id="product" className="pz-section">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Why Prism</div><h2 className="pz-h2 small">Not another chat-with-your-PDF wrapper</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Why Prism<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Not another chat-with-your-PDF wrapper</h2></div></Reveal>
           <Reveal>
             <div className="pz-compare-head"><span>Capability</span><span>Typical tool</span><span>Prism</span></div>
             <div className="pz-compare">
@@ -637,7 +647,7 @@ export default function LandingPage() {
         <div className="pz-section-inner">
           <div className="pz-security-row">
             <Reveal className="pz-security-left">
-              <div className="pz-label"><span className="pz-label-rule" />Security &amp; privacy</div>
+              <div className="pz-label"><span className="pz-label-rule" />Security &amp; privacy<ToneDots tone="dark" /></div>
               <h2 className="pz-h2 small">Your documents stay yours</h2>
               <ul className="pz-security-list">
                 {SECURITY_POINTS.map((s, i) => (
@@ -652,32 +662,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="pricing" className="pz-section paper">
-        <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Pricing</div><h2 className="pz-h2 small">Start free, run it your way</h2></div></Reveal>
-          <div className="pz-pricing-grid">
-            {PRICING.map((p, i) => (
-              <Reveal key={p.t} delay={i * 0.06}>
-                <div className={`pz-price-card ${p.highlighted ? "hl" : ""}`}>
-                  <div className="pz-price-title">{p.t}</div>
-                  <div className="pz-price-amount">{p.price}</div>
-                  <p className="pz-price-desc">{p.d}</p>
-                  <ul className="pz-price-features">
-                    {p.features.map((f, fi) => (
-                      <li key={f} className="pz-price-feature"><span className="pz-price-check" style={{ background: `${SPECTRUM[fi % SPECTRUM.length]}22` }}><Check size={11} color={SPECTRUM[fi % SPECTRUM.length]} /></span>{f}</li>
-                    ))}
-                  </ul>
-                  <Link href="/register" className={`pz-btn ${p.highlighted ? "pz-btn-spectrum" : "pz-btn-dark"}`}>{p.cta} <ArrowRight size={14} /></Link>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="pz-section">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />FAQ</div><h2 className="pz-h2 small">Frequently asked questions</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />FAQ<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Frequently asked questions</h2></div></Reveal>
           <div className="pz-faq-list">
             {FAQ.map((f, i) => {
               const open = openFaq === i;
@@ -699,7 +686,7 @@ export default function LandingPage() {
         <div className="pz-final-glow" />
         <div className="pz-final-inner">
           <Reveal>
-            <div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Get started</div>
+            <div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Get started<ToneDots tone="dark" /></div>
             <h2 className="pz-h2" style={{ fontSize: "clamp(28px,4vw,46px)" }}>Stop guessing whether your AI answers are true.</h2>
             <p className="pz-lead" style={{ margin: "18px auto 0" }}>Ingest your first document and watch the full retrieval, generation, and verification pipeline run end to end.</p>
             <div className="pz-cta-row" style={{ justifyContent: "center" }}>
@@ -719,7 +706,7 @@ export default function LandingPage() {
             </div>
             <div className="pz-footer-col">
               <div className="pz-footer-col-h">Product</div>
-              <a href="#features">Features</a><a href="#pipeline">How it works</a><a href="#pricing">Pricing</a><a href="/login">Sign in</a>
+              <a href="#features">Features</a><a href="#pipeline">How it works</a><a href="#use-cases">Use cases</a><a href="/login">Sign in</a>
             </div>
             <div className="pz-footer-col">
               <div className="pz-footer-col-h">Resources</div>
