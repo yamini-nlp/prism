@@ -76,20 +76,15 @@ export default function Sidebar() {
             <Zap size={16} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
           </div>
           {!collapsed && (
-            <span className="font-display text-xl leading-none tracking-tight text-[var(--text-primary)]">Prism</span>
+            <span className="font-display text-2xl leading-none tracking-tight text-[var(--text-primary)]">PRISM</span>
           )}
         </Link>
       </div>
 
       <div
         className="flex flex-1 flex-col overflow-y-auto py-8"
-        style={collapsed ? { paddingLeft: 12, paddingRight: 12 } : { paddingLeft: 32, paddingRight: 24 }}
+        style={collapsed ? { paddingLeft: 12, paddingRight: 12 } : { paddingLeft: 32, paddingRight: 16 }}
       >
-        {!collapsed && (
-          <div className="mb-4 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]" style={{ paddingLeft: 4 }}>
-            Navigation
-          </div>
-        )}
 
         <nav id="sidebar-nav" aria-label="Primary navigation" className="relative flex flex-col gap-1.5">
           <div
@@ -110,7 +105,7 @@ export default function Sidebar() {
                   data-nav-link
                   aria-current={active ? "page" : undefined}
                   title={collapsed ? label : undefined}
-                  style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 16, paddingRight: 16 }}
+                  style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 16, paddingRight: 12 }}
                   className={`relative z-10 flex h-12 items-center gap-3.5 rounded-xl text-[14px] font-medium leading-none no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
                     active
                       ? "text-[var(--accent)]"
