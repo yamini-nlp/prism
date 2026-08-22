@@ -62,7 +62,10 @@ export default function Sidebar() {
         collapsed ? "lg:w-[76px]" : "lg:w-72"
       }`}
     >
-      <div className={`flex h-20 flex-shrink-0 items-center border-b border-[var(--border)] ${collapsed ? "justify-center px-0" : "px-8"}`}>
+      <div
+        className="flex h-20 flex-shrink-0 items-center border-b border-[var(--border)]"
+        style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 32, paddingRight: 32 }}
+      >
         <Link
           href="/"
           prefetch={false}
@@ -78,9 +81,12 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className={`flex flex-1 flex-col overflow-y-auto ${collapsed ? "px-3 py-8" : "px-6 py-8"}`}>
+      <div
+        className="flex flex-1 flex-col overflow-y-auto py-8"
+        style={collapsed ? { paddingLeft: 12, paddingRight: 12 } : { paddingLeft: 32, paddingRight: 24 }}
+      >
         {!collapsed && (
-          <div className="mb-4 px-4 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          <div className="mb-4 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]" style={{ paddingLeft: 4 }}>
             Navigation
           </div>
         )}
@@ -104,9 +110,8 @@ export default function Sidebar() {
                   data-nav-link
                   aria-current={active ? "page" : undefined}
                   title={collapsed ? label : undefined}
+                  style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 16, paddingRight: 16 }}
                   className={`relative z-10 flex h-12 items-center gap-3.5 rounded-xl text-[14px] font-medium leading-none no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
-                    collapsed ? "justify-center px-0" : "px-5"
-                  } ${
                     active
                       ? "text-[var(--accent)]"
                       : "text-[var(--text-secondary)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
@@ -129,9 +134,12 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div className={`flex flex-shrink-0 flex-col gap-3 border-t border-[var(--border)] ${collapsed ? "px-3 py-5" : "px-6 py-5"}`}>
+      <div
+        className="flex flex-shrink-0 flex-col gap-3 border-t border-[var(--border)] py-5"
+        style={collapsed ? { paddingLeft: 12, paddingRight: 12 } : { paddingLeft: 32, paddingRight: 24 }}
+      >
         {user && !collapsed && (
-          <div className="flex items-center justify-between gap-3 rounded-xl px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl py-2.5" style={{ paddingLeft: 12, paddingRight: 12 }}>
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[12.5px] font-semibold text-[var(--text-secondary)]">
                 {user.email.charAt(0).toUpperCase()}
