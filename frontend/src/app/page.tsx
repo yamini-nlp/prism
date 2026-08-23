@@ -171,6 +171,15 @@ function ToneDots({ tone }: { tone: "dark" | "light" }) {
   );
 }
 
+function PrismMark({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="50,18 20,74 80,74" fill={INK} />
+      <line x1="4" y1="50" x2="20" y2="50" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function SpectrumPrism() {
   return (
     <svg viewBox="0 0 520 340" width="100%" height="100%" style={{ overflow: "visible" }}>
@@ -425,7 +434,7 @@ export default function LandingPage() {
 
       <header className={`pz-header ${scrolled ? "scrolled" : ""}`}>
         <Link href="/" className="pz-logo">
-          <span className="pz-logo-mark"><Sparkles size={14} color={INK} strokeWidth={2.4} /></span>
+          <span className="pz-logo-mark"><PrismMark size={14} /></span>
           <span className="pz-logo-text">PRISM</span>
         </Link>
         <nav className="pz-nav">{NAV_LINKS.map((l) => <a key={l.label} href={l.href}>{l.label}</a>)}</nav>
@@ -492,9 +501,9 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      <section id="problem" className="pz-section tight">
+      <section id="problem" className="pz-section paper tight">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head center"><div className="pz-label"><span className="pz-label-rule" />The problem<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Research workflows weren&apos;t built for how much you actually read</h2></div></Reveal>
+          <Reveal><div className="pz-section-head center"><div className="pz-label"><span className="pz-label-rule" />The problem<ToneDots tone="light" /></div><h2 className="pz-h2 small">Research workflows weren&apos;t built for how much you actually read</h2></div></Reveal>
           <div className="pz-grid cols-2">
             {PROBLEMS.map((p, i) => (
               <Reveal key={p.t} delay={i * 0.05}>
@@ -517,9 +526,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="pz-section">
+      <section id="features" className="pz-section paper">
         <div className="pz-section-inner">
-          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Key features<ToneDots tone="dark" /></div><h2 className="pz-h2">Everything needed to trust an AI answer</h2></div></Reveal>
+          <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Key features<ToneDots tone="light" /></div><h2 className="pz-h2">Everything needed to trust an AI answer</h2></div></Reveal>
           <div className="pz-bento">
             {FEATURES.map((f, i) => (
               <Reveal key={f.t} delay={i * 0.04}>
@@ -535,7 +544,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="pz-section raised">
+      <section className="pz-section">
         <div className="pz-section-inner">
           <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Inside Prism<ToneDots tone="dark" /></div><h2 className="pz-h2 small">One workspace, every stage of the pipeline</h2><p className="pz-section-sub">Eight pages, all connected — ingest a document and follow it through retrieval, generation, and verification.</p></div></Reveal>
           <Reveal>
@@ -573,7 +582,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="use-cases" className="pz-section">
+      <section id="use-cases" className="pz-section raised">
         <div className="pz-section-inner">
           <Reveal><div className="pz-section-head"><div className="pz-label"><span className="pz-label-rule" />Use cases<ToneDots tone="dark" /></div><h2 className="pz-h2">Built for the way research actually happens</h2></div></Reveal>
           <div className="pz-grid cols-4">
@@ -589,7 +598,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="pz-section raised">
+      <section className="pz-section">
         <div className="pz-section-inner">
           <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Outcomes<ToneDots tone="dark" /></div><h2 className="pz-h2 small">What you actually get</h2></div></Reveal>
           <div className="pz-grid cols-4">
@@ -625,7 +634,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="product" className="pz-section">
+      <section id="product" className="pz-section raised">
         <div className="pz-section-inner">
           <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />Why Prism<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Not another chat-with-your-PDF wrapper</h2></div></Reveal>
           <Reveal>
@@ -643,7 +652,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="pz-section raised">
+      <section className="pz-section">
         <div className="pz-section-inner">
           <div className="pz-security-row">
             <Reveal className="pz-security-left">
@@ -662,7 +671,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="pz-section">
+      <section className="pz-section raised">
         <div className="pz-section-inner">
           <Reveal><div className="pz-section-head center"><div className="pz-label" style={{ justifyContent: "center" }}><span className="pz-label-rule" />FAQ<ToneDots tone="dark" /></div><h2 className="pz-h2 small">Frequently asked questions</h2></div></Reveal>
           <div className="pz-faq-list">
@@ -701,7 +710,7 @@ export default function LandingPage() {
         <div className="pz-footer-inner">
           <div className="pz-footer-top">
             <div>
-              <div className="pz-footer-brand"><span className="pz-logo-mark"><Sparkles size={14} color={INK} strokeWidth={2.4} /></span><span className="pz-logo-text">PRISM</span></div>
+              <div className="pz-footer-brand"><span className="pz-logo-mark"><PrismMark size={14} /></span><span className="pz-logo-text">PRISM</span></div>
               <p className="pz-footer-blurb">A research intelligence platform built on hybrid retrieval, grounded generation, and claim-level verification.</p>
             </div>
             <div className="pz-footer-col">
