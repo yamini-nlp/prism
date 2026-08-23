@@ -2,28 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  applyUnauthenticated,
-  bootstrapSession,
-  getAuthStatus,
-  getLastRefreshFailureReason,
-  subscribeAuth,
-} from "@/lib/auth";
+import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
+import { waitForBackend } from "@/lib/backend-health";
 
-const ATTEMPT_TIMEOUT_MS = 40000;
-const MAX_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 2000;
+const BACKEND_WAIT_MS = 100000;
+const BOOTSTRAP_ATTEMPT_TIMEOUT_MS = 20000;
+const BOOTSTRAP_MAX_ATTEMPTS = 3;
+const BOOTSTRAP_RETRY_DELAY_MS = 1500;
 
-function LoadingScreen({
-  attempt,
-  unreachable,
-  onRetry,
-}: {
-  attempt: number;
-  unreachable: boolean;
-  onRetry: () => void;
-}) {
+type Phase = "waking" | "signing-in" | "unreachable";
+
+function LoadingScreen({ phase, onRetry }: { phase: Phase; onRetry: () => void }) {
+  const message =
+    phase === "waking"
+      ? "Waking up the server. First load after a period of inactivity can take up to a minute."
+      : phase === "signing-in"
+      ? "Server is up — signing you in…"
+      : "Can't reach the Prism server right now. It may still be waking up — please try again in a moment.";
+
   return (
     <div
       style={{
@@ -48,20 +45,11 @@ function LoadingScreen({
           borderRadius: "50%",
           border: "2px solid var(--border)",
           borderTopColor: "var(--text-primary)",
-          animation: unreachable ? "none" : "prism-auth-gate-spin 0.8s linear infinite",
+          animation: phase === "unreachable" ? "none" : "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>
-          {unreachable
-            ? "Can't reach the Prism server. It may still be waking up from sleep — this can take a minute on the first request."
-            : "Waking up the server. First load after a period of inactivity can take up to a minute."}
-        </span>
-        {!unreachable && attempt > 1 && (
-          <span style={{ fontSize: 12, color: "var(--text-secondary)", opacity: 0.7 }}>
-            Attempt {attempt} of {MAX_ATTEMPTS}
-          </span>
-        )}
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>{message}</span>
         <button
           onClick={onRetry}
           style={{
@@ -92,9 +80,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const status = useSyncExternalStore(subscribeAuth, getAuthStatus, () => "loading" as const);
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const [attempt, setAttempt] = useState(1);
-  const [unreachable, setUnreachable] = useState(false);
-  const retryTokenRef = useRef(0);
+  const [phase, setPhase] = useState<Phase>("waking");
+  const runTokenRef = useRef(0);
 
   const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
     return Promise.race([
@@ -103,41 +90,43 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     ]);
   }, []);
 
-  const runBootstrapLoop = useCallback(() => {
-    const token = ++retryTokenRef.current;
-    let currentAttempt = 1;
-    setAttempt(1);
-    setUnreachable(false);
+  const runAuthFlow = useCallback(async () => {
+    const token = ++runTokenRef.current;
+    setPhase("waking");
 
-    async function attemptBootstrap() {
-      if (retryTokenRef.current !== token) return;
-      await withTimeout(bootstrapSession(), ATTEMPT_TIMEOUT_MS);
-      if (retryTokenRef.current !== token) return;
-      if (getAuthStatus() !== "loading") return;
+    const backendUp = await waitForBackend(BACKEND_WAIT_MS);
+    if (runTokenRef.current !== token) return;
 
-      if (currentAttempt >= MAX_ATTEMPTS) {
-        if (getLastRefreshFailureReason() === "unauthenticated") {
-          applyUnauthenticated();
-        } else {
-          setUnreachable(true);
-        }
-        return;
-      }
-      currentAttempt += 1;
-      setAttempt(currentAttempt);
-      setTimeout(attemptBootstrap, RETRY_DELAY_MS);
+    if (!backendUp) {
+      setPhase("unreachable");
+      return;
     }
 
-    attemptBootstrap();
+    setPhase("signing-in");
+
+    for (let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
+      if (runTokenRef.current !== token) return;
+      await withTimeout(bootstrapSession(), BOOTSTRAP_ATTEMPT_TIMEOUT_MS);
+      if (runTokenRef.current !== token) return;
+      if (getAuthStatus() !== "loading") return;
+      if (attempt < BOOTSTRAP_MAX_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_RETRY_DELAY_MS));
+      }
+    }
+
+    if (runTokenRef.current !== token) return;
+    if (getAuthStatus() === "loading") {
+      setPhase("unreachable");
+    }
   }, [withTimeout]);
 
   useEffect(() => {
     if (status !== "loading") return;
-    runBootstrapLoop();
+    runAuthFlow();
     return () => {
-      retryTokenRef.current += 1;
+      runTokenRef.current += 1;
     };
-  }, [status, runBootstrapLoop]);
+  }, [status, runAuthFlow]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -159,10 +148,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (isPendingProtectedAccess || isPendingAuthRouteRedirect) {
     return (
       <LoadingScreen
-        attempt={attempt}
-        unreachable={unreachable}
+        phase={phase}
         onRetry={() => {
-          runBootstrapLoop();
+          runAuthFlow();
         }}
       />
     );
