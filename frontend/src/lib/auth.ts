@@ -56,7 +56,7 @@ function applyAuthenticated(token: string, user: CurrentUser | null): void {
   notify();
 }
 
-function applyUnauthenticated(): void {
+export function applyUnauthenticated(): void {
   accessToken = null;
   currentUser = null;
   authStatus = "unauthenticated";
@@ -159,7 +159,7 @@ export async function register(email: string, password: string): Promise<Current
 
 async function doRefresh(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/refresh", { method: "POST", signal: AbortSignal.timeout(12000) });
+    const res = await fetch("/api/auth/refresh", { method: "POST", signal: AbortSignal.timeout(28000) });
     if (res.status === 401) {
       applyUnauthenticated();
       return null;
