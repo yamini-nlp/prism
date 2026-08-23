@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createQueryClient } from "@/lib/query-client";
-import AuthGate from "@/components/AuthGate";
 import { getAuthStatus, subscribeAuth } from "@/lib/auth";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -21,9 +20,5 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, [queryClient]);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthGate>{children}</AuthGate>
-    </QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
