@@ -5,7 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
 
-function LoadingScreen({ stuck, onRetry }: { stuck?: boolean; onRetry?: () => void }) {
+const ATTEMPT_TIMEOUT_MS = 55000;
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 2000;
+
+function LoadingScreen({ attempt, onRetry }: { attempt: number; onRetry?: () => void }) {
   return (
     <div
       style={{
@@ -17,6 +21,8 @@ function LoadingScreen({ stuck, onRetry }: { stuck?: boolean; onRetry?: () => vo
         alignItems: "center",
         justifyContent: "center",
         gap: 14,
+        padding: 24,
+        textAlign: "center",
       }}
     >
       <div
@@ -31,30 +37,33 @@ function LoadingScreen({ stuck, onRetry }: { stuck?: boolean; onRetry?: () => vo
           animation: "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
-      {stuck && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            Still trying to reach the server. It may be waking up from sleep.
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>
+          Waking up the server. First load after a period of inactivity can take up to a minute.
+        </span>
+        {attempt > 1 && (
+          <span style={{ fontSize: 12, color: "var(--text-secondary)", opacity: 0.7 }}>
+            Attempt {attempt} of {MAX_ATTEMPTS}
           </span>
-          {onRetry && (
-            <button
-              onClick={onRetry}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "1px solid var(--border)",
-                background: "transparent",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-              }}
-            >
-              Retry now
-            </button>
-          )}
-        </div>
-      )}
+        )}
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+            }}
+          >
+            Retry now
+          </button>
+        )}
+      </div>
       <style>{`
         @keyframes prism-auth-gate-spin {
           from { transform: rotate(0deg); }
@@ -69,7 +78,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const status = useSyncExternalStore(subscribeAuth, getAuthStatus, () => "loading" as const);
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const [stuck, setStuck] = useState(false);
+  const [attempt, setAttempt] = useState(1);
   const retryTokenRef = useRef(0);
 
   const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
@@ -81,32 +90,28 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const runBootstrapLoop = useCallback(() => {
     const token = ++retryTokenRef.current;
-    let attempt = 0;
-    const MAX_ATTEMPTS = 4;
+    let currentAttempt = 1;
+    setAttempt(1);
 
     async function attemptBootstrap() {
       if (retryTokenRef.current !== token) return;
-      await withTimeout(bootstrapSession(), 15000);
+      await withTimeout(bootstrapSession(), ATTEMPT_TIMEOUT_MS);
       if (retryTokenRef.current !== token) return;
       if (getAuthStatus() !== "loading") return;
-      attempt += 1;
-      setStuck(true);
-      if (attempt >= MAX_ATTEMPTS) {
+      if (currentAttempt >= MAX_ATTEMPTS) {
         applyUnauthenticated();
         return;
       }
-      const delay = Math.min(2000 * attempt, 6000);
-      setTimeout(attemptBootstrap, delay);
+      currentAttempt += 1;
+      setAttempt(currentAttempt);
+      setTimeout(attemptBootstrap, RETRY_DELAY_MS);
     }
 
     attemptBootstrap();
   }, [withTimeout]);
 
   useEffect(() => {
-    if (status !== "loading") {
-      setStuck(false);
-      return;
-    }
+    if (status !== "loading") return;
     runBootstrapLoop();
     return () => {
       retryTokenRef.current += 1;
@@ -133,9 +138,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (isPendingProtectedAccess || isPendingAuthRouteRedirect) {
     return (
       <LoadingScreen
-        stuck={stuck}
+        attempt={attempt}
         onRetry={() => {
-          setStuck(false);
           runBootstrapLoop();
         }}
       />
