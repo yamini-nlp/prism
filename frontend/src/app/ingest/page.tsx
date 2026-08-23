@@ -624,6 +624,19 @@ export default function IngestPage() {
                             </div>
                           )}
 
+                          {item.status === "done" && (
+                            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                              <Link href="/workspace" style={{ textDecoration: "none" }}>
+                                <button style={{ ...S.btnPrimary, padding: "8px 16px", fontSize: 12 }}>
+                                  Query in Workspace <ArrowRight size={12} />
+                                </button>
+                              </Link>
+                              <Link href="/library" style={{ textDecoration: "none" }}>
+                                <button style={{ ...S.btnSecondary, padding: "8px 16px", fontSize: 12 }}>View Library</button>
+                              </Link>
+                            </div>
+                          )}
+
                           {item.summary && (
                             <div style={{ marginTop: 12 }}>
                               <button
@@ -649,14 +662,6 @@ export default function IngestPage() {
                                         {(item.summary.key_concepts || []).map((c) => (
                                           <span key={c} style={S.tagIndigo}>{c}</span>
                                         ))}
-                                      </div>
-                                      <div style={{ display: "flex", gap: 10 }}>
-                                        <Link href="/workspace" style={{ textDecoration: "none" }}>
-                                          <button style={{ ...S.btnPrimary, padding: "8px 16px", fontSize: 12 }}>Query Now <ArrowRight size={12} /></button>
-                                        </Link>
-                                        <Link href="/library" style={{ textDecoration: "none" }}>
-                                          <button style={{ ...S.btnSecondary, padding: "8px 16px", fontSize: 12 }}>View Library</button>
-                                        </Link>
                                       </div>
                                     </div>
                                   </motion.div>
