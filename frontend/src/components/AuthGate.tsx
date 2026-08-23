@@ -86,16 +86,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
     async function attemptBootstrap() {
       if (retryTokenRef.current !== token) return;
-      await withTimeout(bootstrapSession(), 30000);
+      await withTimeout(bootstrapSession(), 15000);
       if (retryTokenRef.current !== token) return;
       if (getAuthStatus() !== "loading") return;
       attempt += 1;
+      setStuck(true);
       if (attempt >= MAX_ATTEMPTS) {
-        setStuck(true);
         applyUnauthenticated();
         return;
       }
-      const delay = Math.min(3000 * attempt, 10000);
+      const delay = Math.min(2000 * attempt, 6000);
       setTimeout(attemptBootstrap, delay);
     }
 
