@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(11000),
     });
   } catch {
     return NextResponse.json({ error: "backend unreachable" }, { status: 503 });
