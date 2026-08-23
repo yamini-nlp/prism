@@ -443,48 +443,89 @@ async function openGenerateStream(body: GenerateRequestBody, signal?: AbortSigna
   }
 }
 
+const GENERATE_FIRST_BYTE_TIMEOUT_MS = 75_000;
+const GENERATE_STALL_TIMEOUT_MS = 30_000;
+
 export async function streamGenerate(
   body: GenerateRequestBody,
   onEvent: (event: string, data: any) => void,
-  signal?: AbortSignal
+  externalSignal?: AbortSignal
 ): Promise<void> {
-  let res = await openGenerateStream(body, signal);
+  const controller = new AbortController();
+  let timedOut = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      res = await openGenerateStream(body, signal);
-    }
+  const armTimeout = (ms: number) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, ms);
+  };
+
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener("abort", onExternalAbort);
   }
 
-  if (!res.ok || !res.body) {
-    throw new Error(`Server error ${res.status}`);
-  }
+  try {
+    armTimeout(GENERATE_FIRST_BYTE_TIMEOUT_MS);
+    let res = await openGenerateStream(body, controller.signal);
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let sepIndex;
-    while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-      const rawEvent = buffer.slice(0, sepIndex);
-      buffer = buffer.slice(sepIndex + 2);
-      const parsed = parseSSEEvent(rawEvent);
-      if (!parsed) continue;
-
-      let data: any;
-      try {
-        data = JSON.parse(parsed.data);
-      } catch {
-        continue;
+    if (res.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        armTimeout(GENERATE_FIRST_BYTE_TIMEOUT_MS);
+        res = await openGenerateStream(body, controller.signal);
       }
-      onEvent(parsed.event, data);
     }
+
+    if (!res.ok || !res.body) {
+      throw await toApiError(res);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      armTimeout(GENERATE_STALL_TIMEOUT_MS);
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let sepIndex;
+      while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+        const rawEvent = buffer.slice(0, sepIndex);
+        buffer = buffer.slice(sepIndex + 2);
+        const parsed = parseSSEEvent(rawEvent);
+        if (!parsed) continue;
+
+        let data: any;
+        try {
+          data = JSON.parse(parsed.data);
+        } catch {
+          continue;
+        }
+        onEvent(parsed.event, data);
+      }
+    }
+  } catch (cause) {
+    if (timedOut) {
+      throw new ApiError(
+        0,
+        "timeout",
+        "The Prism server is taking too long to respond. It may still be waking up from sleep — try again in a moment.",
+        null,
+        null
+      );
+    }
+    if (cause instanceof ApiError) throw cause;
+    throw networkError(cause);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (externalSignal) externalSignal.removeEventListener("abort", onExternalAbort);
   }
 }
 
