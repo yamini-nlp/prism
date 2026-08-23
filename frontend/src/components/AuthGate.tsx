@@ -9,12 +9,12 @@ function LoadingScreen() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100%",
         width: "100%",
+        flex: 1,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#000000",
       }}
     >
       <div
@@ -24,8 +24,8 @@ function LoadingScreen() {
           width: 28,
           height: 28,
           borderRadius: "50%",
-          border: "2px solid rgba(255,255,255,0.18)",
-          borderTopColor: "#ffffff",
+          border: "2px solid var(--border)",
+          borderTopColor: "var(--text-primary)",
           animation: "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
