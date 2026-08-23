@@ -160,15 +160,17 @@ export async function register(email: string, password: string): Promise<Current
 async function doRefresh(): Promise<string | null> {
   try {
     const res = await fetch("/api/auth/refresh", { method: "POST" });
-    if (!res.ok) {
+    if (res.status === 401) {
       applyUnauthenticated();
+      return null;
+    }
+    if (!res.ok) {
       return null;
     }
     const data = await res.json();
     applyAuthenticated(data.access_token, data.user ?? null);
     return data.access_token;
   } catch {
-    applyUnauthenticated();
     return null;
   }
 }
