@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, LogOut, Zap } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { bootstrapSession, getCurrentUser, logout, type CurrentUser } from "@/lib/auth";
 import { isNoChromeRoute, navLinks } from "@/lib/navigation";
 import { useUIStore } from "@/lib/store";
@@ -72,8 +72,14 @@ export default function Sidebar() {
           aria-label={collapsed ? "Prism — go to home" : undefined}
           className="flex items-center gap-3 no-underline"
         >
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--text-primary)]">
-            <Zap size={16} color="var(--bg-surface)" strokeWidth={2.5} aria-hidden="true" />
+          <div
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+            style={{ background: "linear-gradient(100deg, #e8c547, #ef6f8e 38%, #2bbfa3 68%, #5a8fef)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <polygon points="50,18 20,74 80,74" fill="#0a0a0d" />
+              <line x1="4" y1="50" x2="20" y2="50" stroke="#ffffff" strokeWidth="6" strokeLinecap="round" />
+            </svg>
           </div>
           {!collapsed && (
             <span className="font-display text-2xl leading-none tracking-tight text-[var(--text-primary)]">PRISM</span>
