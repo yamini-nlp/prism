@@ -7,11 +7,13 @@ export interface CurrentUser {
 }
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+export type RefreshFailureReason = "unauthenticated" | "unreachable" | null;
 
 let accessToken: string | null = null;
 let currentUser: CurrentUser | null = null;
 let authStatus: AuthStatus = "loading";
 let refreshInFlight: Promise<string | null> | null = null;
+let lastRefreshFailureReason: RefreshFailureReason = null;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -29,6 +31,10 @@ export function subscribeAuth(listener: Listener): () => void {
 
 export function getAuthStatus(): AuthStatus {
   return authStatus;
+}
+
+export function getLastRefreshFailureReason(): RefreshFailureReason {
+  return lastRefreshFailureReason;
 }
 
 export function getAccessToken(): string | null {
@@ -53,6 +59,7 @@ function applyAuthenticated(token: string, user: CurrentUser | null): void {
     currentUser = user;
   }
   authStatus = "authenticated";
+  lastRefreshFailureReason = null;
   notify();
 }
 
@@ -159,18 +166,21 @@ export async function register(email: string, password: string): Promise<Current
 
 async function doRefresh(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/refresh", { method: "POST", signal: AbortSignal.timeout(50000) });
+    const res = await fetch("/api/auth/refresh", { method: "POST", signal: AbortSignal.timeout(58000) });
     if (res.status === 401) {
+      lastRefreshFailureReason = "unauthenticated";
       applyUnauthenticated();
       return null;
     }
     if (!res.ok) {
+      lastRefreshFailureReason = "unreachable";
       return null;
     }
     const data = await res.json();
     applyAuthenticated(data.access_token, data.user ?? null);
     return data.access_token;
   } catch {
+    lastRefreshFailureReason = "unreachable";
     return null;
   }
 }
