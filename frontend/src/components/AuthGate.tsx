@@ -81,9 +81,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     let attempt = 0;
     const MAX_ATTEMPTS = 8;
 
+    function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
+      return Promise.race([
+        promise,
+        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), ms)),
+      ]);
+    }
+
     async function attemptBootstrap() {
       if (cancelled) return;
-      await bootstrapSession();
+      await withTimeout(bootstrapSession(), 15000);
       if (cancelled) return;
       if (getAuthStatus() !== "loading") return;
       attempt += 1;
