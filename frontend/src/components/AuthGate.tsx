@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
+import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
 
 function LoadingScreen({ stuck, onRetry }: { stuck?: boolean; onRetry?: () => void }) {
@@ -70,43 +70,48 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const [stuck, setStuck] = useState(false);
+  const retryTokenRef = useRef(0);
+
+  const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
+    return Promise.race([
+      promise,
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), ms)),
+    ]);
+  }, []);
+
+  const runBootstrapLoop = useCallback(() => {
+    const token = ++retryTokenRef.current;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 4;
+
+    async function attemptBootstrap() {
+      if (retryTokenRef.current !== token) return;
+      await withTimeout(bootstrapSession(), 30000);
+      if (retryTokenRef.current !== token) return;
+      if (getAuthStatus() !== "loading") return;
+      attempt += 1;
+      if (attempt >= MAX_ATTEMPTS) {
+        setStuck(true);
+        applyUnauthenticated();
+        return;
+      }
+      const delay = Math.min(3000 * attempt, 10000);
+      setTimeout(attemptBootstrap, delay);
+    }
+
+    attemptBootstrap();
+  }, [withTimeout]);
 
   useEffect(() => {
     if (status !== "loading") {
       setStuck(false);
       return;
     }
-
-    let cancelled = false;
-    let attempt = 0;
-    const MAX_ATTEMPTS = 8;
-
-    function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
-      return Promise.race([
-        promise,
-        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), ms)),
-      ]);
-    }
-
-    async function attemptBootstrap() {
-      if (cancelled) return;
-      await withTimeout(bootstrapSession(), 15000);
-      if (cancelled) return;
-      if (getAuthStatus() !== "loading") return;
-      attempt += 1;
-      if (attempt >= MAX_ATTEMPTS) {
-        setStuck(true);
-        return;
-      }
-      const delay = Math.min(2000 * attempt, 10000);
-      setTimeout(attemptBootstrap, delay);
-    }
-
-    attemptBootstrap();
+    runBootstrapLoop();
     return () => {
-      cancelled = true;
+      retryTokenRef.current += 1;
     };
-  }, [status]);
+  }, [status, runBootstrapLoop]);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -131,7 +136,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         stuck={stuck}
         onRetry={() => {
           setStuck(false);
-          bootstrapSession();
+          runBootstrapLoop();
         }}
       />
     );
