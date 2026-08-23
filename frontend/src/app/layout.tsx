@@ -36,6 +36,13 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Prism — Research Intelligence",
   description: "Transform complex academic content into clear, grounded, and verifiable insights.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
