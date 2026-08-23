@@ -5,10 +5,10 @@ from core.verifier import split_into_claims, verify_claims
 from core.db import AsyncSessionLocal, ensure_session
 from core.models import Generation, Verification
 from core.config import settings
-from groq import Groq
+from groq import AsyncGroq
 from groq.types.chat import ChatCompletionMessageParam
 
-client = Groq(api_key=settings.groq_api_key)
+client = AsyncGroq(api_key=settings.groq_api_key, timeout=45.0, max_retries=1)
 
 SYSTEM_PROMPT = """You are Prism, a research intelligence assistant. Your job is to answer questions strictly based on the provided context chunks from research documents.
 
@@ -103,7 +103,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             }
         ]
 
-        stream = client.chat.completions.create(
+        stream = await client.chat.completions.create(
             model=model,
             messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
             temperature=0.1,
@@ -112,7 +112,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         )
 
         answer_parts = []
-        for chunk in stream:
+        async for chunk in stream:
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta
