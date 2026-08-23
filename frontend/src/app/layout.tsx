@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import MobileDrawer from "@/components/MobileDrawer";
 import Providers from "@/app/providers";
+import AuthGate from "@/components/AuthGate";
 import ToastContainer from "@/components/ui/Toast";
 import SkipToContent from "@/components/SkipToContent";
 
@@ -63,7 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex min-w-0 flex-1 flex-col">
                 <Topbar />
                 <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
-                  {children}
+                  <AuthGate>{children}</AuthGate>
                 </main>
               </div>
             </div>
