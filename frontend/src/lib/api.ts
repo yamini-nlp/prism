@@ -69,6 +69,19 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, code, message, requestId, details);
 }
 
+function networkError(cause: unknown): ApiError {
+  if (cause instanceof DOMException && cause.name === "AbortError") {
+    return new ApiError(0, "cancelled", "Request cancelled.", null, null);
+  }
+  return new ApiError(
+    0,
+    "network_unreachable",
+    "Could not reach the Prism server. It may be waking up from sleep — wait a moment and try again.",
+    null,
+    cause instanceof Error ? cause.message : null
+  );
+}
+
 export interface DocumentRecord {
   id: string;
   title: string;
@@ -139,7 +152,12 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   const extraHeaders = (options.headers as Record<string, string> | undefined) || {};
 
   const firstAttemptHeaders = { ...buildHeaders(), ...extraHeaders };
-  const response = await fetch(apiUrl(path), { ...options, headers: firstAttemptHeaders });
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), { ...options, headers: firstAttemptHeaders });
+  } catch (cause) {
+    throw networkError(cause);
+  }
 
   if (response.status !== 401) {
     if (!response.ok) {
@@ -157,7 +175,12 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const retryHeaders = { ...buildHeaders(), ...extraHeaders };
-  const retryResponse = await fetch(apiUrl(path), { ...options, headers: retryHeaders });
+  let retryResponse: Response;
+  try {
+    retryResponse = await fetch(apiUrl(path), { ...options, headers: retryHeaders });
+  } catch (cause) {
+    throw networkError(cause);
+  }
   if (!retryResponse.ok) {
     throw await toApiError(retryResponse);
   }
@@ -280,7 +303,7 @@ function xhrUploadOnce(
       resolve({ status: xhr.status, body, requestId: xhr.getResponseHeader("X-Request-ID") });
     };
 
-    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.onerror = () => reject(new ApiError(0, "network_unreachable", "Could not reach the Prism server. It may be waking up from sleep — wait a moment and try again.", null, null));
     xhr.onabort = () => reject(new ApiError(0, "cancelled", "Upload cancelled.", null, null));
 
     if (signal) {
@@ -408,12 +431,16 @@ export async function verifyClaims(answer: string, topK = 5): Promise<Verificati
 }
 
 async function openGenerateStream(body: GenerateRequestBody, signal?: AbortSignal): Promise<Response> {
-  return fetch(apiUrl("/generate/"), {
-    method: "POST",
-    headers: buildHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(body),
-    signal,
-  });
+  try {
+    return await fetch(apiUrl("/generate/"), {
+      method: "POST",
+      headers: buildHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (cause) {
+    throw networkError(cause);
+  }
 }
 
 export async function streamGenerate(
