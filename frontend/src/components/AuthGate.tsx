@@ -2,14 +2,28 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
+import {
+  applyUnauthenticated,
+  bootstrapSession,
+  getAuthStatus,
+  getLastRefreshFailureReason,
+  subscribeAuth,
+} from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
 
-const ATTEMPT_TIMEOUT_MS = 55000;
-const MAX_ATTEMPTS = 2;
+const ATTEMPT_TIMEOUT_MS = 40000;
+const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2000;
 
-function LoadingScreen({ attempt, onRetry }: { attempt: number; onRetry?: () => void }) {
+function LoadingScreen({
+  attempt,
+  unreachable,
+  onRetry,
+}: {
+  attempt: number;
+  unreachable: boolean;
+  onRetry: () => void;
+}) {
   return (
     <div
       style={{
@@ -34,35 +48,35 @@ function LoadingScreen({ attempt, onRetry }: { attempt: number; onRetry?: () => 
           borderRadius: "50%",
           border: "2px solid var(--border)",
           borderTopColor: "var(--text-primary)",
-          animation: "prism-auth-gate-spin 0.8s linear infinite",
+          animation: unreachable ? "none" : "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>
-          Waking up the server. First load after a period of inactivity can take up to a minute.
+          {unreachable
+            ? "Can't reach the Prism server. It may still be waking up from sleep — this can take a minute on the first request."
+            : "Waking up the server. First load after a period of inactivity can take up to a minute."}
         </span>
-        {attempt > 1 && (
+        {!unreachable && attempt > 1 && (
           <span style={{ fontSize: 12, color: "var(--text-secondary)", opacity: 0.7 }}>
             Attempt {attempt} of {MAX_ATTEMPTS}
           </span>
         )}
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "transparent",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-            }}
-          >
-            Retry now
-          </button>
-        )}
+        <button
+          onClick={onRetry}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            padding: "6px 14px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "transparent",
+            color: "var(--text-primary)",
+            cursor: "pointer",
+          }}
+        >
+          Retry now
+        </button>
       </div>
       <style>{`
         @keyframes prism-auth-gate-spin {
@@ -79,6 +93,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const [attempt, setAttempt] = useState(1);
+  const [unreachable, setUnreachable] = useState(false);
   const retryTokenRef = useRef(0);
 
   const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
@@ -92,14 +107,20 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const token = ++retryTokenRef.current;
     let currentAttempt = 1;
     setAttempt(1);
+    setUnreachable(false);
 
     async function attemptBootstrap() {
       if (retryTokenRef.current !== token) return;
       await withTimeout(bootstrapSession(), ATTEMPT_TIMEOUT_MS);
       if (retryTokenRef.current !== token) return;
       if (getAuthStatus() !== "loading") return;
+
       if (currentAttempt >= MAX_ATTEMPTS) {
-        applyUnauthenticated();
+        if (getLastRefreshFailureReason() === "unauthenticated") {
+          applyUnauthenticated();
+        } else {
+          setUnreachable(true);
+        }
         return;
       }
       currentAttempt += 1;
@@ -139,6 +160,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <LoadingScreen
         attempt={attempt}
+        unreachable={unreachable}
         onRetry={() => {
           runBootstrapLoop();
         }}
