@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Depends
-from groq import Groq
+from groq import AsyncGroq
 import os
 import json
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ from core import schemas
 
 load_dotenv()
 router = APIRouter()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"), timeout=30.0, max_retries=1)
 
 SUMMARY_PROMPT = """You are a research summarization assistant. Given the text of a research document, produce a structured JSON summary with these exact keys:
 
@@ -36,7 +36,7 @@ async def summarize(request: Request, body: schemas.SummaryRequest, current_user
 
     truncated = body.text[:12000]
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": SUMMARY_PROMPT},
