@@ -159,7 +159,7 @@ export async function register(email: string, password: string): Promise<Current
 
 async function doRefresh(): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth/refresh", { method: "POST" });
+    const res = await fetch("/api/auth/refresh", { method: "POST", signal: AbortSignal.timeout(12000) });
     if (res.status === 401) {
       applyUnauthenticated();
       return null;
