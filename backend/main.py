@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from routes import upload, ingest, retrieve, generate, summary, verify, analytics, auth as auth_routes
 from core import embedder
+from core.embedder import warm_models
 from core.auth import get_current_user, get_session_id
 from core.models import User
 from core.limiter import limiter
@@ -144,6 +145,16 @@ async def apply_database_migrations() -> None:
         logger.error("Database migration timed out after 20s; continuing startup without applying migrations.")
     except Exception as exc:
         logger.error(f"Database migration failed on startup: {exc}")
+
+
+@app.on_event("startup")
+async def warm_ml_models() -> None:
+    try:
+        await asyncio.wait_for(warm_models(), timeout=120)
+    except asyncio.TimeoutError:
+        logger.error("Model warmup timed out after 120s; models will load lazily on first request instead.")
+    except Exception as exc:
+        logger.error(f"Model warmup failed on startup: {exc}")
 
 
 def _extract_user_id(request: Request) -> Optional[str]:
