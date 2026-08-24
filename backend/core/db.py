@@ -9,7 +9,15 @@ from core.models import Base, Session as SessionModel
 
 DATABASE_URL = settings.database_url
 
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True, future=True)
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=10,
+    pool_timeout=10,
+    pool_recycle=1800,
+    future=True,
+)
 AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
