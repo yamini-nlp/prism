@@ -120,8 +120,9 @@ def _run_migrations_sync() -> None:
 @app.on_event("startup")
 async def apply_database_migrations() -> None:
     try:
-        await asyncio.to_thread(_run_migrations_sync)
-        logger.info("Database migrations applied successfully.")
+        await asyncio.wait_for(asyncio.to_thread(_run_migrations_sync), timeout=20)
+    except asyncio.TimeoutError:
+        logger.error("Database migration timed out after 20s; continuing startup without applying migrations.")
     except Exception as exc:
         logger.error(f"Database migration failed on startup: {exc}")
 
