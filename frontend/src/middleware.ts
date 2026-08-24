@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAuthRoute, isProtectedPath } from "@/lib/routes";
+import { isProtectedPath } from "@/lib/routes";
 import { REFRESH_COOKIE_NAME } from "@/lib/cookies";
 
 function isPrefetchRequest(request: NextRequest): boolean {
@@ -26,13 +26,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isAuthRoute(pathname)) {
-    if (refreshToken && !isPrefetchRequest(request)) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    return NextResponse.next();
-  }
-
   return NextResponse.next();
 }
 
@@ -46,7 +39,5 @@ export const config = {
     "/verification/:path*",
     "/evaluation/:path*",
     "/settings/:path*",
-    "/login",
-    "/register",
   ],
 };
