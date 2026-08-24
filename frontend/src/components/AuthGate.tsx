@@ -2,14 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
+import {
+  applyUnauthenticated,
+  bootstrapSession,
+  getAuthStatus,
+  getLastRefreshFailureReason,
+  subscribeAuth,
+} from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
 
 const BOOTSTRAP_ATTEMPT_TIMEOUT_MS = 20000;
 const BOOTSTRAP_MAX_ATTEMPTS = 5;
 const BOOTSTRAP_RETRY_DELAY_MS = 2500;
 
-function LoadingScreen({ onRetry }: { onRetry: () => void }) {
+function LoadingScreen({ unreachable, onRetry }: { unreachable: boolean; onRetry: () => void }) {
+  const message = unreachable
+    ? "Can't reach the Prism server right now. It may still be waking up — please try again in a moment."
+    : "Signing you in…";
+
   return (
     <div
       style={{
@@ -34,12 +44,12 @@ function LoadingScreen({ onRetry }: { onRetry: () => void }) {
           borderRadius: "50%",
           border: "2px solid var(--border)",
           borderTopColor: "var(--text-primary)",
-          animation: "prism-auth-gate-spin 0.8s linear infinite",
+          animation: unreachable ? "none" : "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>
-          Signing you in…
+          {message}
         </span>
         <button
           onClick={onRetry}
@@ -72,6 +82,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const runTokenRef = useRef(0);
+  const [unreachable, setUnreachable] = useState(false);
 
   const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
     return Promise.race([
@@ -82,6 +93,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const runAuthFlow = useCallback(async () => {
     const token = ++runTokenRef.current;
+    setUnreachable(false);
 
     for (let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
       if (runTokenRef.current !== token) return;
@@ -95,7 +107,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (runTokenRef.current !== token) return;
     if (getAuthStatus() === "loading") {
-      applyUnauthenticated();
+      if (getLastRefreshFailureReason() === "unauthenticated") {
+        applyUnauthenticated();
+      } else {
+        setUnreachable(true);
+      }
     }
   }, [withTimeout]);
 
@@ -121,12 +137,24 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [status, pathname, router]);
 
-  const isPendingProtectedAccess = isProtectedPath(pathname) && status !== "authenticated";
+  const isPendingProtectedAccess = isProtectedPath(pathname) && status !== "authenticated" && !unreachable;
   const isPendingAuthRouteRedirect = isAuthRoute(pathname) && status === "authenticated";
+
+  if (unreachable && isProtectedPath(pathname)) {
+    return (
+      <LoadingScreen
+        unreachable
+        onRetry={() => {
+          runAuthFlow();
+        }}
+      />
+    );
+  }
 
   if (isPendingProtectedAccess || isPendingAuthRouteRedirect) {
     return (
       <LoadingScreen
+        unreachable={false}
         onRetry={() => {
           runAuthFlow();
         }}
