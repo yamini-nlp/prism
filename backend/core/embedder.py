@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -52,6 +53,13 @@ def _get_reranker_model():
     return _RERANKER_MODEL
 
 
+async def warm_models() -> None:
+    await asyncio.to_thread(_get_embedding_model)
+    await asyncio.to_thread(_get_reranker_model)
+    await asyncio.to_thread(embed_query, "warmup")
+    await asyncio.to_thread(_get_reranker_model().predict, [["warmup", "warmup"]])
+
+
 def _validate_session_id(session_id: str) -> str:
     return validate_session_id(session_id)
 
@@ -104,7 +112,7 @@ async def embed_chunks_cached(texts: list[str]) -> np.ndarray:
 
     missing_indices = [i for i in range(len(texts)) if i not in vectors]
     if missing_indices:
-        missing_vecs = embed_chunks([texts[i] for i in missing_indices])
+        missing_vecs = await asyncio.to_thread(embed_chunks, [texts[i] for i in missing_indices])
         for idx, vec in zip(missing_indices, missing_vecs):
             vec_list = vec.tolist()
             vectors[idx] = vec_list
@@ -300,7 +308,7 @@ async def embed_and_store(db: AsyncSession, text_chunks: list[str], source: str,
 
 
 async def _dense_search(db: AsyncSession, session_id: str, query: str, top_k: int):
-    qvec = embed_query(query)[0].tolist()
+    qvec = (await asyncio.to_thread(embed_query, query))[0].tolist()
     stmt = (
         select(DocumentChunk, DocumentChunk.embedding.cosine_distance(qvec).label("distance"))
         .where(DocumentChunk.session_id == session_id)
@@ -372,7 +380,7 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
     if not candidates:
         return []
     pairs = [[query, c.chunk] for c in candidates]
-    rerank_scores = _get_reranker_model().predict(pairs)
+    rerank_scores = await asyncio.to_thread(_get_reranker_model().predict, pairs)
     order = np.argsort(rerank_scores)[::-1][:top_k]
     results = []
     for pos in order:
