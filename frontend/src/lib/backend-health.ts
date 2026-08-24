@@ -1,5 +1,3 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export type BackendHealthStatus = "checking" | "online" | "offline";
 
 let status: BackendHealthStatus = "checking";
@@ -23,7 +21,7 @@ export function getBackendHealthStatus(): BackendHealthStatus {
 
 async function pingOnce(timeoutMs: number): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/health`, {
+    const res = await fetch("/api/health", {
       signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
