@@ -1,4 +1,4 @@
-import { getAccessToken, refreshAccessToken } from "./auth";
+import { getAccessToken, refreshAccessToken, getLastRefreshFailureReason } from "./auth";
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -67,6 +67,16 @@ async function toApiError(response: Response): Promise<ApiError> {
   } catch {}
 
   return new ApiError(response.status, code, message, requestId, details);
+}
+
+function refreshFailureError(): ApiError {
+  return new ApiError(
+    0,
+    "session_check_failed",
+    "Could not verify your session with the Prism server. It may be waking up from sleep — wait a moment and try again.",
+    null,
+    null
+  );
 }
 
 function networkError(cause: unknown): ApiError {
@@ -168,6 +178,9 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
+    if (getLastRefreshFailureReason() === "unreachable") {
+      throw refreshFailureError();
+    }
     if (!response.ok) {
       throw await toApiError(response);
     }
@@ -337,6 +350,9 @@ export async function uploadFileWithProgress(
       }
       return retry.body;
     }
+    if (getLastRefreshFailureReason() === "unreachable") {
+      throw refreshFailureError();
+    }
   }
 
   if (first.status < 200 || first.status >= 300) {
@@ -478,6 +494,8 @@ export async function streamGenerate(
       if (refreshed) {
         armTimeout(GENERATE_FIRST_BYTE_TIMEOUT_MS);
         res = await openGenerateStream(body, controller.signal);
+      } else if (getLastRefreshFailureReason() === "unreachable") {
+        throw refreshFailureError();
       }
     }
 
