@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { usePathname, useRouter } from "next/navigation";
 import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
-import { waitForBackend } from "@/lib/backend-health";
+import { cancelBackendWait, waitForBackend } from "@/lib/backend-health";
 
 const BACKEND_WAIT_MS = 100000;
 const BOOTSTRAP_ATTEMPT_TIMEOUT_MS = 20000;
@@ -94,21 +94,18 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     const token = ++runTokenRef.current;
     setPhase("waking");
 
-    const backendUp = await waitForBackend(BACKEND_WAIT_MS);
-    if (runTokenRef.current !== token) return;
-
-    if (!backendUp) {
-      setPhase("unreachable");
-      return;
-    }
-
-    setPhase("signing-in");
+    waitForBackend(BACKEND_WAIT_MS).then((up) => {
+      if (runTokenRef.current === token && up) {
+        setPhase((prev) => (prev === "waking" ? "signing-in" : prev));
+      }
+    });
 
     for (let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
       if (runTokenRef.current !== token) return;
       await withTimeout(bootstrapSession(), BOOTSTRAP_ATTEMPT_TIMEOUT_MS);
       if (runTokenRef.current !== token) return;
       if (getAuthStatus() !== "loading") return;
+      setPhase("signing-in");
       if (attempt < BOOTSTRAP_MAX_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_RETRY_DELAY_MS));
       }
@@ -125,6 +122,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     runAuthFlow();
     return () => {
       runTokenRef.current += 1;
+      cancelBackendWait();
     };
   }, [status, runAuthFlow]);
 
