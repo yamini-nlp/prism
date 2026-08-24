@@ -28,6 +28,8 @@ from eval import evaluate as eval_module
 
 API_VERSION = "1.0.0"
 
+NO_TIMEOUT_PATH_PREFIXES = ("/api/v1/generate",)
+
 openapi_tags = [
     {"name": "auth", "description": "Account registration, login, token refresh, and session identity."},
     {"name": "upload", "description": "Upload documents (PDF, DOCX, TXT) for asynchronous ingestion."},
@@ -70,6 +72,14 @@ app.add_middleware(
 )
 
 
+def _safe_error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": {"code": code, "message": message, "request_id": request_id, "details": None}},
+    )
+
+
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_body_bytes: int):
         super().__init__(app)
@@ -87,7 +97,11 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
                     )
             except ValueError:
                 pass
-        return await call_next(request)
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.exception("unhandled exception in BodySizeLimitMiddleware")
+            return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
 
 
 class RequestTimeoutMiddleware(BaseHTTPMiddleware):
@@ -96,14 +110,19 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
         self.timeout_seconds = timeout_seconds
 
     async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith(NO_TIMEOUT_PATH_PREFIXES):
+            try:
+                return await call_next(request)
+            except Exception:
+                logger.exception("unhandled exception in RequestTimeoutMiddleware (untimed path)")
+                return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
         try:
             return await asyncio.wait_for(call_next(request), timeout=self.timeout_seconds)
         except asyncio.TimeoutError:
-            request_id = getattr(request.state, "request_id", "unknown")
-            return JSONResponse(
-                status_code=504,
-                content={"error": {"code": "request_timeout", "message": "The request timed out.", "request_id": request_id, "details": None}},
-            )
+            return _safe_error_response(request, 504, "request_timeout", "The request timed out.")
+        except Exception:
+            logger.exception("unhandled exception in RequestTimeoutMiddleware")
+            return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
 
 
 app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_request_body_bytes)
@@ -142,23 +161,30 @@ async def observability_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("unhandled exception in observability_middleware")
+        response = _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
     latency_ms = round((time.perf_counter() - start) * 1000, 2)
 
     route = request.url.path
     session_id = request.headers.get("x-session-id")
-    user_id = _extract_user_id(request)
 
-    record_request(route, latency_ms, response.status_code)
-    log_request(
-        logger,
-        request_id=request_id,
-        route=route,
-        latency_ms=latency_ms,
-        status_code=response.status_code,
-        session_id=session_id,
-        user_id=user_id,
-    )
+    try:
+        user_id = _extract_user_id(request)
+        record_request(route, latency_ms, response.status_code)
+        log_request(
+            logger,
+            request_id=request_id,
+            route=route,
+            latency_ms=latency_ms,
+            status_code=response.status_code,
+            session_id=session_id,
+            user_id=user_id,
+        )
+    except Exception:
+        logger.exception("observability logging failed")
 
     response.headers["X-Request-ID"] = request_id
     return response
@@ -166,7 +192,11 @@ async def observability_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("unhandled exception in security_headers_middleware")
+        response = _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
