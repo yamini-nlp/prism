@@ -70,70 +70,71 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
     async with AsyncSessionLocal() as db:
         retrieved = await hybrid_search(db, query, session_id, top_k=top_k)
 
-        if not retrieved:
-            yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
-            message = "No relevant documents found. Please ingest some research papers first."
-            yield _sse("token", {"token": message})
-            yield _sse("done", {
-                "answer": message,
-                "citations": [],
-                "confidence_score": 0.0,
-                "hallucination_flags": [],
-                "grounding": [],
-            })
-            return
+    if not retrieved:
+        yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
+        message = "No relevant documents found. Please ingest some research papers first."
+        yield _sse("token", {"token": message})
+        yield _sse("done", {
+            "answer": message,
+            "citations": [],
+            "confidence_score": 0.0,
+            "hallucination_flags": [],
+            "grounding": [],
+        })
+        return
 
-        context = build_context(retrieved)
-        confidence = compute_confidence(retrieved)
-        citations = build_citations(retrieved)
-        chunk_texts = [c["chunk"] for c in retrieved]
+    context = build_context(retrieved)
+    confidence = compute_confidence(retrieved)
+    citations = build_citations(retrieved)
+    chunk_texts = [c["chunk"] for c in retrieved]
 
-        yield _sse("retrieval", {"citations": citations, "confidence_score": confidence})
+    yield _sse("retrieval", {"citations": citations, "confidence_score": confidence})
 
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    f"Context:\n{context}\n\n"
-                    f"Question: {query}\n\n"
-                    f"Answer based strictly on the context above. "
-                    f"Do not use ** for bold text — write in plain prose. "
-                    f"Cite the source number in brackets, e.g. [1], right after each fact you draw from it."
-                ),
-            }
-        ]
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"Context:\n{context}\n\n"
+                f"Question: {query}\n\n"
+                f"Answer based strictly on the context above. "
+                f"Do not use ** for bold text — write in plain prose. "
+                f"Cite the source number in brackets, e.g. [1], right after each fact you draw from it."
+            ),
+        }
+    ]
 
-        stream = await client.chat.completions.create(
-            model=model,
-            messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
-            temperature=0.1,
-            max_tokens=1024,
-            stream=True,
-        )
+    stream = await client.chat.completions.create(
+        model=model,
+        messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
+        temperature=0.1,
+        max_tokens=1024,
+        stream=True,
+    )
 
-        answer_parts = []
-        async for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta
-            token = getattr(delta, "content", None)
-            if token:
-                answer_parts.append(token)
-                yield _sse("token", {"token": token})
+    answer_parts = []
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        token = getattr(delta, "content", None)
+        if token:
+            answer_parts.append(token)
+            yield _sse("token", {"token": token})
 
-        answer = "".join(answer_parts)
+    answer = "".join(answer_parts)
 
-        claims = split_into_claims(answer)
-        grounding = verify_claims(claims, chunk_texts)
-        hallucination_flags = [g["claim"] for g in grounding if g["label"] == "unsupported"]
+    claims = split_into_claims(answer)
+    grounding = verify_claims(claims, chunk_texts)
+    hallucination_flags = [g["claim"] for g in grounding if g["label"] == "unsupported"]
 
-        supported_count = sum(1 for g in grounding if g["label"] == "supported")
-        uncertain_count = sum(1 for g in grounding if g["label"] == "uncertain")
-        total_claims = len(grounding)
-        unsupported_count = total_claims - supported_count - uncertain_count
-        grounding_score = round(supported_count / total_claims * 100, 1) if total_claims > 0 else 0.0
+    supported_count = sum(1 for g in grounding if g["label"] == "supported")
+    uncertain_count = sum(1 for g in grounding if g["label"] == "uncertain")
+    total_claims = len(grounding)
+    unsupported_count = total_claims - supported_count - uncertain_count
+    grounding_score = round(supported_count / total_claims * 100, 1) if total_claims > 0 else 0.0
 
-        try:
+    try:
+        async with AsyncSessionLocal() as db:
             await ensure_session(db, session_id)
             generation = Generation(
                 session_id=session_id,
@@ -157,13 +158,13 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
                 grounding_score=grounding_score,
             ))
             await db.commit()
-        except Exception:
-            await db.rollback()
+    except Exception:
+        pass
 
-        yield _sse("done", {
-            "answer": answer,
-            "citations": citations,
-            "confidence_score": confidence,
-            "hallucination_flags": hallucination_flags,
-            "grounding": grounding,
-        })
+    yield _sse("done", {
+        "answer": answer,
+        "citations": citations,
+        "confidence_score": confidence,
+        "hallucination_flags": hallucination_flags,
+        "grounding": grounding,
+    })
