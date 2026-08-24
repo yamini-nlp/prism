@@ -4,23 +4,12 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { usePathname, useRouter } from "next/navigation";
 import { applyUnauthenticated, bootstrapSession, getAuthStatus, subscribeAuth } from "@/lib/auth";
 import { isAuthRoute, isProtectedPath, sanitizeRedirectPath } from "@/lib/routes";
-import { cancelBackendWait, waitForBackend } from "@/lib/backend-health";
 
-const BACKEND_WAIT_MS = 100000;
 const BOOTSTRAP_ATTEMPT_TIMEOUT_MS = 20000;
-const BOOTSTRAP_MAX_ATTEMPTS = 3;
-const BOOTSTRAP_RETRY_DELAY_MS = 1500;
+const BOOTSTRAP_MAX_ATTEMPTS = 5;
+const BOOTSTRAP_RETRY_DELAY_MS = 2500;
 
-type Phase = "waking" | "signing-in" | "unreachable";
-
-function LoadingScreen({ phase, onRetry }: { phase: Phase; onRetry: () => void }) {
-  const message =
-    phase === "waking"
-      ? "Waking up the server. First load after a period of inactivity can take up to a minute."
-      : phase === "signing-in"
-      ? "Server is up — signing you in…"
-      : "Can't reach the Prism server right now. It may still be waking up — please try again in a moment.";
-
+function LoadingScreen({ onRetry }: { onRetry: () => void }) {
   return (
     <div
       style={{
@@ -45,11 +34,13 @@ function LoadingScreen({ phase, onRetry }: { phase: Phase; onRetry: () => void }
           borderRadius: "50%",
           border: "2px solid var(--border)",
           borderTopColor: "var(--text-primary)",
-          animation: phase === "unreachable" ? "none" : "prism-auth-gate-spin 0.8s linear infinite",
+          animation: "prism-auth-gate-spin 0.8s linear infinite",
         }}
       />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>{message}</span>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320 }}>
+          Signing you in…
+        </span>
         <button
           onClick={onRetry}
           style={{
@@ -80,7 +71,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const status = useSyncExternalStore(subscribeAuth, getAuthStatus, () => "loading" as const);
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("waking");
   const runTokenRef = useRef(0);
 
   const withTimeout = useCallback(function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
@@ -92,20 +82,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const runAuthFlow = useCallback(async () => {
     const token = ++runTokenRef.current;
-    setPhase("waking");
-
-    waitForBackend(BACKEND_WAIT_MS).then((up) => {
-      if (runTokenRef.current === token && up) {
-        setPhase((prev) => (prev === "waking" ? "signing-in" : prev));
-      }
-    });
 
     for (let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
       if (runTokenRef.current !== token) return;
       await withTimeout(bootstrapSession(), BOOTSTRAP_ATTEMPT_TIMEOUT_MS);
       if (runTokenRef.current !== token) return;
       if (getAuthStatus() !== "loading") return;
-      setPhase("signing-in");
       if (attempt < BOOTSTRAP_MAX_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, BOOTSTRAP_RETRY_DELAY_MS));
       }
@@ -113,7 +95,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (runTokenRef.current !== token) return;
     if (getAuthStatus() === "loading") {
-      setPhase("unreachable");
+      applyUnauthenticated();
     }
   }, [withTimeout]);
 
@@ -122,7 +104,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     runAuthFlow();
     return () => {
       runTokenRef.current += 1;
-      cancelBackendWait();
     };
   }, [status, runAuthFlow]);
 
@@ -146,7 +127,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (isPendingProtectedAccess || isPendingAuthRouteRedirect) {
     return (
       <LoadingScreen
-        phase={phase}
         onRetry={() => {
           runAuthFlow();
         }}
