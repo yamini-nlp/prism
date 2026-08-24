@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const IS_LOCAL_API = API.includes("localhost") || API.includes("127.0.0.1");
+const RAW_API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const IS_LOCAL_API = RAW_API.includes("localhost") || RAW_API.includes("127.0.0.1");
 const HEALTH_TIMEOUT_MS = 15000;
 const RETRY_DELAY_MS = 4000;
 const MAX_AUTO_RETRIES = 12;
@@ -18,7 +18,7 @@ export default function BackendStatus({ compact = false }: { compact?: boolean }
     if (!isAutoRetry) attemptRef.current = 0;
     setStatus("checking");
     try {
-      const res = await fetch(`${API}/health`, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
+      const res = await fetch("/api/health", { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS), cache: "no-store" });
       if (res.ok) {
         setStatus("online");
         return;
