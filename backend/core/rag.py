@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 from typing import cast, Iterable
 from core.embedder import hybrid_search
 from core.verifier import split_into_claims, verify_claims
@@ -8,7 +10,20 @@ from core.config import settings
 from groq import AsyncGroq
 from groq.types.chat import ChatCompletionMessageParam
 
+logger = logging.getLogger("prism")
+
 client = AsyncGroq(api_key=settings.groq_api_key, timeout=45.0, max_retries=1)
+
+# Hard ceilings so a slow/hanging retrieval step, a stalled Groq stream, or a
+# hung post-processing step can never leave the SSE connection open forever
+# with the client stuck on "Generating response...". Every await in the
+# critical path below is wrapped with one of these so we always either make
+# progress or fail loudly with an "error" SSE event that the frontend can
+# surface and recover from.
+RETRIEVAL_TIMEOUT_SECONDS = 30.0
+FIRST_TOKEN_TIMEOUT_SECONDS = 30.0
+STREAM_IDLE_TIMEOUT_SECONDS = 20.0
+POST_PROCESS_TIMEOUT_SECONDS = 15.0
 
 SYSTEM_PROMPT = """You are Prism, a research intelligence assistant. Your job is to answer questions strictly based on the provided context chunks from research documents.
 
@@ -63,12 +78,46 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def _error_payload(message: str, code: str) -> dict:
+    return {
+        "answer": message,
+        "citations": [],
+        "confidence_score": 0.0,
+        "hallucination_flags": [],
+        "grounding": [],
+        "error": {"code": code, "message": message},
+    }
+
+
 async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = DEFAULT_MODEL):
+    # Everything below is wrapped so that no matter what fails — retrieval,
+    # the Groq call, or post-processing — we always terminate the SSE stream
+    # with an explicit "error" + "done" pair instead of letting an exception
+    # escape and leave the HTTP response (and the frontend's typing
+    # indicator) hanging indefinitely with no bytes ever sent.
     if model not in VALID_MODELS:
         model = DEFAULT_MODEL
 
-    async with AsyncSessionLocal() as db:
-        retrieved = await hybrid_search(db, query, session_id, top_k=top_k)
+    try:
+        async with AsyncSessionLocal() as db:
+            retrieved = await asyncio.wait_for(
+                hybrid_search(db, query, session_id, top_k=top_k),
+                timeout=RETRIEVAL_TIMEOUT_SECONDS,
+            )
+    except asyncio.TimeoutError:
+        logger.error("hybrid_search timed out", extra={"session_id": session_id})
+        message = "Retrieval is taking too long right now. Please try again in a moment."
+        yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
+        yield _sse("error", {"message": message, "code": "retrieval_timeout"})
+        yield _sse("done", _error_payload(message, "retrieval_timeout"))
+        return
+    except Exception:
+        logger.exception("hybrid_search failed", extra={"session_id": session_id})
+        message = "Something went wrong while searching your documents. Please try again."
+        yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
+        yield _sse("error", {"message": message, "code": "retrieval_failed"})
+        yield _sse("done", _error_payload(message, "retrieval_failed"))
+        return
 
     if not retrieved:
         yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
@@ -103,28 +152,69 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         }
     ]
 
-    stream = await client.chat.completions.create(
-        model=model,
-        messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
-        temperature=0.1,
-        max_tokens=1024,
-        stream=True,
-    )
+    answer_parts: list[str] = []
+    try:
+        stream = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=model,
+                messages=cast(Iterable[ChatCompletionMessageParam], [{"role": "system", "content": SYSTEM_PROMPT}] + messages),
+                temperature=0.1,
+                max_tokens=1024,
+                stream=True,
+            ),
+            timeout=FIRST_TOKEN_TIMEOUT_SECONDS,
+        )
 
-    answer_parts = []
-    async for chunk in stream:
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta
-        token = getattr(delta, "content", None)
-        if token:
-            answer_parts.append(token)
-            yield _sse("token", {"token": token})
+        stream_iter = stream.__aiter__()
+        while True:
+            try:
+                chunk = await asyncio.wait_for(stream_iter.__anext__(), timeout=STREAM_IDLE_TIMEOUT_SECONDS)
+            except StopAsyncIteration:
+                break
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            token = getattr(delta, "content", None)
+            if token:
+                answer_parts.append(token)
+                yield _sse("token", {"token": token})
+    except asyncio.TimeoutError:
+        logger.error("groq stream timed out", extra={"session_id": session_id})
+        message = "The model took too long to respond. Please try again."
+        if answer_parts:
+            # We already streamed partial content — close out gracefully
+            # with what we have rather than discarding it.
+            answer = "".join(answer_parts)
+            yield _sse("done", {
+                "answer": answer,
+                "citations": citations,
+                "confidence_score": confidence,
+                "hallucination_flags": [],
+                "grounding": [],
+            })
+        else:
+            yield _sse("error", {"message": message, "code": "generation_timeout"})
+            yield _sse("done", _error_payload(message, "generation_timeout"))
+        return
+    except Exception:
+        logger.exception("groq generation failed", extra={"session_id": session_id})
+        message = "The model failed to generate a response. Please try again."
+        yield _sse("error", {"message": message, "code": "generation_failed"})
+        yield _sse("done", _error_payload(message, "generation_failed"))
+        return
 
     answer = "".join(answer_parts)
 
-    claims = split_into_claims(answer)
-    grounding = verify_claims(claims, chunk_texts)
+    try:
+        claims = split_into_claims(answer)
+        grounding = await asyncio.wait_for(
+            asyncio.to_thread(verify_claims, claims, chunk_texts),
+            timeout=POST_PROCESS_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        logger.exception("claim verification failed", extra={"session_id": session_id})
+        grounding = []
+
     hallucination_flags = [g["claim"] for g in grounding if g["label"] == "unsupported"]
 
     supported_count = sum(1 for g in grounding if g["label"] == "supported")
@@ -135,7 +225,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
 
     try:
         async with AsyncSessionLocal() as db:
-            await ensure_session(db, session_id)
+            await asyncio.wait_for(ensure_session(db, session_id), timeout=POST_PROCESS_TIMEOUT_SECONDS)
             generation = Generation(
                 session_id=session_id,
                 query=query,
@@ -159,7 +249,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             ))
             await db.commit()
     except Exception:
-        pass
+        logger.exception("failed to persist generation/verification", extra={"session_id": session_id})
 
     yield _sse("done", {
         "answer": answer,
