@@ -58,6 +58,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://prism:prism@postgres:5432/prism
       - REDIS_URL=redis://redis:6379/0
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - PORT=8000
     volumes:
       - backend_data:/app/data
     healthcheck:
