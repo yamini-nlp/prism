@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -14,10 +15,24 @@ logger = logging.getLogger("prism")
 
 _tracing_initialized = False
 
+_LOCALHOST_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+
+
+def _points_at_localhost(endpoint: str) -> bool:
+    host = urlparse(endpoint).hostname
+    return host in _LOCALHOST_HOSTS if host else False
+
 
 def setup_tracing(app) -> None:
     global _tracing_initialized
     if _tracing_initialized or not settings.otel_traces_enabled:
+        return
+
+    if not settings.is_development and _points_at_localhost(settings.otel_exporter_otlp_endpoint):
+        logger.warning(
+            "tracing disabled: OTEL_EXPORTER_OTLP_ENDPOINT points at localhost with no collector reachable in this "
+            "environment; exporting would queue spans indefinitely and grow unbounded memory"
+        )
         return
 
     try:
