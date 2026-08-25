@@ -5,17 +5,23 @@ export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const WARMUP_BUDGET_MS = 35000;
-const WARMUP_ATTEMPT_TIMEOUT_MS = 4000;
-const WARMUP_POLL_DELAY_MS = 2500;
-const REFRESH_ATTEMPT_TIMEOUT_MS = 20000;
-const REFRESH_RETRY_DELAY_MS = 5000;
+const TOTAL_BUDGET_MS = 82000;
+const HEALTH_ATTEMPT_TIMEOUT_MS = 5000;
+const HEALTH_POLL_DELAY_MS = 3000;
+const REFRESH_ATTEMPT_TIMEOUT_MS = 15000;
+const REFRESH_RETRY_DELAY_MS = 2000;
+const SAFETY_MARGIN_MS = 3000;
+
+function msLeft(deadline: number): number {
+  return deadline - Date.now();
+}
 
 async function pingHealth(timeoutMs: number): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/health`, {
       method: "GET",
       signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
     });
     return res.ok;
   } catch {
@@ -23,26 +29,29 @@ async function pingHealth(timeoutMs: number): Promise<boolean> {
   }
 }
 
-async function warmUpBackend(): Promise<void> {
-  const deadline = Date.now() + WARMUP_BUDGET_MS;
-  if (await pingHealth(WARMUP_ATTEMPT_TIMEOUT_MS)) {
-    return;
-  }
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, WARMUP_POLL_DELAY_MS));
-    if (await pingHealth(WARMUP_ATTEMPT_TIMEOUT_MS)) {
-      return;
+async function warmUpBackend(deadline: number): Promise<boolean> {
+  while (msLeft(deadline) > SAFETY_MARGIN_MS) {
+    const timeout = Math.max(1000, Math.min(HEALTH_ATTEMPT_TIMEOUT_MS, msLeft(deadline) - SAFETY_MARGIN_MS));
+    if (await pingHealth(timeout)) {
+      return true;
     }
+    const delay = Math.min(HEALTH_POLL_DELAY_MS, Math.max(0, msLeft(deadline) - SAFETY_MARGIN_MS));
+    if (delay <= 0) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
+  return false;
 }
 
-async function fetchBackendRefresh(refreshToken: string, attemptTimeoutMs: number): Promise<Response | null> {
+async function fetchBackendRefresh(refreshToken: string, timeoutMs: number): Promise<Response | null> {
   try {
     return await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
-      signal: AbortSignal.timeout(attemptTimeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
     });
   } catch {
     return null;
@@ -56,13 +65,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "no refresh token" }, { status: 401 });
   }
 
-  await warmUpBackend();
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
 
-  let backendResponse = await fetchBackendRefresh(refreshToken, REFRESH_ATTEMPT_TIMEOUT_MS);
+  await warmUpBackend(deadline);
 
-  if (backendResponse === null) {
-    await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
-    backendResponse = await fetchBackendRefresh(refreshToken, REFRESH_ATTEMPT_TIMEOUT_MS);
+  let backendResponse: Response | null = null;
+
+  while (backendResponse === null && msLeft(deadline) > SAFETY_MARGIN_MS) {
+    const timeout = Math.max(2000, Math.min(REFRESH_ATTEMPT_TIMEOUT_MS, msLeft(deadline) - SAFETY_MARGIN_MS));
+    backendResponse = await fetchBackendRefresh(refreshToken, timeout);
+    if (backendResponse !== null) {
+      break;
+    }
+    const delay = Math.min(REFRESH_RETRY_DELAY_MS, Math.max(0, msLeft(deadline) - SAFETY_MARGIN_MS));
+    if (delay <= 0) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   if (backendResponse === null) {
