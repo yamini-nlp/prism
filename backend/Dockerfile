@@ -14,6 +14,13 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed_cache
+RUN python -c "\
+from fastembed import TextEmbedding; \
+from fastembed.rerank.cross_encoder import TextCrossEncoder; \
+TextEmbedding(model_name='sentence-transformers/all-MiniLM-L6-v2', cache_dir='/opt/fastembed_cache'); \
+TextCrossEncoder(model_name='Xenova/ms-marco-MiniLM-L-6-v2', cache_dir='/opt/fastembed_cache')"
+
 FROM python:3.11-slim AS final
 
 WORKDIR /app
@@ -25,11 +32,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app
 
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /opt/fastembed_cache /opt/fastembed_cache
 ENV PATH="/opt/venv/bin:$PATH"
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed_cache
 
 COPY backend/ .
 
-RUN chown -R app:app /app
+RUN chown -R app:app /app /opt/fastembed_cache
 
 USER app
 
@@ -39,9 +48,4 @@ ENV PORT=8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Use shell form so ${PORT} is expanded at container start. Render (and most
-# PaaS providers) assign a dynamic PORT env var and route traffic to it; a
-# hardcoded --port 8000 works locally/docker-compose (PORT defaults to 8000
-# above) but silently mismatches the platform's expected port in production,
-# which the platform's edge reports back to clients as a 502 Bad Gateway.
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
