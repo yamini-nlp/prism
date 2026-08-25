@@ -7,7 +7,7 @@ import { useGenerate } from "@/lib/queries/generations";
 import { useDocuments } from "@/lib/queries/documents";
 import CitationPopover, { type Citation } from "@/components/CitationPopover";
 import { getCurrentUser } from "@/lib/auth";
-import { conversationStorageKey, queryLogStorageKey } from "@/lib/conversationStorage";
+import { conversationStorageKey, queryLogStorageKey, hashDocumentIds } from "@/lib/conversationStorage";
 import {
   Send, Loader2, BookOpen, CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
   Settings, RefreshCw, MessageSquarePlus, Inbox, RotateCcw,
@@ -49,20 +49,20 @@ function logQuery(confidence: number, latency: number) {
   }
 }
 
-function loadConversation(): Message[] {
+function loadConversation(docFingerprint: string | null): Message[] {
   if (typeof window === "undefined") return [];
   try {
-    const key = conversationStorageKey(getCurrentUser()?.id);
+    const key = conversationStorageKey(getCurrentUser()?.id, docFingerprint);
     const raw = JSON.parse(localStorage.getItem(key) || "[]");
     if (!Array.isArray(raw)) return [];
     return raw.map((m: Message) => ({ ...m, streaming: false }));
   } catch { return []; }
 }
 
-function saveConversation(messages: Message[]) {
+function saveConversation(messages: Message[], docFingerprint: string | null) {
   if (typeof window === "undefined") return;
   try {
-    const key = conversationStorageKey(getCurrentUser()?.id);
+    const key = conversationStorageKey(getCurrentUser()?.id, docFingerprint);
     localStorage.setItem(key, JSON.stringify(messages));
   } catch {
   }
@@ -311,17 +311,29 @@ export default function WorkspacePage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const generateMutation = useGenerate();
   const { data: documents, isLoading: documentsLoading } = useDocuments();
+  const docFingerprint = documentsLoading ? null : hashDocumentIds((documents || []).map((d: { id: string }) => d.id));
+  const loadedFingerprintRef = useRef<string | null>(null);
 
   useEffect(() => {
     setSettings(getSettings());
-    setMessages(loadConversation());
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (documentsLoading) return;
+    if (loadedFingerprintRef.current === docFingerprint) return;
+    loadedFingerprintRef.current = docFingerprint;
+    setMessages(loadConversation(docFingerprint));
+    setInput("");
+    setError("");
+    setLastQuery(null);
+    setHydrated(true);
+  }, [documentsLoading, docFingerprint]);
+
+  useEffect(() => {
     if (!hydrated) return;
-    saveConversation(messages);
-  }, [messages, hydrated]);
+    if (loadedFingerprintRef.current !== docFingerprint) return;
+    saveConversation(messages, docFingerprint);
+  }, [messages, hydrated, docFingerprint]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -427,7 +439,7 @@ export default function WorkspacePage() {
     setInput("");
     setError("");
     setLastQuery(null);
-    saveConversation([]);
+    saveConversation([], docFingerprint);
   };
 
   const noDocuments = !documentsLoading && Array.isArray(documents) && documents.length === 0;
