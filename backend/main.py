@@ -1,5 +1,6 @@
 import time
 import uuid
+import re
 import asyncio
 from pathlib import Path
 from datetime import datetime
@@ -72,12 +73,35 @@ app.add_middleware(
 )
 
 
+def _origin_is_allowed(origin: str) -> bool:
+    if origin in allowed_origins:
+        return True
+    if settings.allowed_origin_regex and re.fullmatch(settings.allowed_origin_regex, origin):
+        return True
+    return False
+
+
 def _safe_error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
+    # This response is sent from CoreMiddleware, which sits OUTSIDE
+    # CORSMiddleware in the stack (CoreMiddleware wraps CORSMiddleware, since
+    # it is added after it). Any response built and sent here therefore
+    # never passes through CORSMiddleware and would normally go out with no
+    # Access-Control-Allow-Origin header at all — which the browser reports
+    # as a CORS failure, hiding the real status code and message from the
+    # frontend. Add the same-origin decision CORSMiddleware would have made,
+    # by hand, so these fallback responses are actually readable by the
+    # client instead of silently masquerading as a CORS error.
     request_id = getattr(request.state, "request_id", "unknown")
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status_code,
         content={"error": {"code": code, "message": message, "request_id": request_id, "details": None}},
     )
+    origin = request.headers.get("origin")
+    if origin and _origin_is_allowed(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 # NOTE ON WHY THIS IS A PLAIN ASGI MIDDLEWARE AND NOT BaseHTTPMiddleware:
@@ -126,9 +150,11 @@ class CoreMiddleware:
         if content_length is not None:
             try:
                 if int(content_length) > self.max_body_bytes:
-                    response = JSONResponse(
-                        status_code=413,
-                        content={"error": {"code": "payload_too_large", "message": "Request body exceeds the maximum allowed size.", "request_id": request_id, "details": {"max_bytes": self.max_body_bytes}}},
+                    response = _safe_error_response(
+                        Request(scope),
+                        413,
+                        "payload_too_large",
+                        "Request body exceeds the maximum allowed size.",
                     )
                     await response(scope, receive, send)
                     return
@@ -247,6 +273,7 @@ async def _warm_ml_models_background() -> None:
 @app.on_event("startup")
 async def warm_ml_models() -> None:
     asyncio.create_task(_warm_ml_models_background())
+
 
 api_v1 = APIRouter()
 
