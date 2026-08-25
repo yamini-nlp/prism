@@ -9,7 +9,6 @@ from alembic.config import Config as AlembicConfig
 from fastapi import APIRouter, FastAPI, Depends, Request, Query, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from routes import upload, ingest, retrieve, generate, summary, verify, analytics, auth as auth_routes
 from core import embedder
@@ -81,53 +80,142 @@ def _safe_error_response(request: Request, status_code: int, code: str, message:
     )
 
 
-class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, max_body_bytes: int):
-        super().__init__(app)
+# NOTE ON WHY THIS IS A PLAIN ASGI MIDDLEWARE AND NOT BaseHTTPMiddleware:
+#
+# Starlette's BaseHTTPMiddleware (and the `@app.middleware("http")`
+# decorator, which is sugar for the same thing) runs the downstream app in a
+# separate task and pipes its response body through an in-memory stream back
+# to this middleware. For a normal JSON response that's invisible, but for a
+# StreamingResponse (our /api/v1/generate SSE endpoint) it means every byte
+# has to pass through an extra task boundary — and if that inner task raises
+# partway through (e.g. the Groq call fails after the first few tokens) or
+# is cancelled, the outer stream can be left neither closed nor forwarded:
+# the client's fetch() just sits there awaiting more bytes that never come
+# and the connection never terminates. This is a well known class of bug in
+# Starlette/FastAPI when BaseHTTPMiddleware wraps a StreamingResponse, and it
+# matches exactly the symptom of the UI being stuck on
+# "Generating response..." forever with no error ever shown.
+#
+# The fix is to implement request id assignment, body-size limiting, the
+# request timeout, security headers, and observability logging as a single
+# raw ASGI middleware that only ever intercepts the `send` callable to peek
+# at / augment the `http.response.start` message, and otherwise forwards
+# every message (including every SSE chunk) straight through with no
+# buffering and no extra task hop.
+class CoreMiddleware:
+    def __init__(self, app, max_body_bytes: int, timeout_seconds: float):
+        self.app = app
         self.max_body_bytes = max_body_bytes
+        self.timeout_seconds = timeout_seconds
 
-    async def dispatch(self, request: Request, call_next):
-        content_length = request.headers.get("content-length")
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request_id = str(uuid.uuid4())
+        state = scope.setdefault("state", {})
+        state["request_id"] = request_id
+
+        path = scope.get("path", "")
+        is_streaming_route = path.startswith(NO_TIMEOUT_PATH_PREFIXES)
+
+        # --- body size limit -------------------------------------------------
+        headers = dict(scope.get("headers") or [])
+        content_length = headers.get(b"content-length")
         if content_length is not None:
             try:
                 if int(content_length) > self.max_body_bytes:
-                    request_id = getattr(request.state, "request_id", "unknown")
-                    return JSONResponse(
+                    response = JSONResponse(
                         status_code=413,
                         content={"error": {"code": "payload_too_large", "message": "Request body exceeds the maximum allowed size.", "request_id": request_id, "details": {"max_bytes": self.max_body_bytes}}},
                     )
+                    await response(scope, receive, send)
+                    return
             except ValueError:
                 pass
+
+        start = time.perf_counter()
+        status_holder = {"status_code": 500, "started": False}
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status_holder["status_code"] = message["status"]
+                status_holder["started"] = True
+                # Security headers, applied to every response including
+                # streamed ones, without buffering the body.
+                extra_headers = [
+                    (b"strict-transport-security", b"max-age=63072000; includeSubDomains; preload"),
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"x-frame-options", b"DENY"),
+                    (b"referrer-policy", b"no-referrer"),
+                    (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'; base-uri 'none'"),
+                    (b"permissions-policy", b"geolocation=(), microphone=(), camera=()"),
+                    (b"x-request-id", request_id.encode("latin-1")),
+                ]
+                message = {**message, "headers": list(message.get("headers", [])) + extra_headers}
+            await send(message)
+
+        async def run_app():
+            await self.app(scope, receive, send_wrapper)
+
         try:
-            return await call_next(request)
-        except Exception:
-            logger.exception("unhandled exception in BodySizeLimitMiddleware")
-            return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
-
-
-class RequestTimeoutMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, timeout_seconds: float):
-        super().__init__(app)
-        self.timeout_seconds = timeout_seconds
-
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith(NO_TIMEOUT_PATH_PREFIXES):
-            try:
-                return await call_next(request)
-            except Exception:
-                logger.exception("unhandled exception in RequestTimeoutMiddleware (untimed path)")
-                return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
-        try:
-            return await asyncio.wait_for(call_next(request), timeout=self.timeout_seconds)
+            if is_streaming_route:
+                # Never wrap streaming routes in a timeout that could cancel
+                # mid-stream — a slow-but-alive generation must be allowed
+                # to keep sending tokens for as long as it needs to.
+                await run_app()
+            else:
+                await asyncio.wait_for(run_app(), timeout=self.timeout_seconds)
         except asyncio.TimeoutError:
-            return _safe_error_response(request, 504, "request_timeout", "The request timed out.")
+            if not status_holder["started"]:
+                response = _safe_error_response(Request(scope), 504, "request_timeout", "The request timed out.")
+                await response(scope, receive, send)
+            # If the response already started, we cannot safely send another
+            # one; the connection is simply closed by returning here.
         except Exception:
-            logger.exception("unhandled exception in RequestTimeoutMiddleware")
-            return _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
+            logger.exception("unhandled exception in CoreMiddleware")
+            if not status_holder["started"]:
+                response = _safe_error_response(Request(scope), 500, "internal_error", "An unexpected error occurred.")
+                await response(scope, receive, send)
+        finally:
+            latency_ms = round((time.perf_counter() - start) * 1000, 2)
+            route = path
+            session_id = headers.get(b"x-session-id")
+            session_id = session_id.decode("latin-1") if session_id else None
+            try:
+                user_id = _extract_user_id_from_headers(headers)
+                record_request(route, latency_ms, status_holder["status_code"])
+                log_request(
+                    logger,
+                    request_id=request_id,
+                    route=route,
+                    latency_ms=latency_ms,
+                    status_code=status_holder["status_code"],
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+            except Exception:
+                logger.exception("observability logging failed")
 
 
-app.add_middleware(BodySizeLimitMiddleware, max_body_bytes=settings.max_request_body_bytes)
-app.add_middleware(RequestTimeoutMiddleware, timeout_seconds=settings.request_timeout_seconds)
+def _extract_user_id_from_headers(headers: dict) -> Optional[str]:
+    auth_header = headers.get(b"authorization")
+    if auth_header:
+        auth_header = auth_header.decode("latin-1")
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+            payload = decode_token(token)
+            if payload and payload.get("type") == "access" and payload.get("sub"):
+                return payload["sub"]
+    return None
+
+
+app.add_middleware(
+    CoreMiddleware,
+    max_body_bytes=settings.max_request_body_bytes,
+    timeout_seconds=settings.request_timeout_seconds,
+)
 
 
 def _run_migrations_sync() -> None:
@@ -155,66 +243,6 @@ async def warm_ml_models() -> None:
         logger.error("Model warmup timed out after 120s; models will load lazily on first request instead.")
     except Exception as exc:
         logger.error(f"Model warmup failed on startup: {exc}")
-
-
-def _extract_user_id(request: Request) -> Optional[str]:
-    auth_header = request.headers.get("authorization")
-    if auth_header and auth_header.lower().startswith("bearer "):
-        token = auth_header.split(" ", 1)[1].strip()
-        payload = decode_token(token)
-        if payload and payload.get("type") == "access" and payload.get("sub"):
-            return payload["sub"]
-    return None
-
-
-@app.middleware("http")
-async def observability_middleware(request: Request, call_next):
-    request_id = str(uuid.uuid4())
-    request.state.request_id = request_id
-    start = time.perf_counter()
-    try:
-        response = await call_next(request)
-    except Exception:
-        logger.exception("unhandled exception in observability_middleware")
-        response = _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
-    latency_ms = round((time.perf_counter() - start) * 1000, 2)
-
-    route = request.url.path
-    session_id = request.headers.get("x-session-id")
-
-    try:
-        user_id = _extract_user_id(request)
-        record_request(route, latency_ms, response.status_code)
-        log_request(
-            logger,
-            request_id=request_id,
-            route=route,
-            latency_ms=latency_ms,
-            status_code=response.status_code,
-            session_id=session_id,
-            user_id=user_id,
-        )
-    except Exception:
-        logger.exception("observability logging failed")
-
-    response.headers["X-Request-ID"] = request_id
-    return response
-
-
-@app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    try:
-        response = await call_next(request)
-    except Exception:
-        logger.exception("unhandled exception in security_headers_middleware")
-        response = _safe_error_response(request, 500, "internal_error", "An unexpected error occurred.")
-    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    return response
 
 
 api_v1 = APIRouter()
