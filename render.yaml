@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: prism-1
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    numInstances: 1
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 10000
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "90"
+      - key: ALLOWED_ORIGINS
+        value: https://prism-nine-tau.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+      - key: GROQ_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
