@@ -30,11 +30,6 @@ type Message = {
   errored?: boolean;
 };
 
-// Groq deprecated the free/developer-tier llama-3.3-70b-versatile and
-// llama-3.1-8b-instant chat models on 2026-08-16. openai/gpt-oss-120b and
-// openai/gpt-oss-20b are the currently supported replacements. Anyone with
-// an old model choice saved in localStorage needs to be migrated off the
-// dead model id, or every generation request will fail.
 const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const VALID_MODELS = new Set(["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
 
