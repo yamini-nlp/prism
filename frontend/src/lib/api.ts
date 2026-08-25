@@ -506,6 +506,7 @@ export async function streamGenerate(
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let receivedDone = false;
 
     while (true) {
       armTimeout(GENERATE_STALL_TIMEOUT_MS);
@@ -526,8 +527,25 @@ export async function streamGenerate(
         } catch {
           continue;
         }
+        if (parsed.event === "done") receivedDone = true;
         onEvent(parsed.event, data);
       }
+    }
+
+    // The server closed the connection without ever sending a "done"
+    // event (e.g. it crashed, was killed, or a proxy in between dropped
+    // the stream). Treat this the same as any other failure instead of
+    // resolving successfully — otherwise the UI has no signal to stop
+    // showing "Generating response..." and is stuck forever with no
+    // error ever surfaced.
+    if (!receivedDone) {
+      throw new ApiError(
+        0,
+        "stream_incomplete",
+        "The response stream ended unexpectedly before completing. Please try again.",
+        null,
+        null
+      );
     }
   } catch (cause) {
     if (timedOut) {
