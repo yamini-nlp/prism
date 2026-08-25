@@ -361,6 +361,8 @@ export default function WorkspacePage() {
               ...msg,
               content: msg.content + (data.token || ""),
             } : msg));
+          } else if (event === "error") {
+            setError(data.message || "Something went wrong while generating the answer.");
           } else if (event === "done") {
             const latency = (Date.now() - t0) / 1000;
             const conf = data.confidence_score ?? 0;
@@ -373,6 +375,7 @@ export default function WorkspacePage() {
               grounding: data.grounding || [],
               latency,
               streaming: false,
+              errored: !!data.error,
             } : msg));
           }
         },
