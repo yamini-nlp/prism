@@ -30,12 +30,21 @@ type Message = {
   errored?: boolean;
 };
 
+// Groq deprecated the free/developer-tier llama-3.3-70b-versatile and
+// llama-3.1-8b-instant chat models on 2026-08-16. openai/gpt-oss-120b and
+// openai/gpt-oss-20b are the currently supported replacements. Anyone with
+// an old model choice saved in localStorage needs to be migrated off the
+// dead model id, or every generation request will fail.
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
+const VALID_MODELS = new Set(["openai/gpt-oss-120b", "openai/gpt-oss-20b"]);
+
 function getSettings() {
-  if (typeof window === "undefined") return { model: "llama-3.3-70b-versatile", topK: 5 };
+  if (typeof window === "undefined") return { model: DEFAULT_MODEL, topK: 5 };
   try {
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    return { model: s.model || "llama-3.3-70b-versatile", topK: s.topK || 5 };
-  } catch { return { model: "llama-3.3-70b-versatile", topK: 5 }; }
+    const model = VALID_MODELS.has(s.model) ? s.model : DEFAULT_MODEL;
+    return { model, topK: s.topK || 5 };
+  } catch { return { model: DEFAULT_MODEL, topK: 5 }; }
 }
 
 function logQuery(confidence: number, latency: number) {
@@ -69,9 +78,8 @@ function saveConversation(messages: Message[], docFingerprint: string | null) {
 }
 
 const MODEL_NAMES: Record<string, string> = {
-  "llama-3.3-70b-versatile": "LLaMA 3.3 70B",
-  "llama-3.1-8b-instant":    "LLaMA 3.1 8B",
-  "llama3-8b-8192":          "LLaMA 3 8B",
+  "openai/gpt-oss-120b": "GPT-OSS 120B",
+  "openai/gpt-oss-20b":  "GPT-OSS 20B",
 };
 
 const SUGGESTIONS = [
@@ -306,7 +314,7 @@ export default function WorkspacePage() {
   const [input,    setInput]    = useState("");
   const [error,    setError]    = useState("");
   const [lastQuery, setLastQuery] = useState<string | null>(null);
-  const [settings, setSettings] = useState({ model: "llama-3.3-70b-versatile", topK: 5 });
+  const [settings, setSettings] = useState({ model: DEFAULT_MODEL, topK: 5 });
   const [hydrated, setHydrated] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const generateMutation = useGenerate();
