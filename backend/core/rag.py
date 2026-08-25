@@ -14,12 +14,6 @@ logger = logging.getLogger("prism")
 
 client = AsyncGroq(api_key=settings.groq_api_key, timeout=45.0, max_retries=1)
 
-# Hard ceilings so a slow/hanging retrieval step, a stalled Groq stream, or a
-# hung post-processing step can never leave the SSE connection open forever
-# with the client stuck on "Generating response...". Every await in the
-# critical path below is wrapped with one of these so we always either make
-# progress or fail loudly with an "error" SSE event that the frontend can
-# surface and recover from.
 RETRIEVAL_TIMEOUT_SECONDS = 30.0
 FIRST_TOKEN_TIMEOUT_SECONDS = 30.0
 STREAM_IDLE_TIMEOUT_SECONDS = 20.0
@@ -37,12 +31,12 @@ Rules:
 - Every context chunk you are given is labeled with a source number, e.g. "[Source 2: ...]". Whenever you state a fact drawn from a specific source, immediately append a bracketed citation marker with that source number, e.g. [2]. Use multiple markers back to back like [1][3] when a statement draws on more than one source.
 - Only use marker numbers that correspond to a source actually provided in the context. Never invent a marker number beyond the number of sources given.
 """
+
 VALID_MODELS = {
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama3-8b-8192",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
 }
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 
 
 def build_context(chunks: list[dict]) -> str:
