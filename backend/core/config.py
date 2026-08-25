@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEFAULT_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,https://prism-nine-tau.vercel.app"
@@ -36,6 +36,38 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = Field(default="http://localhost:4317", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
     otel_exporter_otlp_insecure: bool = Field(default=True, alias="OTEL_EXPORTER_OTLP_INSECURE")
     otel_traces_enabled: bool = Field(default=True, alias="OTEL_TRACES_ENABLED")
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, value: Optional[str]) -> Optional[str]:
+        # Hosting providers (Render, Heroku, Railway, etc.) commonly inject
+        # DATABASE_URL using the bare "postgres://" or "postgresql://" scheme.
+        # SQLAlchemy's async engine requires an explicit driver
+        # ("postgresql+asyncpg://") or create_async_engine() raises
+        # NoSuchModuleError at import time, which crashes the process before
+        # it can bind to a port and shows up as a permanent 502/503 from the
+        # platform's proxy. Normalize the scheme here so the app boots
+        # regardless of how the URL was provided.
+        if not value:
+            return value
+        if value.startswith("postgres://"):
+            return "postgresql+asyncpg://" + value[len("postgres://"):]
+        if value.startswith("postgresql://"):
+            return "postgresql+asyncpg://" + value[len("postgresql://"):]
+        return value
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def _normalize_redis_url(cls, value: Optional[str]) -> Optional[str]:
+        # Some providers hand out Redis URLs with trailing whitespace or
+        # without a scheme at all; guard against both so redis.from_url()
+        # doesn't blow up at connection time.
+        if not value:
+            return value
+        value = value.strip()
+        if not value.startswith(("redis://", "rediss://", "unix://")):
+            return "redis://" + value
+        return value
 
     @property
     def is_development(self) -> bool:
