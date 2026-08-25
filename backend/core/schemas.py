@@ -43,7 +43,7 @@ class GenerateRequest(BaseModel):
 
     query: str
     top_k: int = 5
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"
 
 
 class SummaryRequest(BaseModel):
