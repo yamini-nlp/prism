@@ -9,7 +9,8 @@ import uuid
 from datetime import datetime
 from sqlalchemy import select, func, delete, or_, and_, exists, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from fastembed import TextEmbedding
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from rank_bm25 import BM25Okapi
 
 from core.models import Document, DocumentChunk
@@ -26,8 +27,20 @@ DOCUMENT_SORT_FIELDS = {
     "size_bytes": Document.size_bytes,
 }
 
+# NOTE: embeddings/reranking run on fastembed (ONNX Runtime) instead of
+# sentence-transformers/torch. Torch + sentence-transformers routinely pushes
+# resident memory past 512MB once both an embedding model and a cross-encoder
+# are loaded in the same process, which OOM-kills the process on Render's
+# free web-service tier and shows up to clients as repeated 503s (and, since
+# the process dies mid-request, as spurious CORS failures on the browser
+# side because no response with CORS headers is ever sent). fastembed's
+# quantized ONNX models provide near-identical accuracy for these small
+# MiniLM-family models at a small fraction of the memory and disk footprint,
+# and with no torch/CUDA wheels to download the Docker image and cold boot
+# time both shrink substantially.
 EMBED_DIM = 384
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+RERANKER_MODEL_NAME = "Xenova/ms-marco-MiniLM-L-6-v2"
 EMBED_CACHE_TTL_SECONDS = 86400
 
 _EMBEDDING_MODEL = None
@@ -40,7 +53,7 @@ def _get_embedding_model():
     if _EMBEDDING_MODEL is None:
         with _model_lock:
             if _EMBEDDING_MODEL is None:
-                _EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+                _EMBEDDING_MODEL = TextEmbedding(model_name=EMBED_MODEL_NAME, threads=1)
     return _EMBEDDING_MODEL
 
 
@@ -49,15 +62,21 @@ def _get_reranker_model():
     if _RERANKER_MODEL is None:
         with _model_lock:
             if _RERANKER_MODEL is None:
-                _RERANKER_MODEL = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+                _RERANKER_MODEL = TextCrossEncoder(model_name=RERANKER_MODEL_NAME, threads=1)
     return _RERANKER_MODEL
+
+
+def _normalize_rows(vectors: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return vectors / norms
 
 
 async def warm_models() -> None:
     await asyncio.to_thread(_get_embedding_model)
     await asyncio.to_thread(_get_reranker_model)
     await asyncio.to_thread(embed_query, "warmup")
-    await asyncio.to_thread(_get_reranker_model().predict, [["warmup", "warmup"]])
+    await asyncio.to_thread(lambda: list(_get_reranker_model().rerank("warmup", ["warmup"])))
 
 
 def _validate_session_id(session_id: str) -> str:
@@ -76,12 +95,18 @@ def _build_bm25(chunks: list):
 
 
 def embed_chunks(texts: list[str]) -> np.ndarray:
-    embeddings = _get_embedding_model().encode(texts, normalize_embeddings=True, show_progress_bar=False)
+    if not texts:
+        return np.zeros((0, EMBED_DIM), dtype="float32")
+    raw = list(_get_embedding_model().embed(texts))
+    embeddings = np.array(raw, dtype="float32")
+    embeddings = _normalize_rows(embeddings)
     return embeddings.astype("float32")
 
 
 def embed_query(query: str) -> np.ndarray:
-    embedding = _get_embedding_model().encode([query], normalize_embeddings=True, show_progress_bar=False)
+    raw = list(_get_embedding_model().embed([query]))
+    embedding = np.array(raw, dtype="float32")
+    embedding = _normalize_rows(embedding)
     return embedding.astype("float32")
 
 
@@ -379,8 +404,10 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
     candidates = [chunk_by_id[cid] for cid in candidate_ids if cid in chunk_by_id]
     if not candidates:
         return []
-    pairs = [[query, c.chunk] for c in candidates]
-    rerank_scores = await asyncio.to_thread(_get_reranker_model().predict, pairs)
+    documents = [c.chunk for c in candidates]
+    rerank_scores = np.array(
+        await asyncio.to_thread(lambda: list(_get_reranker_model().rerank(query, documents)))
+    )
     order = np.argsort(rerank_scores)[::-1][:top_k]
     results = []
     for pos in order:
