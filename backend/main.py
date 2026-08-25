@@ -235,8 +235,7 @@ async def apply_database_migrations() -> None:
         logger.error(f"Database migration failed on startup: {exc}")
 
 
-@app.on_event("startup")
-async def warm_ml_models() -> None:
+async def _warm_ml_models_background() -> None:
     try:
         await asyncio.wait_for(warm_models(), timeout=120)
     except asyncio.TimeoutError:
@@ -244,6 +243,10 @@ async def warm_ml_models() -> None:
     except Exception as exc:
         logger.error(f"Model warmup failed on startup: {exc}")
 
+
+@app.on_event("startup")
+async def warm_ml_models() -> None:
+    asyncio.create_task(_warm_ml_models_background())
 
 api_v1 = APIRouter()
 
