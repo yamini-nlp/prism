@@ -5,7 +5,36 @@ export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const RETRY_DELAYS_MS = [3000, 6000, 10000, 15000];
+const WARMUP_BUDGET_MS = 35000;
+const WARMUP_ATTEMPT_TIMEOUT_MS = 4000;
+const WARMUP_POLL_DELAY_MS = 2500;
+const REFRESH_ATTEMPT_TIMEOUT_MS = 20000;
+const REFRESH_RETRY_DELAY_MS = 5000;
+
+async function pingHealth(timeoutMs: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function warmUpBackend(): Promise<void> {
+  const deadline = Date.now() + WARMUP_BUDGET_MS;
+  if (await pingHealth(WARMUP_ATTEMPT_TIMEOUT_MS)) {
+    return;
+  }
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, WARMUP_POLL_DELAY_MS));
+    if (await pingHealth(WARMUP_ATTEMPT_TIMEOUT_MS)) {
+      return;
+    }
+  }
+}
 
 async function fetchBackendRefresh(refreshToken: string, attemptTimeoutMs: number): Promise<Response | null> {
   try {
@@ -27,20 +56,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "no refresh token" }, { status: 401 });
   }
 
-  let backendResponse: Response | null = null;
+  await warmUpBackend();
 
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-    backendResponse = await fetchBackendRefresh(refreshToken, 12000);
+  let backendResponse = await fetchBackendRefresh(refreshToken, REFRESH_ATTEMPT_TIMEOUT_MS);
 
-    if (backendResponse !== null) {
-      if (backendResponse.status === 401 || backendResponse.ok) {
-        break;
-      }
-    }
-
-    if (attempt < RETRY_DELAYS_MS.length) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-    }
+  if (backendResponse === null) {
+    await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+    backendResponse = await fetchBackendRefresh(refreshToken, REFRESH_ATTEMPT_TIMEOUT_MS);
   }
 
   if (backendResponse === null) {
