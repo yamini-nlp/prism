@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = Field(default="http://localhost:4317", alias="OTEL_EXPORTER_OTLP_ENDPOINT")
     otel_exporter_otlp_insecure: bool = Field(default=True, alias="OTEL_EXPORTER_OTLP_INSECURE")
     otel_traces_enabled: bool = Field(default=False, alias="OTEL_TRACES_ENABLED")
+    reranker_enabled: bool = Field(default=True, alias="RERANKER_ENABLED")
 
     @field_validator("database_url", mode="before")
     @classmethod
