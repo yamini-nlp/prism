@@ -84,6 +84,10 @@ def _error_payload(message: str, code: str) -> dict:
     }
 
 
+def _debug_detail(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {str(exc)[:400]}"
+
+
 async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = DEFAULT_MODEL):
     if model not in VALID_MODELS:
         model = DEFAULT_MODEL
@@ -101,9 +105,9 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         yield _sse("error", {"message": message, "code": "retrieval_timeout"})
         yield _sse("done", _error_payload(message, "retrieval_timeout"))
         return
-    except Exception:
+    except Exception as exc:
         logger.exception("hybrid_search failed", extra={"session_id": session_id})
-        message = "Something went wrong while searching your documents. Please try again."
+        message = f"Something went wrong while searching your documents. [{_debug_detail(exc)}]"
         yield _sse("retrieval", {"citations": [], "confidence_score": 0.0})
         yield _sse("error", {"message": message, "code": "retrieval_failed"})
         yield _sse("done", _error_payload(message, "retrieval_failed"))
@@ -189,7 +193,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "groq authentication failed",
             extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
         )
-        message = "The model failed to generate a response. Please try again."
+        message = f"The model failed to generate a response. [auth {exc.status_code}: {str(exc.body)[:300]}]"
         yield _sse("error", {"message": message, "code": "generation_failed"})
         yield _sse("done", _error_payload(message, "generation_failed"))
         return
@@ -198,7 +202,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "groq rate limit exceeded",
             extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
         )
-        message = "The model is receiving too many requests right now. Please try again shortly."
+        message = f"The model is receiving too many requests right now. [{exc.status_code}: {str(exc.body)[:300]}]"
         yield _sse("error", {"message": message, "code": "generation_rate_limited"})
         yield _sse("done", _error_payload(message, "generation_rate_limited"))
         return
@@ -207,7 +211,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "groq model not found",
             extra={"session_id": session_id, "model": model, "status_code": exc.status_code, "body": exc.body},
         )
-        message = "The model failed to generate a response. Please try again."
+        message = f"The model failed to generate a response. [model={model} {exc.status_code}: {str(exc.body)[:300]}]"
         yield _sse("error", {"message": message, "code": "generation_failed"})
         yield _sse("done", _error_payload(message, "generation_failed"))
         return
@@ -216,7 +220,7 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "groq api returned an error status",
             extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
         )
-        message = "The model failed to generate a response. Please try again."
+        message = f"The model failed to generate a response. [{exc.status_code}: {str(exc.body)[:300]}]"
         yield _sse("error", {"message": message, "code": "generation_failed"})
         yield _sse("done", _error_payload(message, "generation_failed"))
         return
@@ -225,13 +229,13 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "could not reach groq api",
             extra={"session_id": session_id, "error": str(exc)},
         )
-        message = "The model failed to generate a response. Please try again."
+        message = f"The model failed to generate a response. [connection: {str(exc)[:300]}]"
         yield _sse("error", {"message": message, "code": "generation_failed"})
         yield _sse("done", _error_payload(message, "generation_failed"))
         return
-    except Exception:
+    except Exception as exc:
         logger.exception("groq generation failed", extra={"session_id": session_id})
-        message = "The model failed to generate a response. Please try again."
+        message = f"The model failed to generate a response. [{_debug_detail(exc)}]"
         yield _sse("error", {"message": message, "code": "generation_failed"})
         yield _sse("done", _error_payload(message, "generation_failed"))
         return
