@@ -415,6 +415,7 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
     rerank_scores = np.array(
         await asyncio.to_thread(lambda: list(_get_reranker_model().rerank(query, documents)))
     )
+    normalized_scores = 1.0 / (1.0 + np.exp(-rerank_scores))
     order = np.argsort(rerank_scores)[::-1][:top_k]
     results = []
     for pos in order:
@@ -422,7 +423,7 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
         results.append({
             "chunk": m.chunk,
             "source": m.source,
-            "score": float(rerank_scores[pos]),
+            "score": float(normalized_scores[pos]),
             "chunk_index": m.chunk_index,
         })
     return results
