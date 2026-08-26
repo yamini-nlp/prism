@@ -82,15 +82,6 @@ def _origin_is_allowed(origin: str) -> bool:
 
 
 def _safe_error_response(request: Request, status_code: int, code: str, message: str) -> JSONResponse:
-    # This response is sent from CoreMiddleware, which sits OUTSIDE
-    # CORSMiddleware in the stack (CoreMiddleware wraps CORSMiddleware, since
-    # it is added after it). Any response built and sent here therefore
-    # never passes through CORSMiddleware and would normally go out with no
-    # Access-Control-Allow-Origin header at all — which the browser reports
-    # as a CORS failure, hiding the real status code and message from the
-    # frontend. Add the same-origin decision CORSMiddleware would have made,
-    # by hand, so these fallback responses are actually readable by the
-    # client instead of silently masquerading as a CORS error.
     request_id = getattr(request.state, "request_id", "unknown")
     response = JSONResponse(
         status_code=status_code,
@@ -104,28 +95,6 @@ def _safe_error_response(request: Request, status_code: int, code: str, message:
     return response
 
 
-# NOTE ON WHY THIS IS A PLAIN ASGI MIDDLEWARE AND NOT BaseHTTPMiddleware:
-#
-# Starlette's BaseHTTPMiddleware (and the `@app.middleware("http")`
-# decorator, which is sugar for the same thing) runs the downstream app in a
-# separate task and pipes its response body through an in-memory stream back
-# to this middleware. For a normal JSON response that's invisible, but for a
-# StreamingResponse (our /api/v1/generate SSE endpoint) it means every byte
-# has to pass through an extra task boundary — and if that inner task raises
-# partway through (e.g. the Groq call fails after the first few tokens) or
-# is cancelled, the outer stream can be left neither closed nor forwarded:
-# the client's fetch() just sits there awaiting more bytes that never come
-# and the connection never terminates. This is a well known class of bug in
-# Starlette/FastAPI when BaseHTTPMiddleware wraps a StreamingResponse, and it
-# matches exactly the symptom of the UI being stuck on
-# "Generating response..." forever with no error ever shown.
-#
-# The fix is to implement request id assignment, body-size limiting, the
-# request timeout, security headers, and observability logging as a single
-# raw ASGI middleware that only ever intercepts the `send` callable to peek
-# at / augment the `http.response.start` message, and otherwise forwards
-# every message (including every SSE chunk) straight through with no
-# buffering and no extra task hop.
 class CoreMiddleware:
     def __init__(self, app, max_body_bytes: int, timeout_seconds: float):
         self.app = app
@@ -144,7 +113,6 @@ class CoreMiddleware:
         path = scope.get("path", "")
         is_streaming_route = path.startswith(NO_TIMEOUT_PATH_PREFIXES)
 
-        # --- body size limit -------------------------------------------------
         headers = dict(scope.get("headers") or [])
         content_length = headers.get(b"content-length")
         if content_length is not None:
@@ -168,8 +136,6 @@ class CoreMiddleware:
             if message["type"] == "http.response.start":
                 status_holder["status_code"] = message["status"]
                 status_holder["started"] = True
-                # Security headers, applied to every response including
-                # streamed ones, without buffering the body.
                 extra_headers = [
                     (b"strict-transport-security", b"max-age=63072000; includeSubDomains; preload"),
                     (b"x-content-type-options", b"nosniff"),
@@ -187,9 +153,6 @@ class CoreMiddleware:
 
         try:
             if is_streaming_route:
-                # Never wrap streaming routes in a timeout that could cancel
-                # mid-stream — a slow-but-alive generation must be allowed
-                # to keep sending tokens for as long as it needs to.
                 await run_app()
             else:
                 await asyncio.wait_for(run_app(), timeout=self.timeout_seconds)
@@ -197,8 +160,6 @@ class CoreMiddleware:
             if not status_holder["started"]:
                 response = _safe_error_response(Request(scope), 504, "request_timeout", "The request timed out.")
                 await response(scope, receive, send)
-            # If the response already started, we cannot safely send another
-            # one; the connection is simply closed by returning here.
         except Exception:
             logger.exception("unhandled exception in CoreMiddleware")
             if not status_holder["started"]:
