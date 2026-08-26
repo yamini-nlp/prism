@@ -4,6 +4,11 @@ export function conversationStorageKey(userId: string | null | undefined, docFin
   return `prism_workspace_conversation:${user}:${docs}`;
 }
 
+export function conversationStorageKeyPrefix(userId: string | null | undefined): string {
+  const user = userId || "anonymous";
+  return `prism_workspace_conversation:${user}:`;
+}
+
 export function queryLogStorageKey(userId: string | null | undefined): string {
   return userId ? `prism_query_log:${userId}` : "prism_query_log:anonymous";
 }
