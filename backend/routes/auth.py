@@ -43,6 +43,11 @@ class LogoutRequest(BaseModel):
     refresh_token: str
 
 
+class PasswordUpdateRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class UserOut(BaseModel):
     id: str
     email: str
@@ -167,3 +172,36 @@ async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user)):
     return _serialize_user(current_user)
+
+
+@router.patch("/password")
+@limiter.limit(AUTH_RATE_LIMIT)
+async def update_password(
+    request: Request,
+    body: PasswordUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not current_user.hashed_password or not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters.")
+
+    if verify_password(body.new_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="New password must be different from your current password.")
+
+    current_user.hashed_password = hash_password(body.new_password)
+
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == current_user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    )
+    now = datetime.now(timezone.utc)
+    for token in result.scalars().all():
+        token.revoked_at = now
+
+    await db.commit()
+    return {"status": "password updated"}
