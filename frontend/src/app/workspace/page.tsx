@@ -189,10 +189,22 @@ function GroundingBadge({ g }: { g: GroundingClaim }) {
   );
 }
 
+const MEANINGFUL_CLAIM_RE = /[A-Za-z]{2,}/;
+
+function sanitizeGrounding(grounding: GroundingClaim[] | undefined): GroundingClaim[] {
+  if (!grounding || grounding.length === 0) return [];
+  return grounding.filter(g => !!g.claim && MEANINGFUL_CLAIM_RE.test(g.claim.trim()));
+}
+
 function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegenerate: (id: string) => void; canRegenerate: boolean }) {
   const [open, setOpen] = useState(false);
   const [groundingOpen, setGroundingOpen] = useState(false);
   const isEmptyStreaming = !!msg.streaming && msg.content.length === 0;
+  // Defensive filter: strips out any stray empty/numbering-only claim
+  // fragments (e.g. a bare "1." with 0% confidence) so only real,
+  // meaningful claims are ever counted or rendered — including for
+  // conversations that were saved to localStorage before this fix.
+  const grounding = sanitizeGrounding(msg.grounding);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: "easeOut" }}
@@ -221,9 +233,9 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
         {msg.latency !== undefined && (
           <div style={{ marginTop: 6, fontSize: 11, color: C.textMuted }}>{msg.latency.toFixed(2)}s response time</div>
         )}
-        {!msg.streaming && msg.grounding !== undefined && msg.grounding.length > 0 && (
+        {!msg.streaming && grounding.length > 0 && (
           <div style={{ marginTop: 9, display: "flex", alignItems: "center", gap: 6 }}>
-            {msg.grounding.every(g => g.label === "supported") ? (
+            {grounding.every(g => g.label === "supported") ? (
               <>
                 <CheckCircle size={13} color={C.green} />
                 <span style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>Fully grounded · No hallucinations detected</span>
@@ -232,7 +244,7 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
               <>
                 <AlertTriangle size={13} color={C.orange} />
                 <span style={{ fontSize: 11, color: C.orange, fontWeight: 600 }}>
-                  {msg.grounding.filter(g => g.label === "unsupported").length} unsupported claim{msg.grounding.filter(g => g.label === "unsupported").length > 1 ? "s" : ""} detected
+                  {grounding.filter(g => g.label === "unsupported").length} unsupported claim{grounding.filter(g => g.label === "unsupported").length > 1 ? "s" : ""} detected
                 </span>
               </>
             )}
@@ -240,7 +252,7 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
         )}
       </div>
 
-      {!msg.streaming && msg.grounding !== undefined && msg.grounding.length > 0 && (
+      {!msg.streaming && grounding.length > 0 && (
         <div>
           <button onClick={() => setGroundingOpen(v => !v)} style={{
             display: "flex", alignItems: "center", gap: 6,
@@ -248,14 +260,14 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
             background: "rgba(91,94,244,0.08)", border: "none",
             borderRadius: 8, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit", marginBottom: 7,
           }}>
-            <CheckCircle size={12} /> {msg.grounding.length} claim{msg.grounding.length > 1 ? "s" : ""} checked
+            <CheckCircle size={12} /> {grounding.length} claim{grounding.length > 1 ? "s" : ""} checked
             {groundingOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
           <AnimatePresence>
             {groundingOpen && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }} style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
-                {msg.grounding.map((g, i) => <GroundingBadge key={i} g={g} />)}
+                {grounding.map((g, i) => <GroundingBadge key={i} g={g} />)}
               </motion.div>
             )}
           </AnimatePresence>
