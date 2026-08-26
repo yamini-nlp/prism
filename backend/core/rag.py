@@ -7,6 +7,7 @@ from core.verifier import split_into_claims, verify_claims
 from core.db import AsyncSessionLocal, ensure_session
 from core.models import Generation, Verification
 from core.config import settings
+import groq
 from groq import AsyncGroq
 from groq.types.chat import ChatCompletionMessageParam
 
@@ -84,11 +85,6 @@ def _error_payload(message: str, code: str) -> dict:
 
 
 async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = DEFAULT_MODEL):
-    # Everything below is wrapped so that no matter what fails — retrieval,
-    # the Groq call, or post-processing — we always terminate the SSE stream
-    # with an explicit "error" + "done" pair instead of letting an exception
-    # escape and leave the HTTP response (and the frontend's typing
-    # indicator) hanging indefinitely with no bytes ever sent.
     if model not in VALID_MODELS:
         model = DEFAULT_MODEL
 
@@ -176,8 +172,6 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         logger.error("groq stream timed out", extra={"session_id": session_id})
         message = "The model took too long to respond. Please try again."
         if answer_parts:
-            # We already streamed partial content — close out gracefully
-            # with what we have rather than discarding it.
             answer = "".join(answer_parts)
             yield _sse("done", {
                 "answer": answer,
@@ -189,6 +183,51 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
         else:
             yield _sse("error", {"message": message, "code": "generation_timeout"})
             yield _sse("done", _error_payload(message, "generation_timeout"))
+        return
+    except groq.AuthenticationError as exc:
+        logger.error(
+            "groq authentication failed",
+            extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
+        )
+        message = "The model failed to generate a response. Please try again."
+        yield _sse("error", {"message": message, "code": "generation_failed"})
+        yield _sse("done", _error_payload(message, "generation_failed"))
+        return
+    except groq.RateLimitError as exc:
+        logger.error(
+            "groq rate limit exceeded",
+            extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
+        )
+        message = "The model is receiving too many requests right now. Please try again shortly."
+        yield _sse("error", {"message": message, "code": "generation_rate_limited"})
+        yield _sse("done", _error_payload(message, "generation_rate_limited"))
+        return
+    except groq.NotFoundError as exc:
+        logger.error(
+            "groq model not found",
+            extra={"session_id": session_id, "model": model, "status_code": exc.status_code, "body": exc.body},
+        )
+        message = "The model failed to generate a response. Please try again."
+        yield _sse("error", {"message": message, "code": "generation_failed"})
+        yield _sse("done", _error_payload(message, "generation_failed"))
+        return
+    except groq.APIStatusError as exc:
+        logger.error(
+            "groq api returned an error status",
+            extra={"session_id": session_id, "status_code": exc.status_code, "body": exc.body},
+        )
+        message = "The model failed to generate a response. Please try again."
+        yield _sse("error", {"message": message, "code": "generation_failed"})
+        yield _sse("done", _error_payload(message, "generation_failed"))
+        return
+    except groq.APIConnectionError as exc:
+        logger.error(
+            "could not reach groq api",
+            extra={"session_id": session_id, "error": str(exc)},
+        )
+        message = "The model failed to generate a response. Please try again."
+        yield _sse("error", {"message": message, "code": "generation_failed"})
+        yield _sse("done", _error_payload(message, "generation_failed"))
         return
     except Exception:
         logger.exception("groq generation failed", extra={"session_id": session_id})
