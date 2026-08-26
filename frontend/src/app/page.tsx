@@ -428,6 +428,7 @@ export default function LandingPage() {
         .pz-footer-col-h { font-family: var(--font-mono, monospace); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.35); margin-bottom:18px; }
         .pz-footer-col a { display:block; font-size:13.5px; color:rgba(255,255,255,0.55); text-decoration:none; margin-bottom:13px; transition:color .2s; }
         .pz-footer-col a:hover { color:#fff; }
+        .pz-footer-static { display:block; font-size:13.5px; color:rgba(255,255,255,0.55); margin-bottom:13px; }
         .pz-footer-bottom { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:18px; padding-top:26px; border-top:1px solid ${LINE_ON_INK}; }
         .pz-footer-tag { font-family: var(--font-mono, monospace); font-size:11px; color:rgba(255,255,255,0.3); }
       `}</style>
@@ -723,7 +724,7 @@ export default function LandingPage() {
             </div>
             <div className="pz-footer-col">
               <div className="pz-footer-col-h">Company</div>
-              <a href="https://github.com/yamini-nlp" target="_blank" rel="noreferrer">Built by Yamini G</a><a href="#">Privacy policy</a><a href="#">Terms of service</a>
+              <a href="https://github.com/yamini-nlp" target="_blank" rel="noreferrer">Built by Yamini G</a><span className="pz-footer-static">Privacy policy</span><span className="pz-footer-static">Terms of service</span>
             </div>
           </div>
           <div className="pz-footer-bottom">
