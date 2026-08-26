@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mockDashboardDependencies, mockLogin, mockRegister } from "./helpers/mock-api";
+import { API_BASE_URL, mockDashboardDependencies, mockLogin, mockRegister } from "./helpers/mock-api";
 
 test.describe("authentication", () => {
   test("registering a new account redirects to the dashboard", async ({ page }) => {
@@ -38,12 +38,22 @@ test.describe("authentication", () => {
   });
 
   test("shows a field error and blocks submission for an invalid email", async ({ page }) => {
+    let loginCalled = false;
+    await page.route(`${API_BASE_URL}/api/v1/auth/login`, async (route) => {
+      loginCalled = true;
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
     await page.goto("/login");
     await page.getByLabel(/^email$/i).fill("not-an-email");
     await page.getByLabel(/^password$/i).fill("password123");
     await page.getByLabel(/^password$/i).press("Tab");
 
     await expect(page.getByText(/enter a valid email address/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /sign in/i })).toBeDisabled();
+
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    await expect(page).toHaveURL(/\/login/);
+    expect(loginCalled).toBe(false);
   });
 });
