@@ -397,7 +397,7 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
         return []
 
     if not settings.reranker_enabled:
-        fused_score_by_id = dict(fused)
+        dense_score_by_id = {chunk.id: score for chunk, score in dense_candidates}
         results = []
         for chunk_id in candidate_ids[:top_k]:
             if chunk_id not in chunk_by_id:
@@ -406,7 +406,7 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
             results.append({
                 "chunk": m.chunk,
                 "source": m.source,
-                "score": float(fused_score_by_id.get(chunk_id, 0.0)),
+                "score": float(dense_score_by_id.get(chunk_id, 0.0)),
                 "chunk_index": m.chunk_index,
             })
         return results
