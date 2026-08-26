@@ -417,6 +417,19 @@ export async function runEvalReport(): Promise<UploadJobResponse> {
   return res.json();
 }
 
+export interface PasswordUpdateResponse {
+  status: string;
+}
+
+export async function updatePassword(currentPassword: string, newPassword: string): Promise<PasswordUpdateResponse> {
+  const res = await apiFetch("/auth/password", {
+    method: "PATCH",
+    headers: buildHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  return res.json();
+}
+
 export interface ResetResponse {
   status: string;
 }
@@ -532,12 +545,6 @@ export async function streamGenerate(
       }
     }
 
-    // The server closed the connection without ever sending a "done"
-    // event (e.g. it crashed, was killed, or a proxy in between dropped
-    // the stream). Treat this the same as any other failure instead of
-    // resolving successfully — otherwise the UI has no signal to stop
-    // showing "Generating response..." and is stuck forever with no
-    // error ever surfaced.
     if (!receivedDone) {
       throw new ApiError(
         0,
