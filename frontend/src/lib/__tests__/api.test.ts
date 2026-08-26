@@ -3,9 +3,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 vi.mock("@/lib/auth", () => ({
   getAccessToken: vi.fn(),
   refreshAccessToken: vi.fn(),
+  getLastRefreshFailureReason: vi.fn(() => null),
 }));
 
-import { getAccessToken, refreshAccessToken } from "@/lib/auth";
+import { getAccessToken, refreshAccessToken, getLastRefreshFailureReason } from "@/lib/auth";
 import {
   apiUrl,
   buildHeaders,
@@ -31,6 +32,7 @@ import {
 
 const mockedGetAccessToken = vi.mocked(getAccessToken);
 const mockedRefreshAccessToken = vi.mocked(refreshAccessToken);
+vi.mocked(getLastRefreshFailureReason).mockReturnValue(null);
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -351,7 +353,7 @@ describe("uploadFileWithProgress", () => {
     const xhr = MockXHR.instances[0];
     xhr.onerror?.();
 
-    await expect(promise).rejects.toThrow("Network error during upload.");
+    await expect(promise).rejects.toThrow("Could not reach the Prism server.");
   });
 
   it("rejects when aborted via the provided signal", async () => {
@@ -502,6 +504,6 @@ describe("streamGenerate", () => {
 
   it("throws when the response is not ok", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
-    await expect(streamGenerate({ query: "hi", top_k: 5 }, vi.fn())).rejects.toThrow("Server error 500");
+    await expect(streamGenerate({ query: "hi", top_k: 5 }, vi.fn())).rejects.toThrow("Request failed with status 500");
   });
 });
