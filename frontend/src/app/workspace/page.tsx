@@ -104,7 +104,7 @@ function TypingDots() {
 function RenderMarkdown({ text, citations }: { text: string; citations?: Citation[] }) {
   const lines = text.split("\n");
   return (
-    <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78, fontWeight: 480 }}>
+    <div style={{ fontSize: 14, color: "#111110", lineHeight: 1.78, fontWeight: 500 }}>
       {lines.map((line, li) => {
         const parts: React.ReactNode[] = [];
         const rest = line;
@@ -113,23 +113,23 @@ function RenderMarkdown({ text, citations }: { text: string; citations?: Citatio
         let last = 0;
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(rest)) !== null) {
-          if (m.index > last) parts.push(<span key={key++}>{rest.slice(last, m.index)}</span>);
+          if (m.index > last) parts.push(<span key={key++} style={{ color: "#111110" }}>{rest.slice(last, m.index)}</span>);
           if (m[0].startsWith("**")) {
-            parts.push(<strong key={key++} style={{ fontWeight: 700, color: C.text }}>{m[2]}</strong>);
+            parts.push(<strong key={key++} style={{ fontWeight: 700, color: "#111110" }}>{m[2]}</strong>);
           } else if (m[4] !== undefined) {
             const num = parseInt(m[4], 10);
             const citation = citations && citations[num - 1];
             if (citation) {
               parts.push(<CitationPopover key={key++} index={num} citation={citation} />);
             } else {
-              parts.push(<span key={key++}>{m[0]}</span>);
+              parts.push(<span key={key++} style={{ color: "#111110" }}>{m[0]}</span>);
             }
           } else {
-            parts.push(<em key={key++}>{m[3]}</em>);
+            parts.push(<em key={key++} style={{ color: "#111110" }}>{m[3]}</em>);
           }
           last = m.index + m[0].length;
         }
-        if (last < rest.length) parts.push(<span key={key++}>{rest.slice(last)}</span>);
+        if (last < rest.length) parts.push(<span key={key++} style={{ color: "#111110" }}>{rest.slice(last)}</span>);
         const isNumbered = /^\d+\.\s/.test(line);
         const isBullet = /^[-•]\s/.test(line);
 
@@ -139,13 +139,13 @@ function RenderMarkdown({ text, citations }: { text: string; citations?: Citatio
               <span style={{ color: C.accent, fontWeight: 700, flexShrink: 0, minWidth: 18 }}>
                 {isNumbered ? line.match(/^\d+/)?.[0] + "." : "•"}
               </span>
-              <span>{parts.length > 0 ? parts : rest.replace(/^(\d+\.|-|•)\s/, "")}</span>
+              <span style={{ color: "#111110" }}>{parts.length > 0 ? parts : rest.replace(/^(\d+\.|-|•)\s/, "")}</span>
             </div>
           );
         }
 
         if (line.trim() === "") return <div key={li} style={{ height: 8 }} />;
-        return <p key={li} style={{ margin: "0 0 6px" }}>{parts.length > 0 ? parts : line}</p>;
+        return <p key={li} style={{ margin: "0 0 6px", color: "#111110" }}>{parts.length > 0 ? parts : line}</p>;
       })}
     </div>
   );
