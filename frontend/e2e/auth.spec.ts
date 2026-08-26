@@ -27,9 +27,9 @@ test.describe("authentication", () => {
     await page.goto("/login");
     await expect(page.getByText(/sign in to prism/i)).toBeVisible();
 
-    await page.getByLabel(/email/i).fill("researcher@prism.dev");
-    await page.getByLabel(/password/i).fill("password123");
-    await page.getByLabel(/password/i).press("Tab");
+    await page.getByLabel(/^email$/i).fill("researcher@prism.dev");
+    await page.getByLabel(/^password$/i).fill("password123");
+    await page.getByLabel(/^password$/i).press("Tab");
 
     await expect(page.getByRole("button", { name: /sign in/i })).toBeEnabled();
     await page.getByRole("button", { name: /sign in/i }).click();
@@ -39,9 +39,9 @@ test.describe("authentication", () => {
 
   test("shows a field error and blocks submission for an invalid email", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel(/email/i).fill("not-an-email");
-    await page.getByLabel(/password/i).fill("password123");
-    await page.getByLabel(/password/i).press("Tab");
+    await page.getByLabel(/^email$/i).fill("not-an-email");
+    await page.getByLabel(/^password$/i).fill("password123");
+    await page.getByLabel(/^password$/i).press("Tab");
 
     await expect(page.getByText(/enter a valid email address/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /sign in/i })).toBeDisabled();
