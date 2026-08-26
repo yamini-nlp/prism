@@ -14,11 +14,13 @@ export function useGenerate() {
 
 export const evalReportQueryKey = ["eval-report"] as const;
 
-export function useEvalReport() {
+export function useEvalReport(options?: { refetchInterval?: number | false; refetchIntervalInBackground?: boolean }) {
   return useQuery<EvalReportResponse>({
     queryKey: evalReportQueryKey,
     queryFn: fetchEvalReport,
     staleTime: 15_000,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchIntervalInBackground,
   });
 }
 
