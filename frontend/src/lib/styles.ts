@@ -116,6 +116,7 @@ export const S = {
     border: "1px solid rgba(0,0,0,0.08)",
     borderRadius: 16,
     boxShadow: "0 1px 6px rgba(0,0,0,0.055)",
+    overflow: "hidden",
   },
 
   tagIndigo:  { display:"inline-flex" as const, alignItems:"center" as const, padding:"3px 10px", borderRadius:99, fontSize:10.5, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" as const, background:"rgba(91,94,244,0.09)", color:"#4547c4" },
