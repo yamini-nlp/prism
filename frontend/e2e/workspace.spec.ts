@@ -49,7 +49,7 @@ test.describe("workspace", () => {
     await textarea.fill("What does this paper find?");
     await textarea.press("Enter");
 
-    await expect(page.getByText(/failed to fetch|server error/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/request failed with status 500/i)).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("button", { name: /retry/i })).toBeVisible();
   });
 });
