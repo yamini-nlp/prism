@@ -66,9 +66,9 @@ async def db_session():
         yield session
 
 
-def _fake_chat_completion(*args, **kwargs):
+async def _fake_chat_completion(*args, **kwargs):
     if kwargs.get("stream"):
-        def token_stream():
+        async def token_stream():
             chunk = MagicMock()
             delta = MagicMock()
             delta.content = "This is a mocked grounded answer."
