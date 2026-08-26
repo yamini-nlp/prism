@@ -6,10 +6,12 @@ import {
 
 export const documentsQueryKey = ["documents"] as const;
 
-export function useDocuments() {
+export function useDocuments(options?: { refetchInterval?: number | false; refetchIntervalInBackground?: boolean }) {
   return useQuery<DocumentRecord[]>({
     queryKey: documentsQueryKey,
     queryFn: fetchDocuments,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchIntervalInBackground,
   });
 }
 
