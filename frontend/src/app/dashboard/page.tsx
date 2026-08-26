@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { animate, motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -18,13 +18,26 @@ import {
 } from "lucide-react";
 
 function CountUp({ value, decimals = 0, suffix = "" }: { value: number; decimals?: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
+  const [display, setDisplay] = useState(value);
+  const prevValueRef = useRef(value);
+  const hasMountedRef = useRef(false);
   useEffect(() => {
-    const controls = animate(0, value, {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      prevValueRef.current = value;
+      setDisplay(value);
+      return;
+    }
+    if (prevValueRef.current === value) {
+      return;
+    }
+    const startValue = prevValueRef.current;
+    const controls = animate(startValue, value, {
       duration: 0.9,
       ease: "easeOut",
       onUpdate: (v) => setDisplay(v),
     });
+    prevValueRef.current = value;
     return () => controls.stop();
   }, [value]);
   return <>{display.toFixed(decimals)}{suffix}</>;
@@ -92,12 +105,12 @@ const tooltipStyle = {
 };
 
 export default function DashboardPage() {
-  const documentsQuery = useDocuments();
+  const documentsQuery = useDocuments({ refetchInterval: 15_000, refetchIntervalInBackground: true });
   const analyticsQuery = useAnalyticsSummary();
-  const evalQuery = useEvalReport();
+  const evalQuery = useEvalReport({ refetchInterval: 15_000, refetchIntervalInBackground: true });
 
   const isLoading = documentsQuery.isLoading || analyticsQuery.isLoading;
-  const isRefetching = documentsQuery.isRefetching || analyticsQuery.isRefetching;
+  const isRefetching = documentsQuery.isRefetching || analyticsQuery.isRefetching || evalQuery.isRefetching;
   const isError = documentsQuery.isError || analyticsQuery.isError;
 
   const analytics = analyticsQuery.data;
