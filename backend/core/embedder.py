@@ -18,6 +18,7 @@ from core.db import ensure_session, validate_session_id
 from core.cache import get_cache, set_cache, delete_cache_prefix
 from core.metrics import record_cache_hit, record_cache_miss
 from core.errors import NotFoundError, ValidationAppError
+from core.config import settings
 
 DOCUMENT_SORT_FIELDS = {
     "title": Document.title,
@@ -27,17 +28,6 @@ DOCUMENT_SORT_FIELDS = {
     "size_bytes": Document.size_bytes,
 }
 
-# NOTE: embeddings/reranking run on fastembed (ONNX Runtime) instead of
-# sentence-transformers/torch. Torch + sentence-transformers routinely pushes
-# resident memory past 512MB once both an embedding model and a cross-encoder
-# are loaded in the same process, which OOM-kills the process on Render's
-# free web-service tier and shows up to clients as repeated 503s (and, since
-# the process dies mid-request, as spurious CORS failures on the browser
-# side because no response with CORS headers is ever sent). fastembed's
-# quantized ONNX models provide near-identical accuracy for these small
-# MiniLM-family models at a small fraction of the memory and disk footprint,
-# and with no torch/CUDA wheels to download the Docker image and cold boot
-# time both shrink substantially.
 EMBED_DIM = 384
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 RERANKER_MODEL_NAME = "Xenova/ms-marco-MiniLM-L-6-v2"
@@ -74,9 +64,10 @@ def _normalize_rows(vectors: np.ndarray) -> np.ndarray:
 
 async def warm_models() -> None:
     await asyncio.to_thread(_get_embedding_model)
-    await asyncio.to_thread(_get_reranker_model)
     await asyncio.to_thread(embed_query, "warmup")
-    await asyncio.to_thread(lambda: list(_get_reranker_model().rerank("warmup", ["warmup"])))
+    if settings.reranker_enabled:
+        await asyncio.to_thread(_get_reranker_model)
+        await asyncio.to_thread(lambda: list(_get_reranker_model().rerank("warmup", ["warmup"])))
 
 
 def _validate_session_id(session_id: str) -> str:
@@ -404,6 +395,22 @@ async def hybrid_search(db: AsyncSession, query: str, session_id: str, top_k: in
     candidates = [chunk_by_id[cid] for cid in candidate_ids if cid in chunk_by_id]
     if not candidates:
         return []
+
+    if not settings.reranker_enabled:
+        fused_score_by_id = dict(fused)
+        results = []
+        for chunk_id in candidate_ids[:top_k]:
+            if chunk_id not in chunk_by_id:
+                continue
+            m = chunk_by_id[chunk_id]
+            results.append({
+                "chunk": m.chunk,
+                "source": m.source,
+                "score": float(fused_score_by_id.get(chunk_id, 0.0)),
+                "chunk_index": m.chunk_index,
+            })
+        return results
+
     documents = [c.chunk for c in candidates]
     rerank_scores = np.array(
         await asyncio.to_thread(lambda: list(_get_reranker_model().rerank(query, documents)))
