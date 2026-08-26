@@ -21,7 +21,10 @@ function sourceLabel(sourceType: string) {
 }
 
 export default function LibraryPage() {
-  const { data: documents, isLoading, isError, error, refetch, isRefetching } = useDocuments();
+  const { data: documents, isLoading, isError, error, refetch, isRefetching } = useDocuments({
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
+  });
 
   const {
     register,
@@ -169,17 +172,21 @@ export default function LibraryPage() {
                     }}>
                       <FileText size={17} color={color} />
                     </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:14.5, fontWeight:700, color:C.text, lineHeight:1.3, marginBottom:3 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{
+                        fontSize:14.5, fontWeight:700, color:C.text, lineHeight:1.3, marginBottom:3,
+                        overflowWrap:"anywhere", wordBreak:"break-word",
+                        display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden",
+                      }}>
                         {doc.title}
                       </div>
-                      <div style={{ fontSize:12, color:C.textMuted }}>
+                      <div style={{ fontSize:12, color:C.textMuted, overflowWrap:"anywhere", wordBreak:"break-word" }}>
                         {sourceLabel(doc.source_type)} · {new Date(doc.ingested_at).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
 
-                  <p style={{ fontSize:13, color:C.textSec, lineHeight:1.6 }}>
+                  <p style={{ fontSize:13, color:C.textSec, lineHeight:1.6, overflowWrap:"anywhere", wordBreak:"break-word" }}>
                     {doc.chunk_count} chunk{doc.chunk_count !== 1 ? "s" : ""} indexed and ready to query.
                   </p>
 
