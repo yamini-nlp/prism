@@ -10,6 +10,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useResetDocuments } from "@/lib/queries/documents";
 import { toast } from "@/lib/toast";
+import { updatePassword, ApiError } from "@/lib/api";
 import {
   profileSettingsSchema, type ProfileSettingsFormValues,
   passwordSettingsSchema, type PasswordSettingsFormValues,
@@ -152,13 +153,26 @@ export default function SettingsPage() {
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
-  async function handlePasswordSave(): Promise<void> {
+  const [passwordSavedAt, setPasswordSavedAt] = useState<number | null>(null);
+
+  async function handlePasswordSave(values: PasswordSettingsFormValues): Promise<void> {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      throw new Error(
-        "Password changes aren't available yet in this deployment. The backend doesn't currently expose an account update endpoint."
-      );
+      await updatePassword(values.currentPassword, values.newPassword);
+      setPasswordSavedAt(Date.now());
+      toast.success("Password updated", "Your password has been changed. Use your new password next time you sign in.");
+      passwordForm.reset({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
+      setPasswordSavedAt(null);
+      if (err instanceof ApiError && err.status === 401) {
+        passwordForm.setError("currentPassword", { type: "server", message: err.message });
+        toast.error("Could not update password", err.message);
+        return;
+      }
+      if (err instanceof ApiError && err.status === 400) {
+        passwordForm.setError("newPassword", { type: "server", message: err.message });
+        toast.error("Could not update password", err.message);
+        return;
+      }
       toast.error("Could not update password", err instanceof Error ? err.message : "Please try again.");
     }
   }
@@ -316,7 +330,7 @@ export default function SettingsPage() {
               <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "11px 15px", borderRadius: 10, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.14)", marginBottom: 18 }}>
                 <Info size={14} color={C.orange} style={{ flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontSize: 12, color: C.textSec, lineHeight: 1.55 }}>
-                  Password changes require a backend account-update endpoint that isn't available in this deployment yet. You can still fill in the form below to see validation, but saving will show an error.
+                  Choose a new password of at least 8 characters. We'll verify your current password before making the change, and you'll need to sign in again on other devices afterward.
                 </p>
               </div>
 
@@ -377,6 +391,12 @@ export default function SettingsPage() {
                     "Update password"
                   )}
                 </motion.button>
+
+                {passwordSavedAt && !passwordForm.formState.isSubmitting && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: C.green }}>
+                    <CheckCircle2 size={13} /> Password updated
+                  </div>
+                )}
               </form>
             </div>
 
