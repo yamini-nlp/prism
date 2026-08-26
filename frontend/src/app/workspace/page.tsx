@@ -104,7 +104,7 @@ function TypingDots() {
 function RenderMarkdown({ text, citations }: { text: string; citations?: Citation[] }) {
   const lines = text.split("\n");
   return (
-    <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78 }}>
+    <div style={{ fontSize: 14, color: C.text, lineHeight: 1.78, fontWeight: 480 }}>
       {lines.map((line, li) => {
         const parts: React.ReactNode[] = [];
         const rest = line;
@@ -195,7 +195,7 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
   const isEmptyStreaming = !!msg.streaming && msg.content.length === 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: "easeOut" }}
       style={{ maxWidth: "86%", display: "flex", flexDirection: "column", gap: 9 }}>
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <style>{`@keyframes prism-typing { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }`}</style>
@@ -264,23 +264,38 @@ function AiMessage({ msg, onRegenerate, canRegenerate }: { msg: Message; onRegen
 
       {msg.citations && msg.citations.length > 0 && (
         <div>
-          <button onClick={() => setOpen(v => !v)} style={{
-            display: "flex", alignItems: "center", gap: 6,
-            fontSize: 12, fontWeight: 600, color: C.accent,
-            background: "rgba(91,94,244,0.08)", border: "none",
-            borderRadius: 8, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit", marginBottom: 7,
-          }}>
-            <BookOpen size={12} /> {msg.citations.length} source{msg.citations.length > 1 ? "s" : ""}
-            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
-          <AnimatePresence>
-            {open && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }} style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
-                {msg.citations.map(c => <CitationCard key={c.id} c={c} />)}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {(() => {
+            const seen = new Set<string>();
+            const uniqueCitations: Citation[] = [];
+            for (const c of msg.citations) {
+              const dedupeKey = c.text.trim().toLowerCase();
+              if (!seen.has(dedupeKey)) {
+                seen.add(dedupeKey);
+                uniqueCitations.push(c);
+              }
+            }
+            return (
+              <>
+                <button onClick={() => setOpen(v => !v)} style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 12, fontWeight: 600, color: C.accent,
+                  background: "rgba(91,94,244,0.08)", border: "none",
+                  borderRadius: 8, padding: "6px 13px", cursor: "pointer", fontFamily: "inherit", marginBottom: 7,
+                }}>
+                  <BookOpen size={12} /> {uniqueCitations.length} source{uniqueCitations.length > 1 ? "s" : ""}
+                  {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+                <AnimatePresence>
+                  {open && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }} style={{ display: "flex", flexDirection: "column", gap: 7, overflow: "hidden" }}>
+                      {uniqueCitations.map(c => <CitationCard key={c.id} c={c} />)}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            );
+          })()}
         </div>
       )}
 
