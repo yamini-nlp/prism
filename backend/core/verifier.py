@@ -2,6 +2,8 @@ import re
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _WORD_RE = re.compile(r"[A-Za-z0-9]+")
+_LIST_MARKER_RE = re.compile(r"(?m)^[ \t]*(?:\d{1,3}[.)]|[-*•])[ \t]+")
+_HAS_CONTENT_RE = re.compile(r"[A-Za-z]{2,}")
 
 SUPPORTED_THRESHOLD = 0.5
 UNCERTAIN_THRESHOLD = 0.25
@@ -11,8 +13,26 @@ def split_into_claims(answer: str) -> list[str]:
     text = (answer or "").strip()
     if not text:
         return []
+    # Strip leading list/number markers ("1. ", "2) ", "- ", "• ") at the
+    # start of a line before sentence-splitting. Otherwise the sentence
+    # splitter treats "1." itself as a sentence-ending token (period
+    # followed by whitespace) and emits a bogus standalone claim like "1."
+    # with no real content, which then shows up as an empty, 0%-confidence
+    # "unsupported" claim in the UI.
+    text = _LIST_MARKER_RE.sub("", text)
     raw_sentences = _SENTENCE_SPLIT_RE.split(text)
-    return [s.strip() for s in raw_sentences if s.strip()]
+    claims = []
+    for sentence in raw_sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        # Safety net: drop any leftover fragment that carries no real
+        # alphabetic content (stray numbering, bullets, punctuation-only
+        # remnants) so we never surface an empty claim to the client.
+        if not _HAS_CONTENT_RE.search(sentence):
+            continue
+        claims.append(sentence)
+    return claims
 
 
 def _tokenize(text: str) -> set[str]:
