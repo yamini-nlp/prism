@@ -8,6 +8,7 @@ import type { Components } from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
 import { S, C } from "@/lib/styles";
 import Skeleton from "@/components/ui/Skeleton";
+import { ApiError } from "@/lib/api";
 import { evalReportQueryKey, useEvalReport, useRunEvalReport } from "@/lib/queries/generations";
 import { useJob } from "@/lib/queries/jobs";
 import { toast } from "@/lib/toast";
@@ -111,7 +112,8 @@ export default function EvaluationPage() {
 
   const summary = useMemo(() => (data ? parseSummary(data.content) : null), [data]);
   const loading = isLoading || isRefetching;
-  const errorMessage = isError ? (error instanceof Error ? error.message : "Evaluation report not found.") : null;
+  const isNotFound = isError && error instanceof ApiError && error.status === 404;
+  const errorMessage = isError && !isNotFound ? (error instanceof Error ? error.message : "The evaluation report could not be loaded.") : null;
 
   const jobStatus = jobQuery.data?.status ?? null;
   const isRunning =
@@ -259,13 +261,41 @@ export default function EvaluationPage() {
           </>
         )}
 
+        {!loading && isNotFound && !isRunning && (
+          <div style={{ textAlign: "center", padding: "70px 24px", ...S.card }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <Target size={22} color={C.textMuted} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 6 }}>No evaluation report yet</div>
+            <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 20px" }}>
+              This benchmark hasn't been run in this environment yet. Run it once to generate Recall@5, MRR, and groundedness metrics against the bundled sample dataset.
+            </p>
+            <motion.button whileHover={{ scale: isRunning ? 1 : 1.04 }} whileTap={{ scale: isRunning ? 1 : 0.95 }}
+              onClick={handleRerun} disabled={isRunning}
+              style={isRunning ? S.btnPrimaryDisabled : { ...S.btnPrimary, margin: "0 auto", display: "inline-flex" }}>
+              <PlayCircle size={13} />
+              Run Evaluation
+            </motion.button>
+          </div>
+        )}
+
+        {!loading && isNotFound && isRunning && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.15)", marginBottom: 28 }}>
+            <AlertTriangle size={16} color={C.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13.5, color: C.textSec }}>
+                No report exists yet, but a run is currently in progress above. This card will be replaced with results as soon as it finishes.
+              </p>
+            </div>
+          </div>
+        )}
+
         {!loading && errorMessage && (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "18px 20px", borderRadius: 12, background: "rgba(212,98,42,0.06)", border: "1px solid rgba(212,98,42,0.15)", marginBottom: 28 }}>
             <AlertTriangle size={16} color={C.orange} style={{ marginTop: 1, flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13.5, color: C.textSec, marginBottom: 12 }}>
-                <strong style={{ color: C.text }}>{errorMessage}</strong> Use the <strong style={{ color: C.text }}>Re-run Evaluation</strong> button above to generate a fresh report.
-              </p>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Couldn&apos;t load the evaluation report</div>
+              <p style={{ fontSize: 13.5, color: C.textSec, marginBottom: 12 }}>{errorMessage}</p>
               <button
                 onClick={() => refetch()}
                 disabled={loading || isRunning}
@@ -274,24 +304,6 @@ export default function EvaluationPage() {
                 <RotateCcw size={12} /> Retry
               </button>
             </div>
-          </div>
-        )}
-
-        {!loading && !errorMessage && !data && (
-          <div style={{ textAlign: "center", padding: "70px 24px" }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-              <Target size={22} color={C.textMuted} />
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 6 }}>No evaluation report yet</div>
-            <p style={{ fontSize: 13.5, color: C.textMuted, maxWidth: 380, margin: "0 auto 20px" }}>
-              Run the evaluation harness to generate recall, groundedness, and MRR metrics for your workspace.
-            </p>
-            <motion.button whileHover={{ scale: isRunning ? 1 : 1.04 }} whileTap={{ scale: isRunning ? 1 : 0.95 }}
-              onClick={handleRerun} disabled={isRunning}
-              style={isRunning ? S.btnPrimaryDisabled : { ...S.btnPrimary, margin: "0 auto", display: "inline-flex" }}>
-              <PlayCircle size={13} />
-              Run Evaluation
-            </motion.button>
           </div>
         )}
 
