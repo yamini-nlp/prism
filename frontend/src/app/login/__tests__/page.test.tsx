@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+const mockRouterPush = vi.fn();
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: mockRouterPush }),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -28,6 +31,7 @@ beforeEach(() => {
   vi.mocked(login).mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
+  mockRouterPush.mockClear();
 
   Object.defineProperty(window, "location", {
     configurable: true,
@@ -73,7 +77,7 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(login).toHaveBeenCalledWith("researcher@prism.dev", "password123"));
-    await waitFor(() => expect(window.location.href).toBe("/dashboard"));
+    await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith("/dashboard"));
     expect(toast.success).toHaveBeenCalledWith("Signed in", "Welcome back to Prism.");
   });
 
@@ -89,6 +93,6 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not sign in", "Invalid email or password."));
-    expect(window.location.href).toBe("");
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 });
