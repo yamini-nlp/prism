@@ -17,7 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { conversationStorageKey } from "@/lib/conversationStorage";
+import { conversationStorageKeyPrefix } from "@/lib/conversationStorage";
 
 type Citation = {
   id: string;
@@ -66,28 +66,53 @@ function truncate(text: string, max: number): string {
 }
 
 function readGenerations(): GenerationRecord[] {
-  const raw = window.localStorage.getItem(conversationStorageKey(getCurrentUser()?.id));
-  if (!raw) return [];
-  const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed)) return [];
-
+  const prefix = conversationStorageKeyPrefix(getCurrentUser()?.id);
+  const seenIds = new Set<string>();
   const records: GenerationRecord[] = [];
-  for (const m of parsed) {
-    if (!m || typeof m !== "object") continue;
-    if (m.role !== "assistant") continue;
-    if (m.streaming || m.errored) continue;
-    if (typeof m.content !== "string" || !m.content.trim()) continue;
 
-    records.push({
-      id: String(m.id ?? `gen-${records.length}`),
-      query: typeof m.query === "string" ? m.query : "",
-      content: m.content,
-      citations: Array.isArray(m.citations) ? m.citations : [],
-      confidence: typeof m.confidence === "number" ? m.confidence : undefined,
-      latency: typeof m.latency === "number" ? m.latency : undefined,
-    });
+  const keys: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i);
+    if (key && key.startsWith(prefix)) keys.push(key);
   }
-  return records.reverse();
+
+  for (const key of keys) {
+    let parsed: unknown;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      parsed = JSON.parse(raw);
+    } catch {
+      // Skip a corrupted entry for one document-set key rather than
+      // failing the whole page — other conversations may still be valid.
+      continue;
+    }
+    if (!Array.isArray(parsed)) continue;
+
+    for (const m of parsed) {
+      if (!m || typeof m !== "object") continue;
+      if (m.role !== "assistant") continue;
+      if (m.streaming || m.errored) continue;
+      if (typeof m.content !== "string" || !m.content.trim()) continue;
+
+      const id = String(m.id ?? "");
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      records.push({
+        id,
+        query: typeof m.query === "string" ? m.query : "",
+        content: m.content,
+        citations: Array.isArray(m.citations) ? m.citations : [],
+        confidence: typeof m.confidence === "number" ? m.confidence : undefined,
+        latency: typeof m.latency === "number" ? m.latency : undefined,
+      });
+    }
+  }
+
+  // Most recent generation first, across all merged document-set keys.
+  records.sort((a, b) => (tsFromId(b.id) ?? 0) - (tsFromId(a.id) ?? 0));
+  return records;
 }
 
 function LoadingSkeleton() {
