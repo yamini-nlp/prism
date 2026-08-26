@@ -69,6 +69,20 @@ def build_citations(chunks: list[dict]) -> list[dict]:
     ]
 
 
+def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
+    seen: dict[str, dict] = {}
+    order: list[str] = []
+    for chunk in chunks:
+        key = " ".join(chunk["chunk"].split()).strip().lower()
+        existing = seen.get(key)
+        if existing is None:
+            seen[key] = chunk
+            order.append(key)
+        elif chunk["score"] > existing["score"]:
+            seen[key] = chunk
+    return [seen[key] for key in order]
+
+
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
@@ -125,6 +139,8 @@ async def stream_rag(query: str, session_id: str, top_k: int = 5, model: str = D
             "grounding": [],
         })
         return
+
+    retrieved = _dedupe_chunks(retrieved)
 
     context = build_context(retrieved)
     confidence = compute_confidence(retrieved)
