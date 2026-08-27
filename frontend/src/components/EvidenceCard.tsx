@@ -51,8 +51,8 @@ export default function EvidenceCard({
       style={{
         padding: "14px 16px",
         borderRadius: 12,
-        border: `1.5px solid ${active ? "rgba(91,94,244,0.4)" : "rgba(0,0,0,0.09)"}`,
-        background: active ? "rgba(91,94,244,0.05)" : "#ffffff",
+        border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+        background: active ? "var(--accent-light)" : "var(--bg-surface)",
         cursor: clickable ? "pointer" : "default",
         transition: "border-color 0.15s, background 0.15s",
         outline: "none",
@@ -60,13 +60,13 @@ export default function EvidenceCard({
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
-          <FileText size={14} color="#5b5ef4" style={{ marginTop: 2, flexShrink: 0 }} />
+          <FileText size={14} color="var(--accent)" style={{ marginTop: 2, flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontSize: 13,
                 fontWeight: 700,
-                color: "#111110",
+                color: "var(--text-primary)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -75,7 +75,7 @@ export default function EvidenceCard({
             >
               {title}
             </div>
-            {meta && <div style={{ fontSize: 11, color: "#9a9590", marginTop: 2 }}>{meta}</div>}
+            {meta && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{meta}</div>}
           </div>
         </div>
         {normalizedScore !== undefined && <ConfidenceBadge value={normalizedScore} label={scoreLabel} size="sm" />}
@@ -84,7 +84,7 @@ export default function EvidenceCard({
       <p
         style={{
           fontSize: 12.5,
-          color: "#5c5a56",
+          color: "var(--text-secondary)",
           lineHeight: 1.6,
           margin: 0,
           fontStyle: quote ? "italic" : "normal",
@@ -107,8 +107,8 @@ export default function EvidenceCard({
             gap: 5,
             fontSize: 11.5,
             fontWeight: 600,
-            color: "#4547c4",
-            background: "rgba(91,94,244,0.09)",
+            color: "var(--accent)",
+            background: "var(--accent-light)",
             border: "none",
             borderRadius: 7,
             padding: "5px 10px",
