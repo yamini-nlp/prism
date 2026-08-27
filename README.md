@@ -1,32 +1,35 @@
 # 🔍 Prism — Research Intelligence Platform
 
-> A full-stack research intelligence system that transforms academic documents into queryable, grounded, and verifiable insights using Retrieval-Augmented Generation, TF-IDF vector search, and claim-level hallucination detection.
+**A full-stack retrieval-augmented research platform** — hybrid dense + lexical retrieval, cross-encoder reranking, streamed grounded generation, and claim-level hallucination detection, backed by authenticated multi-user storage and background job processing.
 
-**Live Demo:** https://prism-nine-tau.vercel.app &nbsp;|&nbsp; **GitHub:** https://github.com/yamini-nlp/prism
+**Live Demo:** https://prism-nine-tau.vercel.app/
 
-![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20TypeScript%20%7C%20FastAPI-blue?style=flat-square)
-![LLM](https://img.shields.io/badge/LLM-LLaMA%203.3%2070B%20%7C%20Groq-orange?style=flat-square)
-![VectorDB](https://img.shields.io/badge/VectorDB-FAISS%20%7C%20TF--IDF-green?style=flat-square)
-![Status](https://img.shields.io/badge/Status-Live-brightgreen?style=flat-square)
+**Repository:** https://github.com/yamini-nlp/prism
+
+![Stack](https://img.shields.io/badge/Stack-Next.js%2016%20%7C%20FastAPI%20%7C%20PostgreSQL-blue?style=flat-square)
+![LLM](https://img.shields.io/badge/LLM-GPT--OSS%20120B%20%7C%20Groq-orange?style=flat-square)
+![Retrieval](https://img.shields.io/badge/Retrieval-pgvector%20%7C%20BM25%20%7C%20Cross--Encoder-green?style=flat-square)
+![CI](https://img.shields.io/badge/CI-pytest%20%7C%20ruff%20%7C%20mypy%20%7C%20Playwright-informational?style=flat-square)
 
 ---
 
-## Overview
+## 💡 Motivation
 
-Prism is a complete RAG pipeline — from document ingestion to grounded answer generation to claim-level verification — in a single unified research workspace. Unlike most RAG deployments, it exposes the full retrieval layer: chunk similarity scores, source attribution, and per-claim grounding status, making the generation process auditable rather than opaque.
+Most RAG demos stop at "ask a question, get an answer." Prism was built to answer a narrower, harder question: how much of that answer can you actually trust, and can a second user rely on the same system without stepping on the first user's documents? That constraint pulled the project past a single retrieval script into a system with real accounts, per-user data isolation, background job processing for slow ingestion work, and an evaluation harness that reports retrieval and groundedness numbers with confidence intervals rather than a single anecdotal accuracy figure.
 
-The architecture is model-agnostic at the API level: the Groq inference layer can be swapped for any OpenAI-compatible endpoint, and the vector store and embedder are similarly replaceable.
+The codebase has gone through two distinct architectures. An early version — described in an accompanying technical report included in this repository (`paper/Prism.pdf`) — used TF-IDF vectorisation and a FAISS flat index. The system now ships with dense sentence-transformer embeddings stored in Postgres via pgvector, fused with BM25 lexical search and reranked with a cross-encoder. Both the report's numbers and the current architecture are described below, clearly separated so neither is mistaken for the other.
 
 ---
 
 ## 🎯 Problem Statement
 
-Academic research workflows are fragmented and cognitively expensive. Researchers working with large document collections face persistent challenges:
+Researchers working across large document collections run into the same three walls repeatedly:
 
-- No mechanism to query across multiple documents simultaneously in natural language
-- No automated summarisation that preserves methodological structure (TLDR, key concepts, results, limitations)
-- No way to verify whether a generated answer is actually grounded in the source material
-- No transparency into which specific passages were retrieved and why
+- Keyword search returns raw passages, not synthesised answers, and misses relevant text when query vocabulary doesn't match document vocabulary.
+- General-purpose LLM answers are fluent but ungrounded — there's no way to check whether a claim actually came from the source material.
+- Single-user prototypes don't reflect how the tool would actually be used: real deployments need accounts, isolated data per user, and a way to see what's actually happening under load (latency, cache hit rate, error rate).
+
+Prism treats all three as first-class requirements rather than deferring them to "future work."
 
 ---
 
@@ -34,51 +37,60 @@ Academic research workflows are fragmented and cognitively expensive. Researcher
 
 | Format | Method | Notes |
 |---|---|---|
-| PDF | pypdf page extraction | Multi-page academic papers |
-| DOCX | python-docx paragraph extraction | Preserves paragraph structure |
-| TXT | UTF-8 decode | Plain text, preprints, notes |
-| URL | httpx + BeautifulSoup scraping | Strips navigation/footer/ads before embedding |
+| PDF | `pypdf` page extraction | Magic-byte validated before parsing |
+| DOCX / DOC | `python-docx` paragraph extraction | Zip/OLE header validated before parsing |
+| TXT | UTF-8 decode | Rejected if it contains binary content |
+| URL | `httpx` + BeautifulSoup scraping | Strips script/style/nav/footer/header/aside before embedding |
 | Raw text | Direct API endpoint | Paste-in content, abstracts, excerpts |
+
+All ingestion paths run as background jobs: the API returns a `job_id` immediately (`202 Accepted`) and the client polls `/api/v1/jobs/{job_id}` through `uploading → parsing → chunking → embedding → ready` stages, with cancellation support at every stage.
 
 ---
 
-## 🏗️ RAG Pipeline
+## 🏗️ Current Architecture — Hybrid Retrieval Pipeline
 
 ```
-User Document (PDF / DOCX / URL / Text)
+User Document (PDF / DOCX / TXT / URL / Text)
         │
         ▼
-  [Ingestion Layer — FastAPI]
-  ├── Format-specific text extraction
-  ├── Sliding window chunking (~400 words, 50-word overlap)
-  ├── TF-IDF vectorisation (scikit-learn, 384 features, sublinear TF, L2-normalised)
-  └── FAISS FlatIP index storage (cosine similarity via inner product)
+  [Upload / Ingest Routes — FastAPI]
+  ├── Content-type validation by magic bytes, not just file extension
+  ├── Background job created, status polled via /jobs/{id}
+  ├── Sliding-window chunking (400 words, 50-word overlap)
+  └── Dense embedding (fastembed, all-MiniLM-L6-v2, 384-dim, Redis-cached 24h)
         │
         ▼
-  [Retrieval Layer]
-  ├── Query vectorised with fitted TF-IDF model
-  ├── FAISS top-K inner-product search (default K=5, configurable 1–20)
-  ├── Minimum similarity threshold filter (score ≥ 0.45)
-  └── Confidence score = average similarity × 100
+  [Storage Layer — PostgreSQL + pgvector]
+  ├── Documents, chunks, embeddings, sessions, users, jobs, generations,
+  │   verifications — 9 SQLAlchemy models, 4 Alembic migrations
+  └── Row-level isolation by session_id, derived from the authenticated user
         │
         ▼
-  [Generation Layer — Groq API]
-  ├── Retrieved chunks assembled as context
-  ├── System prompt enforces strict grounding rules
-  ├── LLaMA 3.3 70B generates answer with inline source attribution
-  └── Response latency tracked per query
+  [Hybrid Retrieval Layer]
+  ├── Dense search: cosine distance over pgvector embeddings
+  ├── Lexical search: BM25Okapi over the session's chunk set
+  ├── Reciprocal rank fusion (k=60) merges both candidate lists
+  ├── Cross-encoder reranking (Xenova/ms-marco-MiniLM-L-6-v2), toggleable
+  └── Retrieval results cached in Redis, invalidated on ingest/delete
+        │
+        ▼
+  [Generation Layer — Groq API, streamed]
+  ├── GPT-OSS-120B, temperature 0.1, streamed as Server-Sent Events
+  ├── System prompt enforces per-source bracketed citation markers [1][2]
+  └── Per-error-type handling: auth, rate limit, timeout, connection failure
         │
         ▼
   [Verification Layer]
-  ├── Claim-level hallucination detection
-  ├── Each claim cross-checked against retrieved chunks
-  └── Unsupported claims flagged with warning badge
+  ├── Answer split into declarative claims (list-marker-aware sentence splitter)
+  ├── Each claim scored against retrieved chunks by significant-token overlap
+  ├── Three-way label: supported (≥0.5) / uncertain (≥0.25) / unsupported
+  └── Persisted per-generation, aggregated into a session grounding score
         │
         ▼
-  [Frontend Workspace — Next.js]
-  ├── Answer rendered with markdown formatting
-  ├── Citations expandable per source chunk
-  └── Confidence bar + grounding status displayed
+  [Frontend Workspace — Next.js 16, App Router]
+  ├── JWT access/refresh auth with httpOnly cookies, route-level middleware
+  ├── Streamed token rendering, source-trace and evaluation dashboards
+  └── Session analytics: request latency percentiles, cache hit rate, grounding trend
 ```
 
 ---
@@ -87,14 +99,17 @@ User Document (PDF / DOCX / URL / Text)
 
 | Property | Value |
 |---|---|
-| Vectorisation | TF-IDF (scikit-learn, `sublinear_tf=True`, `max_features=384`) |
-| Vector store | FAISS (`IndexFlatIP`, in-process, cosine similarity) |
-| Chunk size | ~400 words with 50-word overlap |
-| Similarity metric | Inner product on L2-normalised vectors (cosine similarity) |
-| Minimum score threshold | 0.45 — chunks below this are filtered out |
-| Default top-K | 5 (configurable via Settings page, 1–20) |
+| Embedding model | `sentence-transformers/all-MiniLM-L6-v2` via `fastembed`, 384-dim |
+| Reranker | `Xenova/ms-marco-MiniLM-L-6-v2` cross-encoder (`RERANKER_ENABLED`, on by default) |
+| Vector store | PostgreSQL + `pgvector`, cosine distance, per-session filtering |
+| Lexical search | `rank_bm25` (`BM25Okapi`) over the session's chunks, tokenised on `[a-z0-9]+` |
+| Fusion | Reciprocal rank fusion, `k=60`, over dense + BM25 candidate lists (top_k × 3 each) |
+| Chunk size | 400 words, 50-word overlap |
+| Embedding cache | Redis, SHA-256(model + normalised text) key, 24h TTL |
+| Retrieval cache | Redis, keyed on query + top_k + a document-set fingerprint, 15-minute TTL |
+| Legacy retrieval mode | A simple threshold-filtered dense-only `search()` (score ≥ 0.45) still exists in `core/embedder.py` alongside `hybrid_search()` |
 
-The minimum similarity threshold suppresses off-topic retrievals including acknowledgement sections, boilerplate, and bibliographic content.
+Reciprocal rank fusion means a chunk that ranks reasonably on both dense similarity and keyword overlap can outrank one that scores very high on only one signal — this is what lets the retriever handle both semantic queries ("what limits the model's generalisation") and exact-term queries ("what was the F1 score") without switching modes.
 
 ---
 
@@ -102,17 +117,21 @@ The minimum similarity threshold suppresses off-topic retrievals including ackno
 
 | Property | Value |
 |---|---|
-| Model | `llama-3.3-70b-versatile` via Groq |
-| Deployment | FastAPI route (`/generate/`) |
-| Temperature | 0.1 (low, for factual consistency) |
-| Max tokens | 1024 per response |
-| Grounding | System prompt enforces source-attribution rules |
+| Model | `openai/gpt-oss-120b` via Groq (`openai/gpt-oss-20b` also whitelisted) |
+| Endpoint | `POST /api/v1/generate/`, streamed as `text/event-stream` (`retrieval` → `token`* → `done` events) |
+| Temperature | 0.1 |
+| Max tokens | 1024 |
+| Timeouts | 30s to first token, 20s idle-stream timeout, 45s client timeout, 1 retry |
+| Grounding | System prompt requires a bracketed source marker after every sourced fact, and forbids citing a source number beyond what was actually retrieved |
+| Caching | Full generation responses cached in Redis for 1 hour, keyed on model + top_k + query |
+
+If the Groq stream fails partway through, whatever tokens were already produced are still returned to the client with a `done` event rather than the connection dropping silently — the frontend always gets a terminal signal.
 
 ---
 
 ## 📄 Structured Summarisation
 
-When a document is ingested, a parallel call to `/summary/` generates a structured brief:
+`POST /api/v1/summary/` truncates input to 12,000 characters and asks the LLM for strict JSON with five fields:
 
 | Field | Description |
 |---|---|
@@ -122,44 +141,61 @@ When a document is ingested, a parallel call to `/summary/` generates a structur
 | `results` | 2–3 sentences on findings |
 | `limitations` | 1–2 sentences on acknowledged gaps |
 
+If the model's response isn't valid JSON, the endpoint falls back to a partially-filled summary with the raw text placed in `methodology` rather than failing the request outright.
+
 ---
 
-## 📊 Observed Behaviour (Manual Evaluation)
+## 🔐 Accounts, Sessions, and Security
 
-| Metric | Observation |
-|---|---|
-| Answer grounding | Responses remain within retrieved context on well-ingested documents; hallucination rate approaches zero when relevant chunks are retrieved |
-| Source relevance | Similarity threshold at 0.45 effectively suppresses off-topic acknowledgement and boilerplate chunks |
-| Summarisation quality | Structured summaries preserve methodological hierarchy (TLDR → methods → results → limitations) |
-| Confidence calibration | High similarity scores (>0.75) correlate with more complete, specific answers |
-| Inference latency | Groq returns completions in 1–3 seconds; TF-IDF vectorisation and FAISS retrieval add less than 50ms |
+- **JWT auth**: bcrypt password hashing, HS256 access tokens (30 min) and rotating refresh tokens (30 days) stored server-side by hash, register/login/refresh/logout/password-change endpoints.
+- **Session scoping**: every document, chunk, job, generation, and verification is scoped to `session_id = f"user-{user.id}"`, enforced at the query level — there is no cross-user document listing endpoint.
+- **Rate limiting** (`slowapi`, keyed by authenticated user id, falling back to IP): 5/min on auth endpoints, 10/min on uploads and text/URL ingest, 20/min on generation, 60/min on retrieval.
+- **Request hardening**: a custom ASGI middleware enforces a request body size cap, a per-request timeout (streaming routes exempted), and attaches HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and a restrictive CSP to every response.
+- **Upload validation**: files are checked against their claimed extension by magic bytes (`%PDF-`, ZIP + `word/`, OLE header) before parsing, not just by filename suffix.
+- **Startup fail-fast**: outside development, the app refuses to start if `GROQ_API_KEY`, `JWT_SECRET_KEY`, `DATABASE_URL`, or `REDIS_URL` are missing.
+- **CORS**: explicit origin allow-list plus a regex allowing Vercel preview deployments (`https://prism(-[a-z0-9]+)*.vercel.app`).
 
-*Formal quantitative evaluation against labelled retrieval benchmarks (e.g. BEIR) is identified as future work.*
+---
+
+## 📊 Two Evaluations, Two Architectures
+
+**1. Manual evaluation of the original TF-IDF + FAISS system** (`paper/Prism.pdf`, included in this repository): 45 manually authored queries against 12 arXiv preprints, with two independent human annotators for relevance judgements (Cohen's κ = 0.81). Under the default configuration (K=5, τ=0.45): a 96.7% groundedness rate, mean retrieval latency of 38±6ms (local, excluding the LLM call), and 1.9±0.5s end-to-end response time. Threshold-filtered TF-IDF beat a BM25 baseline by 8.5 points of Precision@K and 8.4 points of groundedness on a shared 30-query subset. The report also documents where that architecture broke: two abstention failures came from borderline chunks (cosine similarity 0.45–0.49) that shared surface vocabulary with the query without being substantively relevant — a limitation lexical/TF-IDF matching can't resolve on its own.
+
+**2. Automated harness for the current hybrid-retrieval system** (`backend/eval/`): a 40-question dataset (`dataset.json`) run against 5 topic-diverse sample documents, computing Recall@5, Mean Reciprocal Rank, and a claim-level groundedness rate with 95% Wilson confidence intervals (`evaluate.py`), exposed via `GET /eval-report` and a re-run trigger at `POST /eval-report/run`. **No run has been persisted in this repository** — `eval/report.md` does not exist yet, so no accuracy number is claimed for the current architecture. The harness is real and tested; the number isn't filled in.
+
+These two evaluations are not comparable to each other — different datasets, different metrics emphasis, different retrieval stacks — and this README does not present them as if they were.
+
+---
+
+## ✅ Testing
+
+- **Backend**: 47 test functions across 7 files (`tests/`) covering embedding/chunking, hybrid retrieval, generation streaming, ingest, upload validation, and the health/metrics endpoints, using `pytest-asyncio`, `httpx.AsyncClient`, and factory fixtures (`factories.py`, `conftest.py`). CI runs these against real Postgres (`pgvector/pgvector:pg16`) and Redis service containers, gated at 65% coverage (`--cov-fail-under=65`) on `core` and `routes`.
+- **Static analysis**: `ruff check .` and `mypy .` run in CI before tests.
+- **Frontend unit/component tests**: `vitest` + Testing Library, covering UI primitives (`Button`, `Card`, `Input`) and the login page.
+- **End-to-end tests**: Playwright specs for auth, navigation, ingestion, and the workspace flow, run headless in CI against a built app.
+- **CI pipeline** (`.github/workflows/ci.yml`): three parallel jobs — backend tests, frontend lint/typecheck/build, frontend unit + e2e tests — on every push and pull request.
+- **CD pipeline** (`.github/workflows/deploy.yml`): on a successful CI run on `main`, builds and pushes versioned backend and frontend Docker images to GitHub Container Registry.
 
 ---
 
 ## ⚠️ Limitations
 
-- **In-memory vector store:** FAISS index is not persisted across backend restarts on Render's free tier; documents must be re-ingested after a cold start
-- **Single-user, session-scoped:** no user authentication or multi-tenancy; all ingested documents share a single FAISS index within a backend process
-- **TF-IDF retrieval ceiling:** captures lexical overlap but lacks semantic understanding; dense embedding models (e.g. `all-MiniLM-L6-v2`, SPECTER) would improve retrieval recall on paraphrased queries
-- **Chunk boundary sensitivity:** fixed-size chunking can split sentences across boundaries, reducing coherence of retrieved passages
-- **Session-based evaluation metrics:** the evaluation dashboard derives metrics from localStorage query logs, which reset on clearing storage
-- **No streaming responses:** answers are returned as complete JSON objects; streaming would improve perceived latency for long responses
+- **No persisted benchmark for the current retrieval stack.** The hybrid dense+BM25+rerank pipeline has a working evaluation harness but no committed `eval/report.md` — the only published numbers (groundedness, P@K, latency) are for the earlier TF-IDF/FAISS version described in `paper/Prism.pdf`.
+- **Claim verification is lexical, not semantic.** `core/verifier.py` scores claims against context by significant-token overlap; a claim that paraphrases the source without sharing vocabulary can be marked unsupported even when it's accurate.
+- **Reranker adds latency on every hybrid query** when `RERANKER_ENABLED=true`, since it scores every fused candidate synchronously before returning results.
+- **Redis is a soft dependency for correctness but a hard one for performance.** Cache failures are caught and logged, not raised, so a Redis outage degrades to uncached (slower) retrieval and generation rather than failing requests — but that also means a misconfigured `REDIS_URL` fails silently rather than loudly.
+- **Single free-tier deployment target.** `render.yaml` targets Render's free plan (0.5 vCPU / 512MB); background model warm-up and cold starts are visibly slower there than the CI environment.
+- **No multi-tenant document sharing.** Session scoping is per-user only; there's no mechanism for two accounts to collaborate on the same document set.
 
 ---
 
 ## 🔭 Future Work
 
-- Replace TF-IDF with a dense embedding model (e.g. fastembed, SPECTER, SciBERT) for semantic retrieval
-- Persistent FAISS index with disk serialisation, or migration to ChromaDB / Qdrant for multi-session retention
-- User authentication and isolated per-user vector stores via Supabase Auth + RLS
-- Streaming response support using FastAPI `StreamingResponse` and the Groq streaming API
-- Semantic chunking using sentence boundary detection rather than fixed word-count windows
-- Multi-document citation graphs — visualising which papers share sources or key concepts
-- Named entity and topic extraction across the full library to surface cross-document themes
-- Export: download answers with citations as formatted PDF or BibTeX references
-- Multi-language ingestion support
+- Run the current evaluation harness end-to-end and commit `eval/report.md` so the hybrid-retrieval architecture has its own reported numbers, not just the legacy TF-IDF report.
+- Replace lexical claim verification with a lightweight NLI or entailment model for semantic (not just lexical) grounding checks.
+- Add shared/collaborative sessions so multiple accounts can query the same ingested document set.
+- Persist OpenTelemetry traces to a hosted backend in production (currently wired for local Jaeger via `docker-compose.yml`, disabled by default via `OTEL_TRACES_ENABLED`).
+- Extend the reranker and hybrid search benchmarking to quantify the latency/quality trade-off of `RERANKER_ENABLED` directly, the way the paper quantified the K/τ trade-off for the earlier architecture.
 
 ---
 
@@ -167,29 +203,39 @@ When a document is ingested, a parallel call to `/summary/` generates a structur
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16, TypeScript, Framer Motion |
-| Styling | Inline styles + CSS variables |
-| AI Inference | LLaMA 3.3 70B via Groq API |
-| Vectorisation | TF-IDF (scikit-learn, 384-dim, sublinear TF) |
-| Vector Store | FAISS (IndexFlatIP, in-process, cosine similarity) |
-| Backend / API | FastAPI (Python), Uvicorn |
-| Document Parsing | pypdf, python-docx, BeautifulSoup |
-| Frontend Hosting | Vercel |
-| Backend Hosting | Render |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, Framer Motion, Zustand, TanStack Query |
+| Frontend Testing | Vitest, Testing Library, Playwright |
+| Backend | FastAPI, Uvicorn, Pydantic v2 / pydantic-settings |
+| Database | PostgreSQL + `pgvector`, SQLAlchemy 2.0 (async), Alembic migrations |
+| Cache / Rate Limiting | Redis, `slowapi` |
+| Embeddings / Reranking | `fastembed` (all-MiniLM-L6-v2), `Xenova/ms-marco-MiniLM-L-6-v2` cross-encoder, `rank_bm25` |
+| AI Inference | GPT-OSS-120B via Groq API |
+| Auth | PyJWT, Passlib/bcrypt |
+| Observability | OpenTelemetry (FastAPI + httpx instrumentation), Prometheus-format `/metrics`, structured request logging |
+| Document Parsing | `pypdf`, `python-docx`, BeautifulSoup |
+| CI/CD | GitHub Actions, Docker, GitHub Container Registry |
+| Hosting | Vercel (frontend), Render (backend) |
 
 ---
 
 ## 🚀 Local Setup
 
-**Prerequisites:** Node.js ≥ 18 · Python 3.10+ · Groq API key (free at [console.groq.com](https://console.groq.com))
+**Prerequisites:** Docker & Docker Compose (recommended), or Node.js ≥ 20 + Python 3.11 + local Postgres/Redis. A Groq API key (free at [console.groq.com](https://console.groq.com)).
 
-**1. Clone**
+### Option A — Docker Compose (backend, frontend, Postgres, Redis, Jaeger)
+
 ```bash
 git clone https://github.com/yamini-nlp/prism.git
 cd prism
+cp .env.example .env   # fill in GROQ_API_KEY at minimum
+docker compose up --build
 ```
 
-**2. Backend setup**
+Backend: `http://localhost:8000` (docs at `/docs`) · Frontend: `http://localhost:3000` · Jaeger UI: `http://localhost:16686`
+
+### Option B — Manual setup
+
+**Backend:**
 ```bash
 cd backend
 python3 -m venv venv
@@ -197,34 +243,37 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create `backend/.env`:
+Create `backend/.env` from `backend/.env.example`, setting at minimum:
 ```
 GROQ_API_KEY=your_groq_api_key_here
+JWT_SECRET_KEY=any_random_string_for_local_dev
+DATABASE_URL=postgresql+asyncpg://prism:prism@localhost:5432/prism
+REDIS_URL=redis://localhost:6379/0
 ```
 
-Start the backend:
 ```bash
 uvicorn main:app --reload --port 8000
 ```
-Backend: `http://localhost:8000` &nbsp;|&nbsp; API docs: `http://localhost:8000/docs`
+Alembic migrations run automatically on startup.
 
-**3. Frontend setup**
+**Frontend:**
 ```bash
-cd ../frontend
+cd frontend
 npm install
-```
-
-Create `frontend/.env.local`:
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-```bash
 npm run dev
 ```
-Frontend: `http://localhost:3000`
 
-> ⚠️ The Groq API key must never appear in the frontend. It lives only in `backend/.env` and is called exclusively through the FastAPI backend.
+**Tests:**
+```bash
+# Backend
+cd backend && pytest --cov=core --cov=routes
+
+# Frontend unit tests
+cd frontend && npm run test
+
+# Frontend e2e (requires the app running)
+cd frontend && npm run e2e
+```
 
 ---
 
@@ -233,23 +282,57 @@ Frontend: `http://localhost:3000`
 ```
 prism/
 ├── backend/
-│   ├── main.py               # FastAPI — /ingest/ /generate/ /summary/ /query/
-│   ├── ingestion.py          # Format-specific text extraction and chunking
-│   ├── vectorstore.py        # TF-IDF vectorisation + FAISS index management
-│   ├── retrieval.py          # Top-K search with similarity threshold filtering
-│   ├── generation.py         # Groq LLM generation with grounding prompt
-│   ├── verification.py       # Claim-level hallucination detection
+│   ├── main.py                    # FastAPI app, middleware, jobs/documents endpoints, health/metrics
+│   ├── core/
+│   │   ├── embedder.py            # Chunking, dense embedding, BM25, RRF fusion, reranking, document CRUD
+│   │   ├── rag.py                 # Streamed RAG generation, SSE events, Groq error handling
+│   │   ├── verifier.py            # Claim splitting and token-overlap grounding verification
+│   │   ├── auth.py / security.py  # Current-user dependency, JWT + password hashing
+│   │   ├── models.py              # SQLAlchemy models: User, Session, Document, DocumentChunk, Job, Generation, Verification
+│   │   ├── config.py              # Pydantic settings, env validation, CORS origin logic
+│   │   ├── db.py / cache.py       # Async Postgres session factory, Redis cache helpers
+│   │   ├── jobs.py                # Background job state machine
+│   │   ├── limiter.py             # slowapi rate-limit configuration
+│   │   ├── metrics.py / tracing.py / logging_config.py / errors.py
+│   │   └── schemas.py             # Pydantic request/response models
+│   ├── routes/
+│   │   ├── auth.py                # register / login / refresh / logout / me / password
+│   │   ├── upload.py              # PDF/DOCX/DOC/TXT upload, magic-byte validation
+│   │   ├── ingest.py               # Raw text and URL ingestion
+│   │   ├── retrieve.py            # Hybrid retrieval endpoint, Redis-cached
+│   │   ├── generate.py            # Streamed generation endpoint, Redis-cached
+│   │   ├── summary.py             # Structured document summarisation
+│   │   ├── verify.py              # Standalone claim verification endpoint
+│   │   └── analytics.py           # Session-level aggregate metrics
+│   ├── eval/
+│   │   ├── evaluate.py            # Recall@5 / MRR / groundedness harness with Wilson CIs
+│   │   ├── dataset.json           # 40-question evaluation set
+│   │   └── sample_docs/           # 5 topic-diverse evaluation documents
+│   ├── alembic/versions/          # 4 migrations: initial schema, auth, job stage, document library fields
+│   ├── tests/                     # 47 tests across 7 files, pytest-asyncio + factories
 │   └── requirements.txt
 ├── frontend/
-│   ├── pages/
-│   │   ├── index.tsx         # Landing page
-│   │   ├── workspace.tsx     # Main research workspace
-│   │   ├── sources.tsx       # Source trace + per-chunk similarity
-│   │   └── settings.tsx      # Top-K and threshold configuration
+│   ├── src/app/                   # Next.js App Router: dashboard, workspace, library, ingest,
+│   │                               # source-trace, verification, evaluation, settings, login, register
+│   ├── src/components/            # Sidebar, Topbar, AuthGate, CitationPopover, ConfidenceBadge, ui/
+│   ├── src/lib/                   # API client, auth, query hooks (TanStack Query), Zod validation
+│   ├── src/middleware.ts          # Route-level auth guard via refresh-token cookie
+│   ├── e2e/                       # Playwright specs: auth, navigation, ingest, workspace
 │   └── package.json
+├── paper/
+│   └── Prism.pdf                  # Technical report on the original TF-IDF + FAISS architecture
+├── .github/workflows/
+│   ├── ci.yml                     # Backend tests + coverage gate, frontend lint/typecheck/build/e2e
+│   └── deploy.yml                 # Build and push Docker images on successful main-branch CI
+├── docker-compose.yml             # Postgres, Redis, Jaeger, backend, frontend
+├── render.yaml                    # Render deployment config for the backend
 └── README.md
 ```
 
 ---
+<div align="center">
+        
+*Built by Yamini G · [Live Demo](https://prism-nine-tau.vercel.app)*
 
-*Built by Yamini G &nbsp;·&nbsp; [GitHub](https://github.com/yamini-nlp/prism) &nbsp;·&nbsp; [Live Demo](https://prism-nine-tau.vercel.app)*
+</div>
+
