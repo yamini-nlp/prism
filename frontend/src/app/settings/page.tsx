@@ -6,8 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { S, C } from "@/lib/styles";
 import { bootstrapSession, getCurrentUser, type CurrentUser } from "@/lib/auth";
-import { useTheme } from "@/components/ThemeProvider";
-import ThemeToggle from "@/components/ThemeToggle";
 import { useResetDocuments } from "@/lib/queries/documents";
 import { toast } from "@/lib/toast";
 import { updatePassword, ApiError } from "@/lib/api";
@@ -16,8 +14,8 @@ import {
   passwordSettingsSchema, type PasswordSettingsFormValues,
 } from "@/lib/validation/schemas";
 import {
-  User, Mail, Lock, Palette, Bell, ShieldAlert, Save, Loader2,
-  Info, Trash2, CheckCircle2, Sun, Moon,
+  User, Mail, Lock, Bell, ShieldAlert, Save, Loader2,
+  Info, Trash2, CheckCircle2,
 } from "lucide-react";
 
 const PROFILE_STORAGE_PREFIX = "prism_profile_display_name";
@@ -98,8 +96,6 @@ function SectionHeader({ icon: Icon, iconColor, title }: { icon: typeof User; ic
 }
 
 export default function SettingsPage() {
-  const { theme } = useTheme();
-
   const [user, setUser] = useState<CurrentUser | null>(getCurrentUser());
   const [userLoading, setUserLoading] = useState(user === null);
 
@@ -403,20 +399,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="pr-settings-col">
-
-            <div style={sectionCardStyle}>
-              <SectionHeader icon={Palette} iconColor="#3b82f6" title="Appearance" />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
-                    {theme === "dark" ? <Moon size={13} /> : <Sun size={13} />}
-                    {theme === "dark" ? "Dark theme" : "Light theme"}
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textMuted }}>Switches the interface theme and remembers your choice on this device.</div>
-                </div>
-                <ThemeToggle />
-              </div>
-            </div>
 
             <div style={sectionCardStyle}>
               <SectionHeader icon={Bell} iconColor={C.green} title="Notifications" />
