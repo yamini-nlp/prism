@@ -25,7 +25,7 @@ export type CardTitleProps = HTMLAttributes<HTMLHeadingElement>;
 
 export function CardTitle({ className, children, ...rest }: CardTitleProps) {
   return (
-    <h3 className={`font-display text-lg text-neutral-950 ${className ?? ""}`} {...rest}>
+    <h3 className={`font-display text-lg text-[var(--text-primary)] ${className ?? ""}`} {...rest}>
       {children}
     </h3>
   );
@@ -34,7 +34,7 @@ export function CardTitle({ className, children, ...rest }: CardTitleProps) {
 export type CardDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 
 export function CardDescription({ className, ...rest }: CardDescriptionProps) {
-  return <p className={`text-sm text-neutral-600 ${className ?? ""}`} {...rest} />;
+  return <p className={`text-sm text-[var(--text-secondary)] ${className ?? ""}`} {...rest} />;
 }
 
 export type CardContentProps = HTMLAttributes<HTMLDivElement>;
