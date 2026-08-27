@@ -43,9 +43,9 @@ function ToastCard({ toast }: { toast: ToastItem }) {
         width: 320,
         padding: "13px 14px",
         borderRadius: 12,
-        background: "#ffffff",
+        background: "var(--bg-surface)",
         border: `1px solid ${C.border}`,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+        boxShadow: "var(--shadow-lg)",
       }}
     >
       <Icon size={17} color={color} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
