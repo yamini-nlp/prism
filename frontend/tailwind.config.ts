@@ -15,10 +15,6 @@ const config: Config = {
         mono: ["var(--font-mono)", "JetBrains Mono", "Courier New", "monospace"],
       },
       colors: {
-        // All shades resolve to CSS custom properties defined in globals.css.
-        // neutral/brand/etc are re-pointed under `.dark` there, so any
-        // Tailwind utility built from this palette (bg-neutral-0, text-brand-600, ...)
-        // automatically re-themes with the rest of the app — no per-component work needed.
         brand: {
           50: "var(--color-brand-50)",
           100: "var(--color-brand-100)",
