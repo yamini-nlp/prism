@@ -57,8 +57,9 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
           height: 17,
           padding: "0 5px",
           borderRadius: 5,
-          background: open ? "rgba(91,94,244,0.22)" : "rgba(91,94,244,0.14)",
-          color: "#4547c4",
+          background: "var(--accent-light)",
+          color: "var(--accent)",
+          boxShadow: open ? "0 0 0 2px var(--accent)" : "none",
           fontSize: 10,
           fontWeight: 700,
           border: "none",
@@ -84,9 +85,9 @@ export default function CitationPopover({ index, citation }: CitationPopoverProp
             width: 290,
             padding: "13px 15px",
             borderRadius: 12,
-            background: "#ffffff",
+            background: "var(--bg-surface)",
             border: `1px solid ${C.border}`,
-            boxShadow: "0 12px 32px rgba(0,0,0,0.16)",
+            boxShadow: "var(--shadow-lg)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
