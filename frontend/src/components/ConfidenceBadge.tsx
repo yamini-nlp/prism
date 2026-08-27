@@ -10,10 +10,10 @@ export interface ConfidenceBadgeProps {
 }
 
 const TONE_STYLES: Record<ConfidenceTone, { color: string; bg: string; border: string }> = {
-  positive: { color: "#2e7357", bg: "rgba(61,153,112,0.12)", border: "rgba(61,153,112,0.3)" },
-  neutral: { color: "#4547c4", bg: "rgba(91,94,244,0.12)", border: "rgba(91,94,244,0.3)" },
-  caution: { color: "#b5491f", bg: "rgba(212,98,42,0.12)", border: "rgba(212,98,42,0.3)" },
-  negative: { color: "#b91c1c", bg: "rgba(220,38,38,0.12)", border: "rgba(220,38,38,0.3)" },
+  positive: { color: "var(--accent-green)", bg: "var(--accent-green-light)", border: "var(--accent-green)" },
+  neutral: { color: "var(--accent)", bg: "var(--accent-light)", border: "var(--accent)" },
+  caution: { color: "var(--accent-orange)", bg: "var(--accent-orange-light)", border: "var(--accent-orange)" },
+  negative: { color: "var(--accent-red)", bg: "var(--accent-red-light)", border: "var(--accent-red)" },
 };
 
 export function toneForScore(value: number): ConfidenceTone {
