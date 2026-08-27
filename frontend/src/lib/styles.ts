@@ -165,10 +165,6 @@ export function buttonVariants(opts: { variant?: ButtonVariant; size?: ButtonSiz
     icon: "p-2.5 rounded-md",
   };
 
-  // These use var()-bound arbitrary values (not the raw neutral-*/brand-*
-  // scale) so buttons re-theme with the page instead of staying frozen to
-  // light-mode colors — e.g. a "primary" button must stay legible against
-  // both a light and a near-black page background.
   const variantClasses: Record<ButtonVariant, string> = {
     primary:
       "bg-[var(--text-primary)] text-[var(--bg-surface)] hover:opacity-90 active:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm",
