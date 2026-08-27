@@ -58,12 +58,12 @@ export default function Sidebar() {
   return (
     <aside
       aria-label="Sidebar"
-      className={`hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-shrink-0 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:border-r lg:border-[var(--border)] lg:bg-[var(--bg-surface)] lg:transition-[width] lg:duration-200 lg:ease-premium ${
+      className={`hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-shrink-0 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:border-r lg:border-white/10 lg:bg-black lg:transition-[width] lg:duration-200 lg:ease-premium ${
         collapsed ? "lg:w-[76px]" : "lg:w-72"
       }`}
     >
       <div
-        className="flex h-20 flex-shrink-0 items-center border-b border-[var(--border)]"
+        className="flex h-20 flex-shrink-0 items-center border-b border-white/10"
         style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 32, paddingRight: 32 }}
       >
         <Link
@@ -82,7 +82,7 @@ export default function Sidebar() {
             </svg>
           </div>
           {!collapsed && (
-            <span className="font-display text-2xl leading-none tracking-tight text-[var(--text-primary)]">PRISM</span>
+            <span className="font-display text-2xl leading-none tracking-tight text-white">PRISM</span>
           )}
         </Link>
       </div>
@@ -114,8 +114,8 @@ export default function Sidebar() {
                   style={collapsed ? { justifyContent: "center", paddingLeft: 0, paddingRight: 0 } : { paddingLeft: 16, paddingRight: 12 }}
                   className={`relative z-10 flex h-12 items-center gap-3.5 rounded-xl text-[14px] font-medium leading-none no-underline outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-brand-400 ${
                     active
-                      ? "text-[var(--accent)]"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+                      ? "text-white"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   {active && (
@@ -136,16 +136,16 @@ export default function Sidebar() {
       </div>
 
       <div
-        className="flex flex-shrink-0 flex-col gap-3 border-t border-[var(--border)] py-5"
+        className="flex flex-shrink-0 flex-col gap-3 border-t border-white/10 py-5"
         style={collapsed ? { paddingLeft: 12, paddingRight: 12 } : { paddingLeft: 32, paddingRight: 24 }}
       >
         {user && !collapsed && (
           <div className="flex items-center justify-between gap-3 rounded-xl py-2.5" style={{ paddingLeft: 12, paddingRight: 12 }}>
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[12.5px] font-semibold text-[var(--text-secondary)]">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-[12.5px] font-semibold text-white/70">
                 {user.email.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0 truncate text-[13px] font-medium text-[var(--text-secondary)]">
+              <div className="min-w-0 truncate text-[13px] font-medium text-white/70">
                 {user.email}
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function Sidebar() {
               onClick={handleLogout}
               title="Log out"
               aria-label="Log out"
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border-none bg-transparent text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border-none bg-transparent text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               <LogOut size={15} aria-hidden="true" />
             </button>
@@ -165,7 +165,7 @@ export default function Sidebar() {
             onClick={handleLogout}
             title="Log out"
             aria-label="Log out"
-            className="flex h-11 w-full items-center justify-center rounded-xl text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="flex h-11 w-full items-center justify-center rounded-xl text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-brand-400"
           >
             <LogOut size={16} aria-hidden="true" />
           </button>
@@ -176,7 +176,7 @@ export default function Sidebar() {
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!collapsed}
           aria-controls="sidebar-nav"
-          className="flex h-10 w-full items-center justify-center gap-2.5 rounded-xl text-[var(--text-muted)] outline-none transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-brand-400"
+          className="flex h-10 w-full items-center justify-center gap-2.5 rounded-xl text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-brand-400"
         >
           {collapsed ? <ChevronsRight size={15} aria-hidden="true" /> : <ChevronsLeft size={15} aria-hidden="true" />}
           {!collapsed && <span className="text-[12px] font-medium">Collapse</span>}
