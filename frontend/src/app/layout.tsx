@@ -57,12 +57,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeScript />
         <ThemeProvider>
           <Providers>
-            <div className="flex min-h-screen w-full">
+            <div className="flex h-dvh w-full overflow-hidden">
               <Sidebar />
               <MobileDrawer />
-              <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <Topbar />
-                <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+                <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
                   <AuthGate>{children}</AuthGate>
                 </main>
               </div>
