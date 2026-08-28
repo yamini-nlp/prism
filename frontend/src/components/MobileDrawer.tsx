@@ -116,7 +116,7 @@ export default function MobileDrawer() {
                     className={`flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium leading-none no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-400 ${
                       active
                         ? "bg-white/10 text-white"
-                        : "text-white/60 hover:bg-white/10 hover:text-white"
+                        : "text-white/85 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     <Icon size={16} strokeWidth={active ? 2.25 : 1.85} aria-hidden="true" className="flex-shrink-0" />
