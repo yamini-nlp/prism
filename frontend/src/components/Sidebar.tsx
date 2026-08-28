@@ -58,7 +58,7 @@ export default function Sidebar() {
   return (
     <aside
       aria-label="Sidebar"
-      className={`hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-shrink-0 lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:border-r lg:border-white/15 lg:bg-black lg:shadow-[4px_0_24px_rgba(0,0,0,0.35)] lg:transition-[width] lg:duration-200 lg:ease-premium ${
+      className={`hidden lg:flex lg:h-full lg:flex-shrink-0 lg:flex-col lg:overflow-hidden lg:border-r lg:border-white/15 lg:bg-black lg:shadow-[4px_0_24px_rgba(0,0,0,0.35)] lg:transition-[width] lg:duration-200 lg:ease-premium ${
         collapsed ? "lg:w-[76px]" : "lg:w-72"
       }`}
     >
