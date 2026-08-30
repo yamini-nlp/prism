@@ -17,7 +17,7 @@
 
 Most RAG demos stop at "ask a question, get an answer." Prism was built to answer a narrower, harder question: how much of that answer can you actually trust, and can a second user rely on the same system without stepping on the first user's documents? That constraint pulled the project past a single retrieval script into a system with real accounts, per-user data isolation, background job processing for slow ingestion work, and an evaluation harness that reports retrieval and groundedness numbers with confidence intervals rather than a single anecdotal accuracy figure.
 
-The codebase has gone through two distinct architectures. An early version — described in an accompanying technical report included in this repository (`paper/Prism.pdf`) — used TF-IDF vectorisation and a FAISS flat index. The system now ships with dense sentence-transformer embeddings stored in Postgres via pgvector, fused with BM25 lexical search and reranked with a cross-encoder. Both the report's numbers and the current architecture are described below, clearly separated so neither is mistaken for the other.
+The codebase has gone through two distinct architectures. An early version — described in an accompanying technical report, `paper/Prism.pdf` — used TF-IDF vectorisation and a FAISS flat index. **That PDF is not present in the current repository snapshot** (see Audit Notes below), so its figures are reproduced here as previously published rather than independently re-verified. The system now ships with dense sentence-transformer embeddings stored in Postgres via pgvector, fused with BM25 lexical search and reranked with a cross-encoder. Both the report's numbers and the current architecture are described below, clearly separated so neither is mistaken for the other.
 
 ---
 
@@ -61,8 +61,8 @@ User Document (PDF / DOCX / TXT / URL / Text)
         │
         ▼
   [Storage Layer — PostgreSQL + pgvector]
-  ├── Documents, chunks, embeddings, sessions, users, jobs, generations,
-  │   verifications — 9 SQLAlchemy models, 4 Alembic migrations
+  ├── Users, refresh tokens, sessions, documents, document chunks, jobs,
+  │   generations, verifications — 8 SQLAlchemy models, 4 Alembic migrations
   └── Row-level isolation by session_id, derived from the authenticated user
         │
         ▼
@@ -88,7 +88,9 @@ User Document (PDF / DOCX / TXT / URL / Text)
         │
         ▼
   [Frontend Workspace — Next.js 16, App Router]
-  ├── JWT access/refresh auth with httpOnly cookies, route-level middleware
+  ├── JWT auth: short-lived access token held in memory, refresh token in an
+  │   httpOnly cookie; route-level middleware gates protected pages on the
+  │   refresh cookie's presence
   ├── Streamed token rendering, source-trace and evaluation dashboards
   └── Session analytics: request latency percentiles, cache hit rate, grounding trend
 ```
@@ -147,7 +149,7 @@ If the model's response isn't valid JSON, the endpoint falls back to a partially
 
 ## 🔐 Accounts, Sessions, and Security
 
-- **JWT auth**: bcrypt password hashing, HS256 access tokens (30 min) and rotating refresh tokens (30 days) stored server-side by hash, register/login/refresh/logout/password-change endpoints.
+- **JWT auth**: bcrypt password hashing, HS256 access tokens (30 min, held client-side in memory) and rotating refresh tokens (30 days, stored server-side by hash and set as an httpOnly cookie), register/login/refresh/logout/password-change endpoints.
 - **Session scoping**: every document, chunk, job, generation, and verification is scoped to `session_id = f"user-{user.id}"`, enforced at the query level — there is no cross-user document listing endpoint.
 - **Rate limiting** (`slowapi`, keyed by authenticated user id, falling back to IP): 5/min on auth endpoints, 10/min on uploads and text/URL ingest, 20/min on generation, 60/min on retrieval.
 - **Request hardening**: a custom ASGI middleware enforces a request body size cap, a per-request timeout (streaming routes exempted), and attaches HSTS, `X-Content-Type-Options`, `X-Frame-Options`, and a restrictive CSP to every response.
@@ -159,7 +161,7 @@ If the model's response isn't valid JSON, the endpoint falls back to a partially
 
 ## 📊 Two Evaluations, Two Architectures
 
-**1. Manual evaluation of the original TF-IDF + FAISS system** (`paper/Prism.pdf`, included in this repository): 45 manually authored queries against 12 arXiv preprints, with two independent human annotators for relevance judgements (Cohen's κ = 0.81). Under the default configuration (K=5, τ=0.45): a 96.7% groundedness rate, mean retrieval latency of 38±6ms (local, excluding the LLM call), and 1.9±0.5s end-to-end response time. Threshold-filtered TF-IDF beat a BM25 baseline by 8.5 points of Precision@K and 8.4 points of groundedness on a shared 30-query subset. The report also documents where that architecture broke: two abstention failures came from borderline chunks (cosine similarity 0.45–0.49) that shared surface vocabulary with the query without being substantively relevant — a limitation lexical/TF-IDF matching can't resolve on its own.
+**1. Manual evaluation of the original TF-IDF + FAISS system** (previously documented in `paper/Prism.pdf` — see Audit Notes; that file is not present in this repository snapshot): 45 manually authored queries against 12 arXiv preprints, with two independent human annotators for relevance judgements (Cohen's κ = 0.81). Under the default configuration (K=5, τ=0.45): a 96.7% groundedness rate, mean retrieval latency of 38±6ms (local, excluding the LLM call), and 1.9±0.5s end-to-end response time. Threshold-filtered TF-IDF beat a BM25 baseline by 8.5 points of Precision@K and 8.4 points of groundedness on a shared 30-query subset. The report also documents where that architecture broke: two abstention failures came from borderline chunks (cosine similarity 0.45–0.49) that shared surface vocabulary with the query without being substantively relevant — a limitation lexical/TF-IDF matching can't resolve on its own.
 
 **2. Automated harness for the current hybrid-retrieval system** (`backend/eval/`): a 40-question dataset (`dataset.json`) run against 5 topic-diverse sample documents, computing Recall@5, Mean Reciprocal Rank, and a claim-level groundedness rate with 95% Wilson confidence intervals (`evaluate.py`), exposed via `GET /eval-report` and a re-run trigger at `POST /eval-report/run`. **No run has been persisted in this repository** — `eval/report.md` does not exist yet, so no accuracy number is claimed for the current architecture. The harness is real and tested; the number isn't filled in.
 
@@ -171,7 +173,7 @@ These two evaluations are not comparable to each other — different datasets, d
 
 - **Backend**: 47 test functions across 7 files (`tests/`) covering embedding/chunking, hybrid retrieval, generation streaming, ingest, upload validation, and the health/metrics endpoints, using `pytest-asyncio`, `httpx.AsyncClient`, and factory fixtures (`factories.py`, `conftest.py`). CI runs these against real Postgres (`pgvector/pgvector:pg16`) and Redis service containers, gated at 65% coverage (`--cov-fail-under=65`) on `core` and `routes`.
 - **Static analysis**: `ruff check .` and `mypy .` run in CI before tests.
-- **Frontend unit/component tests**: `vitest` + Testing Library, covering UI primitives (`Button`, `Card`, `Input`) and the login page.
+- **Frontend unit/component tests**: `vitest` + Testing Library, covering UI primitives (`Button`, `Card`, `Input`), the `Sidebar` component, the API client, and the login page.
 - **End-to-end tests**: Playwright specs for auth, navigation, ingestion, and the workspace flow, run headless in CI against a built app.
 - **CI pipeline** (`.github/workflows/ci.yml`): three parallel jobs — backend tests, frontend lint/typecheck/build, frontend unit + e2e tests — on every push and pull request.
 - **CD pipeline** (`.github/workflows/deploy.yml`): on a successful CI run on `main`, builds and pushes versioned backend and frontend Docker images to GitHub Container Registry.
@@ -180,17 +182,18 @@ These two evaluations are not comparable to each other — different datasets, d
 
 ## ⚠️ Limitations
 
-- **No persisted benchmark for the current retrieval stack.** The hybrid dense+BM25+rerank pipeline has a working evaluation harness but no committed `eval/report.md` — the only published numbers (groundedness, P@K, latency) are for the earlier TF-IDF/FAISS version described in `paper/Prism.pdf`.
+- **No persisted benchmark for the current retrieval stack.** The hybrid dense+BM25+rerank pipeline has a working evaluation harness but no committed `eval/report.md` — the only published numbers (groundedness, P@K, latency) are for the earlier TF-IDF/FAISS version, and that report's source PDF is not currently checked into the repository (see Audit Notes).
 - **Claim verification is lexical, not semantic.** `core/verifier.py` scores claims against context by significant-token overlap; a claim that paraphrases the source without sharing vocabulary can be marked unsupported even when it's accurate.
 - **Reranker adds latency on every hybrid query** when `RERANKER_ENABLED=true`, since it scores every fused candidate synchronously before returning results.
 - **Redis is a soft dependency for correctness but a hard one for performance.** Cache failures are caught and logged, not raised, so a Redis outage degrades to uncached (slower) retrieval and generation rather than failing requests — but that also means a misconfigured `REDIS_URL` fails silently rather than loudly.
-- **Single free-tier deployment target.** `render.yaml` targets Render's free plan (0.5 vCPU / 512MB); background model warm-up and cold starts are visibly slower there than the CI environment.
+- **Single free-tier deployment target.** `render.yaml` targets Render's free plan; background model warm-up and cold starts are visibly slower there than the CI environment.
 - **No multi-tenant document sharing.** Session scoping is per-user only; there's no mechanism for two accounts to collaborate on the same document set.
 
 ---
 
 ## 🔭 Future Work
 
+- Restore or regenerate the technical report backing the TF-IDF/FAISS evaluation, or remove the specific figures from this README if the source document isn't being kept in the repo going forward.
 - Run the current evaluation harness end-to-end and commit `eval/report.md` so the hybrid-retrieval architecture has its own reported numbers, not just the legacy TF-IDF report.
 - Replace lexical claim verification with a lightweight NLI or entailment model for semantic (not just lexical) grounding checks.
 - Add shared/collaborative sessions so multiple accounts can query the same ingested document set.
@@ -288,7 +291,8 @@ prism/
 │   │   ├── rag.py                 # Streamed RAG generation, SSE events, Groq error handling
 │   │   ├── verifier.py            # Claim splitting and token-overlap grounding verification
 │   │   ├── auth.py / security.py  # Current-user dependency, JWT + password hashing
-│   │   ├── models.py              # SQLAlchemy models: User, Session, Document, DocumentChunk, Job, Generation, Verification
+│   │   ├── models.py              # SQLAlchemy models: User, RefreshToken, Session, Document,
+│   │   │                          # DocumentChunk, Job, Generation, Verification
 │   │   ├── config.py              # Pydantic settings, env validation, CORS origin logic
 │   │   ├── db.py / cache.py       # Async Postgres session factory, Redis cache helpers
 │   │   ├── jobs.py                # Background job state machine
@@ -321,6 +325,7 @@ prism/
 │   └── package.json
 ├── paper/
 │   └── Prism.pdf                  # Technical report on the original TF-IDF + FAISS architecture
+│                                   # (currently not tracked in this repository — see Audit Notes)
 ├── .github/workflows/
 │   ├── ci.yml                     # Backend tests + coverage gate, frontend lint/typecheck/build/e2e
 │   └── deploy.yml                 # Build and push Docker images on successful main-branch CI
@@ -335,4 +340,3 @@ prism/
 *Built by Yamini G · [Live Demo](https://prism-nine-tau.vercel.app)*
 
 </div>
-
