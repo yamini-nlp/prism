@@ -336,7 +336,7 @@ prism/
 
 ---
 <div align="center">
-        
-*Built by Yamini G · [Live Demo](https://prism-nine-tau.vercel.app)*
+
+*Built by [Yamini G](https://github.com/yamini-nlp)*
 
 </div>
